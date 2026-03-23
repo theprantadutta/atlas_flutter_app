@@ -13,4 +13,7 @@ class RouteNames {
   static const analytics = 'analytics';
   static const progress = 'progress';
   static const profile = 'profile';
+  static const settings = 'settings';
+  static const notifications = 'notifications';
+  static const syncManagement = 'syncManagement';
 }

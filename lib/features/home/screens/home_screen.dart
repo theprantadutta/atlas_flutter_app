@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
 import 'package:atlas_flutter_app/data/models/avatar.dart';
@@ -292,7 +293,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icons.check_circle_outline_rounded,
                 color: AppColors.info,
                 isDark: isDark,
-                onTap: () => _showComingSoon('Tasks'),
+                onTap: () => context.go('/tasks'),
               ),
             ),
             const SizedBox(width: 12),
@@ -302,7 +303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icons.loop_rounded,
                 color: AppColors.xpPrimary,
                 isDark: isDark,
-                onTap: () => _showComingSoon('Habits'),
+                onTap: () => context.go('/habits'),
               ),
             ),
             const SizedBox(width: 12),
@@ -312,21 +313,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: Icons.flag_rounded,
                 color: AppColors.tertiary,
                 isDark: isDark,
-                onTap: () => _showComingSoon('Goals'),
+                onTap: () => context.go('/goals'),
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature — Coming in Phase 3'),
-        duration: const Duration(seconds: 2),
-      ),
     );
   }
 
