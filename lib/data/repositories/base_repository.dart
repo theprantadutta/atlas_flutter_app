@@ -1,9 +1,14 @@
 import 'package:atlas_flutter_app/data/services/api_service.dart';
+import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 
 abstract class BaseRepository {
   final ApiService apiService;
+  final OfflineManager offlineManager;
 
-  BaseRepository(this.apiService);
+  BaseRepository(this.apiService, this.offlineManager);
+
+  /// Whether the device currently has connectivity.
+  bool get isOnline => offlineManager.isOnline;
 
   /// Parses a list from an API response.
   ///

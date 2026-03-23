@@ -1,7 +1,14 @@
-import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
+import 'package:atlas_flutter_app/data/services/api_service.dart';
 
-class SyncRepository extends BaseRepository {
-  SyncRepository(super.apiService);
+/// Sync repository handles push/pull operations with the server.
+///
+/// This is an infrastructure-level repository used by [OfflineManager].
+/// It does NOT extend [BaseRepository] to avoid circular dependencies
+/// (OfflineManager -> SyncRepository -> BaseRepository -> OfflineManager).
+class SyncRepository {
+  final ApiService apiService;
+
+  SyncRepository(this.apiService);
 
   /// Push local changes to the server.
   Future<Map<String, dynamic>> pushSync(Map<String, dynamic> data) async {

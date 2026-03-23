@@ -20,6 +20,7 @@ dependencies:
   # HTTP & Networking
   dio: ^5.7.0
   connectivity_plus: ^7.0.0
+  signalr_netcore: ^1.3.7
 
   # Local Database
   drift: ^2.22.0

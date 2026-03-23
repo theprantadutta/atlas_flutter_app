@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
+import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 import 'package:atlas_flutter_app/shared/providers/connectivity_provider.dart';
+import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_card.dart';
@@ -15,13 +18,8 @@ class SyncManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
-  bool _isSyncing = false;
-
   Future<void> _syncNow() async {
-    setState(() => _isSyncing = true);
-    // Simulate sync operation
-    await Future.delayed(const Duration(seconds: 2));
-    setState(() => _isSyncing = false);
+    await ref.read(offlineManagerProvider).syncNow();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -31,6 +29,22 @@ class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
         ),
       );
     }
+  }
+
+  String _formatLastSync(DateTime? lastSync) {
+    if (lastSync == null) return 'Never';
+    final diff = DateTime.now().difference(lastSync);
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return '$m ${m == 1 ? 'minute' : 'minutes'} ago';
+    }
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return '$h ${h == 1 ? 'hour' : 'hours'} ago';
+    }
+    final d = diff.inDays;
+    return '$d ${d == 1 ? 'day' : 'days'} ago';
   }
 
   @override
@@ -43,6 +57,23 @@ class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
       loading: () => true,
       error: (e, st) => false,
     );
+
+    final pendingCount = ref.watch(pendingOperationsCountProvider).when(
+      data: (count) => count,
+      loading: () => 0,
+      error: (e, st) => 0,
+    );
+    final lastSync = ref.watch(lastSyncTimeProvider).when(
+      data: (time) => time,
+      loading: () => null,
+      error: (e, st) => null,
+    );
+    final syncStatus = ref.watch(syncStatusProvider).when(
+      data: (status) => status,
+      loading: () => SyncStatus.idle,
+      error: (e, st) => SyncStatus.idle,
+    );
+    final isSyncing = syncStatus == SyncStatus.syncing;
 
     return Scaffold(
       appBar: AppBar(
@@ -152,7 +183,7 @@ class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '0 operations pending',
+                        '$pendingCount ${pendingCount == 1 ? 'operation' : 'operations'} pending',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -195,7 +226,7 @@ class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Just now',
+                        _formatLastSync(lastSync),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -212,8 +243,8 @@ class _SyncManagementScreenState extends ConsumerState<SyncManagementScreen> {
           AppButton(
             label: 'Sync Now',
             icon: Icons.sync_rounded,
-            isLoading: _isSyncing,
-            onPressed: isOnline && !_isSyncing ? _syncNow : null,
+            isLoading: isSyncing,
+            onPressed: isOnline && !isSyncing ? _syncNow : null,
           ),
 
           if (!isOnline) ...[

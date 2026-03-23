@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/models/user.dart';
+import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
@@ -140,6 +141,10 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _authService.logout();
+
+      // Clean up offline services
+      ref.read(signalRServiceProvider).disconnect();
+      await ref.read(syncDaoProvider).clearAll();
     } catch (_) {
       // Continue logout regardless of errors
     } finally {
