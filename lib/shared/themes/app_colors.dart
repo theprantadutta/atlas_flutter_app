@@ -96,4 +96,25 @@ class AppColors {
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
   );
+
+  // ─── Light Mode Gradients (brighter, more vibrant) ───
+  static const primaryGradientLight = LinearGradient(
+    colors: [Color(0xFF3B6CB0), Color(0xFF5B8FD4)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const secondaryGradientLight = LinearGradient(
+    colors: [Color(0xFF0EA5C9), Color(0xFF38BDF8)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Returns the appropriate primary gradient based on brightness.
+  static LinearGradient heroPrimaryGradient(bool isDark) =>
+      isDark ? primaryGradient : primaryGradientLight;
+
+  /// Returns the appropriate secondary gradient based on brightness.
+  static LinearGradient heroSecondaryGradient(bool isDark) =>
+      isDark ? secondaryGradient : secondaryGradientLight;
 }

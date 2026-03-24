@@ -93,13 +93,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final requiredXp = GamificationConstants.xpRequiredForLevel(level + 1);
     final displayName = avatar?.name ?? user?.fullName ?? 'Adventurer';
 
+    final gradient = AppColors.heroPrimaryGradient(isDark);
+    final shadowColor = isDark ? AppColors.primary : const Color(0xFF3B6CB0);
+
     return Container(
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: gradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
+            color: shadowColor.withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
