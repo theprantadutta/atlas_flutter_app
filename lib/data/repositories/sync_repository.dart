@@ -20,14 +20,9 @@ class SyncRepository {
   Future<Map<String, dynamic>> pullSync({
     String? lastSyncTimestamp,
   }) async {
-    final queryParams = <String, dynamic>{};
-    if (lastSyncTimestamp != null) {
-      queryParams['last_sync'] = lastSyncTimestamp;
-    }
-
     final response = await apiService.post(
       '/sync/pull',
-      data: queryParams.isNotEmpty ? queryParams : null,
+      data: {'last_sync_timestamp': lastSyncTimestamp},
     );
     return response.data as Map<String, dynamic>;
   }
