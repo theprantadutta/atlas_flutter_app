@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/models/task.dart';
@@ -139,7 +141,7 @@ class TaskRepository extends BaseRepository {
     await offlineManager.queueOperation(
       operationType: 'create',
       entityType: 'task',
-      entityId: data['id']?.toString() ?? '',
+      entityId: data['id']?.toString() ?? const Uuid().v4(),
       data: data,
     );
     _invalidateCollectionCaches();
