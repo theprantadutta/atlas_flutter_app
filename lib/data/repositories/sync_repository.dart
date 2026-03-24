@@ -25,9 +25,9 @@ class SyncRepository {
       queryParams['last_sync'] = lastSyncTimestamp;
     }
 
-    final response = await apiService.get(
+    final response = await apiService.post(
       '/sync/pull',
-      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      data: queryParams.isNotEmpty ? queryParams : null,
     );
     return response.data as Map<String, dynamic>;
   }
