@@ -36,6 +36,14 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
         (results) => results.any((r) => r != ConnectivityResult.none),
       ),
     );
+
+    // Listen to auth state changes and update OfflineManager accordingly
+    ref.listenManual<AuthState>(authProvider, (prev, next) {
+      offlineManager.setAuthenticated(next.isAuthenticated);
+      if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
+        _connectSignalR();
+      }
+    });
   }
 
   @override

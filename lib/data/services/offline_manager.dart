@@ -28,6 +28,7 @@ class OfflineManager {
 
   bool _isOnline = true;
   bool _isSyncing = false;
+  bool _isAuthenticated = false;
   Timer? _periodicSyncTimer;
   DateTime? _lastSyncTime;
   StreamSubscription<bool>? _connectivitySubscription;
@@ -51,7 +52,19 @@ class OfflineManager {
   // ─── Public Getters ─────────────────────────────────────────
 
   bool get isOnline => _isOnline;
+  bool get isAuthenticated => _isAuthenticated;
   DateTime? get lastSyncTime => _lastSyncTime;
+
+  /// Call when auth state changes. Sync only runs when authenticated.
+  void setAuthenticated(bool authenticated) {
+    _isAuthenticated = authenticated;
+    if (authenticated && _isOnline) {
+      syncNow();
+    }
+    if (!authenticated) {
+      _cancelPeriodicSync();
+    }
+  }
 
   /// Exposes conflict resolution so pull handlers can resolve local-vs-remote
   /// conflicts using last-write-wins.
@@ -83,14 +96,11 @@ class OfflineManager {
     _connectivitySubscription = connectivityStream.listen((online) {
       final wasOffline = !_isOnline;
       _isOnline = online;
-      if (online && wasOffline) {
+      if (online && wasOffline && _isAuthenticated) {
         _log.i('OfflineManager: Back online — triggering sync');
         syncNow();
       }
     });
-
-    // Start periodic sync
-    _startPeriodicSync();
   }
 
   // ─── Queue ──────────────────────────────────────────────────
@@ -124,7 +134,7 @@ class OfflineManager {
 
   /// Push pending local changes then pull remote changes.
   Future<void> syncNow() async {
-    if (!_isOnline || _isSyncing) return;
+    if (!_isOnline || _isSyncing || !_isAuthenticated) return;
 
     _isSyncing = true;
     _syncStatusController.add(SyncStatus.syncing);
@@ -236,8 +246,10 @@ class OfflineManager {
 
   /// Call when the app resumes from background.
   void onAppResumed() {
-    syncNow();
-    _startPeriodicSync();
+    if (_isAuthenticated) {
+      syncNow();
+      _startPeriodicSync();
+    }
   }
 
   /// Call when the app is paused / sent to background.
