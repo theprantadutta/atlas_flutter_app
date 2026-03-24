@@ -83,6 +83,7 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
       );
       state = AuthState(
+        isInitializing: false,
         isAuthenticated: true,
         user: user,
       );
@@ -108,6 +109,7 @@ class AuthNotifier extends Notifier<AuthState> {
         fullName: fullName,
       );
       state = AuthState(
+        isInitializing: false,
         isAuthenticated: true,
         user: user,
       );
@@ -125,6 +127,7 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _authService.signInWithGoogle();
       state = AuthState(
+        isInitializing: false,
         isAuthenticated: true,
         user: user,
       );
