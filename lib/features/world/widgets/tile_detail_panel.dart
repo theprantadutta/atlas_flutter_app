@@ -23,26 +23,24 @@ class _TileDetailPanel extends ConsumerWidget {
   const _TileDetailPanel({required this.tile});
 
   IconData _tileIcon(WorldTileType type) => switch (type) {
+        WorldTileType.grass => Icons.grass_rounded,
         WorldTileType.forest => Icons.park_rounded,
         WorldTileType.mountain => Icons.terrain_rounded,
-        WorldTileType.ocean => Icons.water_rounded,
+        WorldTileType.water => Icons.water_rounded,
         WorldTileType.desert => Icons.wb_sunny_rounded,
         WorldTileType.city => Icons.location_city_rounded,
-        WorldTileType.village => Icons.house_rounded,
-        WorldTileType.castle => Icons.castle_rounded,
-        WorldTileType.ruins => Icons.account_balance_rounded,
+        WorldTileType.building => Icons.house_rounded,
         WorldTileType.special => Icons.auto_awesome_rounded,
       };
 
   Color _tileColor(WorldTileType type) => switch (type) {
+        WorldTileType.grass => AppColors.success,
         WorldTileType.forest => AppColors.xpPrimary,
         WorldTileType.mountain => AppColors.textSecondaryLight,
-        WorldTileType.ocean => AppColors.info,
+        WorldTileType.water => AppColors.info,
         WorldTileType.desert => AppColors.tertiary,
         WorldTileType.city => AppColors.categoryWork,
-        WorldTileType.village => AppColors.categoryFitness,
-        WorldTileType.castle => AppColors.badgeEpic,
-        WorldTileType.ruins => AppColors.badgeBronze,
+        WorldTileType.building => AppColors.categoryFitness,
         WorldTileType.special => AppColors.badgeLegendary,
       };
 

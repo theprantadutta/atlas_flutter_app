@@ -58,7 +58,7 @@ class _TaskFormSheetState extends State<_TaskFormSheet> {
     _descriptionController =
         TextEditingController(text: task?.description ?? '');
     _selectedType = task?.type ?? TaskType.daily;
-    _selectedCategory = task?.category ?? TaskCategory.personal;
+    _selectedCategory = task?.category ?? TaskCategory.work;
     _difficulty = (task?.difficulty ?? 5).toDouble();
     _dueDate = task?.dueDate;
   }
@@ -85,14 +85,15 @@ class _TaskFormSheetState extends State<_TaskFormSheet> {
 
   String _taskCategoryApiValue(TaskCategory category) {
     return switch (category) {
-      TaskCategory.work => 'work',
       TaskCategory.health => 'health',
-      TaskCategory.learning => 'learning',
-      TaskCategory.personal => 'personal',
       TaskCategory.fitness => 'fitness',
       TaskCategory.mindfulness => 'mindfulness',
+      TaskCategory.finance => 'finance',
+      TaskCategory.work => 'work',
+      TaskCategory.learning => 'learning',
       TaskCategory.social => 'social',
-      TaskCategory.creativity => 'creativity',
+      TaskCategory.creative => 'creative',
+      TaskCategory.custom => 'custom',
     };
   }
 

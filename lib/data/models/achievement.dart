@@ -41,10 +41,10 @@ class Achievement {
 
   /// Compute badge tier based on progress.
   String get badgeTier {
-    if (progress >= 1.0) return 'diamond';
-    if (progress >= 0.75) return 'platinum';
-    if (progress >= 0.5) return 'gold';
-    if (progress >= 0.25) return 'silver';
+    if (progress >= 1.0) return 'legendary';
+    if (progress >= 0.75) return 'epic';
+    if (progress >= 0.5) return 'rare';
+    if (progress >= 0.25) return 'common';
     return 'bronze';
   }
 

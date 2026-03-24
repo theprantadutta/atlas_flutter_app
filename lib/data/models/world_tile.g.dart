@@ -45,13 +45,12 @@ Map<String, dynamic> _$WorldTileToJson(WorldTile instance) => <String, dynamic>{
 };
 
 const _$WorldTileTypeEnumMap = {
+  WorldTileType.grass: 'grass',
   WorldTileType.forest: 'forest',
   WorldTileType.mountain: 'mountain',
-  WorldTileType.ocean: 'ocean',
+  WorldTileType.water: 'water',
   WorldTileType.desert: 'desert',
   WorldTileType.city: 'city',
-  WorldTileType.village: 'village',
-  WorldTileType.castle: 'castle',
-  WorldTileType.ruins: 'ruins',
+  WorldTileType.building: 'building',
   WorldTileType.special: 'special',
 };

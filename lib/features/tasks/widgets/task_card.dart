@@ -202,8 +202,9 @@ class TaskCard extends ConsumerWidget {
       TaskCategory.work => AppColors.categoryWork,
       TaskCategory.learning => AppColors.categoryLearning,
       TaskCategory.social => AppColors.categorySocial,
-      TaskCategory.creativity => AppColors.categoryCreative,
-      TaskCategory.personal => AppColors.info,
+      TaskCategory.creative => AppColors.categoryCreative,
+      TaskCategory.finance => AppColors.tertiary,
+      TaskCategory.custom => AppColors.info,
     };
   }
 }

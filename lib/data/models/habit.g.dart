@@ -49,16 +49,18 @@ Map<String, dynamic> _$HabitToJson(Habit instance) => <String, dynamic>{
 const _$HabitCategoryEnumMap = {
   HabitCategory.health: 'health',
   HabitCategory.fitness: 'fitness',
-  HabitCategory.learning: 'learning',
   HabitCategory.mindfulness: 'mindfulness',
-  HabitCategory.productivity: 'productivity',
+  HabitCategory.learning: 'learning',
+  HabitCategory.creative: 'creative',
   HabitCategory.social: 'social',
-  HabitCategory.creativity: 'creativity',
-  HabitCategory.personal: 'personal',
+  HabitCategory.productivity: 'productivity',
+  HabitCategory.custom: 'custom',
 };
 
 const _$HabitFrequencyEnumMap = {
   HabitFrequency.daily: 'daily',
   HabitFrequency.weekly: 'weekly',
+  HabitFrequency.weekdays: 'weekdays',
+  HabitFrequency.weekends: 'weekends',
   HabitFrequency.custom: 'custom',
 };

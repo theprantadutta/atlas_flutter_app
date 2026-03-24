@@ -72,10 +72,10 @@ class AchievementsState {
   Map<String, int> get tierBreakdown {
     final map = <String, int>{
       'bronze': 0,
-      'silver': 0,
-      'gold': 0,
-      'platinum': 0,
-      'diamond': 0,
+      'common': 0,
+      'rare': 0,
+      'epic': 0,
+      'legendary': 0,
     };
     for (final a in achievements.where((a) => a.isUnlocked)) {
       final tier = a.badgeTier;

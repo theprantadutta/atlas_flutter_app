@@ -92,23 +92,23 @@ class GamificationConstants {
 
   // Badge tier colors
   static const Color bronzeColor = Color(0xFFCD7F32);
-  static const Color silverColor = Color(0xFFC0C0C0);
-  static const Color goldColor = Color(0xFFFFD700);
-  static const Color platinumColor = Color(0xFFE5E4E2);
-  static const Color diamondColor = Color(0xFFB9F2FF);
+  static const Color commonColor = Color(0xFFC0C0C0);
+  static const Color rareColor = Color(0xFFFFD700);
+  static const Color epicColor = Color(0xFFE5E4E2);
+  static const Color legendaryColor = Color(0xFFB9F2FF);
 
   static Color colorForBadgeTier(String tier) {
     switch (tier) {
       case 'bronze':
         return bronzeColor;
-      case 'silver':
-        return silverColor;
-      case 'gold':
-        return goldColor;
-      case 'platinum':
-        return platinumColor;
-      case 'diamond':
-        return diamondColor;
+      case 'common':
+        return commonColor;
+      case 'rare':
+        return rareColor;
+      case 'epic':
+        return epicColor;
+      case 'legendary':
+        return legendaryColor;
       default:
         return bronzeColor;
     }

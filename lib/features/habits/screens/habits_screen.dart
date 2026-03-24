@@ -420,8 +420,8 @@ class _CategoryFilterBar extends StatelessWidget {
     (HabitCategory.mindfulness, 'Mindfulness', AppColors.categoryMindfulness),
     (HabitCategory.productivity, 'Productivity', AppColors.categoryWork),
     (HabitCategory.social, 'Social', AppColors.categorySocial),
-    (HabitCategory.creativity, 'Creativity', AppColors.categoryCreative),
-    (HabitCategory.personal, 'Personal', AppColors.info),
+    (HabitCategory.creative, 'Creative', AppColors.categoryCreative),
+    (HabitCategory.custom, 'Custom', AppColors.info),
   ];
 
   @override

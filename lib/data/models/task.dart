@@ -75,9 +75,10 @@ class Task {
       case TaskCategory.mindfulness:
         return 'Wisdom';
       case TaskCategory.work:
-      case TaskCategory.creativity:
+      case TaskCategory.creative:
         return 'Intelligence';
-      case TaskCategory.personal:
+      case TaskCategory.finance:
+      case TaskCategory.custom:
       case TaskCategory.social:
         return 'Wisdom';
     }

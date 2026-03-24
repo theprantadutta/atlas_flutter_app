@@ -43,12 +43,10 @@ Map<String, dynamic> _$AchievementToJson(Achievement instance) =>
     };
 
 const _$AchievementTypeEnumMap = {
-  AchievementType.taskCompletion: 'task_completion',
   AchievementType.streak: 'streak',
-  AchievementType.levelUp: 'level_up',
-  AchievementType.habitMastery: 'habit_mastery',
-  AchievementType.goalCompletion: 'goal_completion',
-  AchievementType.exploration: 'exploration',
-  AchievementType.social: 'social',
+  AchievementType.total: 'total',
+  AchievementType.milestone: 'milestone',
+  AchievementType.category: 'category',
+  AchievementType.level: 'level',
   AchievementType.special: 'special',
 };

@@ -215,9 +215,10 @@ class _CategoryFilterBar extends StatelessWidget {
     (TaskCategory.fitness, 'Fitness', AppColors.categoryFitness),
     (TaskCategory.learning, 'Learning', AppColors.categoryLearning),
     (TaskCategory.mindfulness, 'Mindfulness', AppColors.categoryMindfulness),
-    (TaskCategory.personal, 'Personal', AppColors.info),
+    (TaskCategory.finance, 'Finance', AppColors.tertiary),
     (TaskCategory.social, 'Social', AppColors.categorySocial),
-    (TaskCategory.creativity, 'Creativity', AppColors.categoryCreative),
+    (TaskCategory.creative, 'Creative', AppColors.categoryCreative),
+    (TaskCategory.custom, 'Custom', AppColors.info),
   ];
 
   @override

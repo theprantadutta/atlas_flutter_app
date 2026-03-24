@@ -154,14 +154,15 @@ class GoalsScreen extends ConsumerWidget {
               children: GoalCategory.values.map((cat) {
                 final isSelected = state.selectedCategory == cat;
                 final label = switch (cat) {
-                  GoalCategory.career => 'Career',
                   GoalCategory.health => 'Health',
-                  GoalCategory.education => 'Education',
-                  GoalCategory.financial => 'Financial',
-                  GoalCategory.personal => 'Personal',
                   GoalCategory.fitness => 'Fitness',
-                  GoalCategory.social => 'Social',
-                  GoalCategory.creativity => 'Creativity',
+                  GoalCategory.mindfulness => 'Mindfulness',
+                  GoalCategory.learning => 'Learning',
+                  GoalCategory.career => 'Career',
+                  GoalCategory.financial => 'Financial',
+                  GoalCategory.relationships => 'Relationships',
+                  GoalCategory.personal => 'Personal',
+                  GoalCategory.custom => 'Custom',
                 };
 
                 return Padding(

@@ -168,6 +168,8 @@ class HabitsNotifier extends Notifier<HabitsState> {
       final key = switch (habit.frequency) {
         HabitFrequency.daily => 'Daily',
         HabitFrequency.weekly => 'Weekly',
+        HabitFrequency.weekdays => 'Weekdays',
+        HabitFrequency.weekends => 'Weekends',
         HabitFrequency.custom => 'Custom',
       };
       grouped.putIfAbsent(key, () => []).add(habit);

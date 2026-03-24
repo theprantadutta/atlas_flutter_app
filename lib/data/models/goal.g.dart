@@ -51,14 +51,15 @@ Map<String, dynamic> _$GoalToJson(Goal instance) => <String, dynamic>{
 };
 
 const _$GoalCategoryEnumMap = {
-  GoalCategory.career: 'career',
   GoalCategory.health: 'health',
-  GoalCategory.education: 'education',
-  GoalCategory.financial: 'financial',
-  GoalCategory.personal: 'personal',
   GoalCategory.fitness: 'fitness',
-  GoalCategory.social: 'social',
-  GoalCategory.creativity: 'creativity',
+  GoalCategory.mindfulness: 'mindfulness',
+  GoalCategory.learning: 'learning',
+  GoalCategory.career: 'career',
+  GoalCategory.financial: 'financial',
+  GoalCategory.relationships: 'relationships',
+  GoalCategory.personal: 'personal',
+  GoalCategory.custom: 'custom',
 };
 
 const _$GoalPriorityEnumMap = {
@@ -71,7 +72,7 @@ const _$GoalPriorityEnumMap = {
 const _$GoalStatusEnumMap = {
   GoalStatus.notStarted: 'not_started',
   GoalStatus.inProgress: 'in_progress',
-  GoalStatus.completed: 'completed',
   GoalStatus.onHold: 'on_hold',
+  GoalStatus.completed: 'completed',
   GoalStatus.cancelled: 'cancelled',
 };

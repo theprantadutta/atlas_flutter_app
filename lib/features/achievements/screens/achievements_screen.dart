@@ -211,21 +211,21 @@ class AchievementsScreen extends ConsumerWidget {
                     count: tiers['bronze'] ?? 0,
                     color: GamificationConstants.bronzeColor),
                 _TierBadge(
-                    label: 'Silver',
-                    count: tiers['silver'] ?? 0,
-                    color: GamificationConstants.silverColor),
+                    label: 'Common',
+                    count: tiers['common'] ?? 0,
+                    color: GamificationConstants.commonColor),
                 _TierBadge(
-                    label: 'Gold',
-                    count: tiers['gold'] ?? 0,
-                    color: GamificationConstants.goldColor),
+                    label: 'Rare',
+                    count: tiers['rare'] ?? 0,
+                    color: GamificationConstants.rareColor),
                 _TierBadge(
-                    label: 'Platinum',
-                    count: tiers['platinum'] ?? 0,
-                    color: GamificationConstants.platinumColor),
+                    label: 'Epic',
+                    count: tiers['epic'] ?? 0,
+                    color: GamificationConstants.epicColor),
                 _TierBadge(
-                    label: 'Diamond',
-                    count: tiers['diamond'] ?? 0,
-                    color: GamificationConstants.diamondColor),
+                    label: 'Legendary',
+                    count: tiers['legendary'] ?? 0,
+                    color: GamificationConstants.legendaryColor),
               ],
             ),
           ],
@@ -254,13 +254,11 @@ class AchievementsScreen extends ConsumerWidget {
               children: AchievementType.values.map((type) {
                 final isSelected = state.typeFilter == type;
                 final label = switch (type) {
-                  AchievementType.taskCompletion => 'Tasks',
                   AchievementType.streak => 'Streaks',
-                  AchievementType.levelUp => 'Levels',
-                  AchievementType.habitMastery => 'Habits',
-                  AchievementType.goalCompletion => 'Goals',
-                  AchievementType.exploration => 'Explore',
-                  AchievementType.social => 'Social',
+                  AchievementType.total => 'Total',
+                  AchievementType.milestone => 'Milestones',
+                  AchievementType.category => 'Category',
+                  AchievementType.level => 'Levels',
                   AchievementType.special => 'Special',
                 };
 

@@ -55,7 +55,7 @@ class _HabitFormSheetState extends State<_HabitFormSheet> {
     _titleController = TextEditingController(text: habit?.title ?? '');
     _descriptionController =
         TextEditingController(text: habit?.description ?? '');
-    _selectedCategory = habit?.category ?? HabitCategory.personal;
+    _selectedCategory = habit?.category ?? HabitCategory.custom;
     _selectedFrequency = habit?.frequency ?? HabitFrequency.daily;
     _difficulty = (habit?.difficulty ?? 5).toDouble();
     _reminderTime = _parseReminderTime(habit?.reminderTime);
@@ -89,8 +89,8 @@ class _HabitFormSheetState extends State<_HabitFormSheet> {
       HabitCategory.mindfulness => 'mindfulness',
       HabitCategory.productivity => 'productivity',
       HabitCategory.social => 'social',
-      HabitCategory.creativity => 'creativity',
-      HabitCategory.personal => 'personal',
+      HabitCategory.creative => 'creative',
+      HabitCategory.custom => 'custom',
     };
   }
 
@@ -98,6 +98,8 @@ class _HabitFormSheetState extends State<_HabitFormSheet> {
     return switch (frequency) {
       HabitFrequency.daily => 'daily',
       HabitFrequency.weekly => 'weekly',
+      HabitFrequency.weekdays => 'weekdays',
+      HabitFrequency.weekends => 'weekends',
       HabitFrequency.custom => 'custom',
     };
   }

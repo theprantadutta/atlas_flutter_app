@@ -1,5 +1,8 @@
 import 'package:json_annotation/json_annotation.dart';
 
+// All enums must match the backend's Atlas.Domain.Enums exactly.
+// The backend uses JsonStringEnumConverter with SnakeCaseLower policy.
+
 enum TaskType {
   @JsonValue('daily')
   daily,
@@ -10,22 +13,24 @@ enum TaskType {
 }
 
 enum TaskCategory {
-  @JsonValue('work')
-  work,
   @JsonValue('health')
   health,
-  @JsonValue('learning')
-  learning,
-  @JsonValue('personal')
-  personal,
   @JsonValue('fitness')
   fitness,
   @JsonValue('mindfulness')
   mindfulness,
+  @JsonValue('finance')
+  finance,
+  @JsonValue('work')
+  work,
+  @JsonValue('learning')
+  learning,
   @JsonValue('social')
   social,
-  @JsonValue('creativity')
-  creativity,
+  @JsonValue('creative')
+  creative,
+  @JsonValue('custom')
+  custom,
 }
 
 enum HabitCategory {
@@ -33,18 +38,18 @@ enum HabitCategory {
   health,
   @JsonValue('fitness')
   fitness,
-  @JsonValue('learning')
-  learning,
   @JsonValue('mindfulness')
   mindfulness,
-  @JsonValue('productivity')
-  productivity,
+  @JsonValue('learning')
+  learning,
+  @JsonValue('creative')
+  creative,
   @JsonValue('social')
   social,
-  @JsonValue('creativity')
-  creativity,
-  @JsonValue('personal')
-  personal,
+  @JsonValue('productivity')
+  productivity,
+  @JsonValue('custom')
+  custom,
 }
 
 enum HabitFrequency {
@@ -52,27 +57,33 @@ enum HabitFrequency {
   daily,
   @JsonValue('weekly')
   weekly,
+  @JsonValue('weekdays')
+  weekdays,
+  @JsonValue('weekends')
+  weekends,
   @JsonValue('custom')
   custom,
 }
 
 enum GoalCategory {
-  @JsonValue('career')
-  career,
   @JsonValue('health')
   health,
-  @JsonValue('education')
-  education,
-  @JsonValue('financial')
-  financial,
-  @JsonValue('personal')
-  personal,
   @JsonValue('fitness')
   fitness,
-  @JsonValue('social')
-  social,
-  @JsonValue('creativity')
-  creativity,
+  @JsonValue('mindfulness')
+  mindfulness,
+  @JsonValue('learning')
+  learning,
+  @JsonValue('career')
+  career,
+  @JsonValue('financial')
+  financial,
+  @JsonValue('relationships')
+  relationships,
+  @JsonValue('personal')
+  personal,
+  @JsonValue('custom')
+  custom,
 }
 
 enum GoalPriority {
@@ -91,29 +102,25 @@ enum GoalStatus {
   notStarted,
   @JsonValue('in_progress')
   inProgress,
-  @JsonValue('completed')
-  completed,
   @JsonValue('on_hold')
   onHold,
+  @JsonValue('completed')
+  completed,
   @JsonValue('cancelled')
   cancelled,
 }
 
 enum AchievementType {
-  @JsonValue('task_completion')
-  taskCompletion,
   @JsonValue('streak')
   streak,
-  @JsonValue('level_up')
-  levelUp,
-  @JsonValue('habit_mastery')
-  habitMastery,
-  @JsonValue('goal_completion')
-  goalCompletion,
-  @JsonValue('exploration')
-  exploration,
-  @JsonValue('social')
-  social,
+  @JsonValue('total')
+  total,
+  @JsonValue('milestone')
+  milestone,
+  @JsonValue('category')
+  category,
+  @JsonValue('level')
+  level,
   @JsonValue('special')
   special,
 }
@@ -121,33 +128,31 @@ enum AchievementType {
 enum BadgeTier {
   @JsonValue('bronze')
   bronze,
-  @JsonValue('silver')
-  silver,
-  @JsonValue('gold')
-  gold,
-  @JsonValue('platinum')
-  platinum,
-  @JsonValue('diamond')
-  diamond,
+  @JsonValue('common')
+  common,
+  @JsonValue('rare')
+  rare,
+  @JsonValue('epic')
+  epic,
+  @JsonValue('legendary')
+  legendary,
 }
 
 enum WorldTileType {
+  @JsonValue('grass')
+  grass,
   @JsonValue('forest')
   forest,
   @JsonValue('mountain')
   mountain,
-  @JsonValue('ocean')
-  ocean,
+  @JsonValue('water')
+  water,
   @JsonValue('desert')
   desert,
   @JsonValue('city')
   city,
-  @JsonValue('village')
-  village,
-  @JsonValue('castle')
-  castle,
-  @JsonValue('ruins')
-  ruins,
+  @JsonValue('building')
+  building,
   @JsonValue('special')
   special,
 }

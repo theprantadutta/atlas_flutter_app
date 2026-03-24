@@ -51,12 +51,13 @@ const _$TaskTypeEnumMap = {
 };
 
 const _$TaskCategoryEnumMap = {
-  TaskCategory.work: 'work',
   TaskCategory.health: 'health',
-  TaskCategory.learning: 'learning',
-  TaskCategory.personal: 'personal',
   TaskCategory.fitness: 'fitness',
   TaskCategory.mindfulness: 'mindfulness',
+  TaskCategory.finance: 'finance',
+  TaskCategory.work: 'work',
+  TaskCategory.learning: 'learning',
   TaskCategory.social: 'social',
-  TaskCategory.creativity: 'creativity',
+  TaskCategory.creative: 'creative',
+  TaskCategory.custom: 'custom',
 };

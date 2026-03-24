@@ -20,27 +20,25 @@ class WorldScreen extends ConsumerWidget {
           : AppColors.cardBorderLight;
     }
     return switch (type) {
+      WorldTileType.grass => AppColors.success,
       WorldTileType.forest => AppColors.xpPrimary,
       WorldTileType.mountain => const Color(0xFF78909C),
-      WorldTileType.ocean => AppColors.info,
+      WorldTileType.water => AppColors.info,
       WorldTileType.desert => AppColors.tertiary,
       WorldTileType.city => AppColors.categoryWork,
-      WorldTileType.village => AppColors.categoryFitness,
-      WorldTileType.castle => AppColors.badgeEpic,
-      WorldTileType.ruins => AppColors.badgeBronze,
+      WorldTileType.building => AppColors.categoryFitness,
       WorldTileType.special => AppColors.badgeLegendary,
     };
   }
 
   IconData _tileIcon(WorldTileType type) => switch (type) {
+        WorldTileType.grass => Icons.grass_rounded,
         WorldTileType.forest => Icons.park_rounded,
         WorldTileType.mountain => Icons.terrain_rounded,
-        WorldTileType.ocean => Icons.water_rounded,
+        WorldTileType.water => Icons.water_rounded,
         WorldTileType.desert => Icons.wb_sunny_rounded,
         WorldTileType.city => Icons.location_city_rounded,
-        WorldTileType.village => Icons.house_rounded,
-        WorldTileType.castle => Icons.castle_rounded,
-        WorldTileType.ruins => Icons.account_balance_rounded,
+        WorldTileType.building => Icons.house_rounded,
         WorldTileType.special => Icons.auto_awesome_rounded,
       };
 
@@ -221,7 +219,7 @@ class WorldScreen extends ConsumerWidget {
     final types = [
       (WorldTileType.forest, 'Forest'),
       (WorldTileType.mountain, 'Mountain'),
-      (WorldTileType.ocean, 'Ocean'),
+      (WorldTileType.water, 'Water'),
       (WorldTileType.city, 'City'),
       (WorldTileType.special, 'Special'),
     ];

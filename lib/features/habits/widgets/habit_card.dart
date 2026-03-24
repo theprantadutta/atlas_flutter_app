@@ -205,8 +205,8 @@ class HabitCard extends ConsumerWidget {
       HabitCategory.productivity => AppColors.categoryWork,
       HabitCategory.learning => AppColors.categoryLearning,
       HabitCategory.social => AppColors.categorySocial,
-      HabitCategory.creativity => AppColors.categoryCreative,
-      HabitCategory.personal => AppColors.info,
+      HabitCategory.creative => AppColors.categoryCreative,
+      HabitCategory.custom => AppColors.info,
     };
   }
 }
@@ -226,6 +226,8 @@ class _FrequencyBadge extends StatelessWidget {
     final (label, color) = switch (frequency) {
       HabitFrequency.daily => ('Daily', AppColors.secondary),
       HabitFrequency.weekly => ('Weekly', AppColors.badgeEpic),
+      HabitFrequency.weekdays => ('Weekdays', AppColors.info),
+      HabitFrequency.weekends => ('Weekends', AppColors.warning),
       HabitFrequency.custom => ('Custom', AppColors.tertiary),
     };
 
