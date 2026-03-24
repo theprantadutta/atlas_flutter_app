@@ -186,6 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               showXpText: true,
               height: 22,
               backgroundColor: Colors.white.withValues(alpha: 0.15),
+              labelColor: Colors.white,
             ),
           ],
         ),

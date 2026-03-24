@@ -24,6 +24,7 @@ class XpProgressBar extends StatelessWidget {
     this.animationDuration = const Duration(milliseconds: 800),
     this.backgroundColor,
     this.borderRadius,
+    this.labelColor,
   });
 
   /// Current XP earned in this level.
@@ -53,6 +54,9 @@ class XpProgressBar extends StatelessWidget {
   /// Border radius override.
   final double? borderRadius;
 
+  /// Override color for level labels (useful when placed on a gradient card).
+  final Color? labelColor;
+
   double get _progress =>
       requiredXp > 0 ? (currentXp / requiredXp).clamp(0.0, 1.0) : 0.0;
 
@@ -74,13 +78,14 @@ class XpProgressBar extends StatelessWidget {
                 'Lv. $currentLevel',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.xpPrimary,
+                  color: labelColor ?? AppColors.xpPrimary,
                 ),
               ),
               Text(
                 'Lv. ${currentLevel + 1}',
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: labelColor?.withValues(alpha: 0.7) ??
+                      theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
