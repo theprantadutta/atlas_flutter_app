@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.da
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
+import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
 import 'package:atlas_flutter_app/features/goals/screens/goals_screen.dart';
 import 'package:atlas_flutter_app/features/habits/screens/habits_screen.dart';
@@ -36,14 +37,22 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authRefresh = _AuthRefreshNotifier(ref);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     debugLogDiagnostics: false,
     refreshListenable: authRefresh,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
+      final isOnSplash = state.matchedLocation == '/splash';
 
-      // While the app is still initializing, don't redirect anywhere
-      if (authState.isInitializing) return null;
+      // While initializing, redirect to splash (unless already there)
+      if (authState.isInitializing) {
+        return isOnSplash ? null : '/splash';
+      }
+
+      // Once initialized, redirect away from splash
+      if (isOnSplash) {
+        return authState.isAuthenticated ? '/' : '/login';
+      }
 
       final isOnLogin = state.matchedLocation == '/login';
       final isOnSignup = state.matchedLocation == '/signup';
@@ -60,6 +69,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // ─── Splash route (shown during auth initialization) ───
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+
       // ─── Auth routes (outside the shell) ───
       GoRoute(
         path: '/login',
