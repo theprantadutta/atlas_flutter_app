@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 
 import 'package:atlas_flutter_app/core/config/app_config.dart';
 
 import 'package:atlas_flutter_app/core/errors/app_exception.dart';
 import 'package:atlas_flutter_app/core/errors/error_handler.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
+
+final _log = Logger(printer: PrettyPrinter(methodCount: 0));
 
 class ApiService {
   final TokenService _tokenService;
@@ -65,6 +68,7 @@ class ApiService {
     if (accessToken != null && accessToken.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $accessToken';
     }
+    _log.d('[API] ${options.method} ${options.path}');
     handler.next(options);
   }
 
@@ -72,6 +76,8 @@ class ApiService {
     DioException error,
     ErrorInterceptorHandler handler,
   ) async {
+    _log.w('[API] Error ${error.response?.statusCode} on ${error.requestOptions.method} ${error.requestOptions.path}: ${error.response?.data}');
+
     // Only attempt refresh on 401 responses
     if (error.response?.statusCode != 401) {
       return handler.next(error);
