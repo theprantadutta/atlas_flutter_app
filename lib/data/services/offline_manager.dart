@@ -166,41 +166,48 @@ class OfflineManager {
     final pending = await _syncDao.getPendingOperations();
     if (pending.isEmpty) return;
 
-    for (final op in pending) {
-      // Check retry eligibility using the model's fields directly
+    // Filter to only retry-eligible operations
+    final readyOps = pending.where((op) {
       final retryDelay =
           Duration(seconds: (1 << op.retryCount).clamp(1, 300));
-      final isReady =
-          op.retryCount < op.maxRetries &&
+      return op.retryCount < op.maxRetries &&
           DateTime.now().isAfter(op.timestamp.add(retryDelay));
+    }).toList();
 
-      if (!isReady) continue;
+    if (readyOps.isEmpty) return;
 
-      try {
-        final payload = <String, dynamic>{
-          'id': op.id,
-          'operation_type': op.operationType,
-          'entity_type': op.entityType,
-          'entity_id': op.entityId,
-          'timestamp': op.timestamp.toIso8601String(),
-        };
-        if (op.data != null) {
-          payload['data'] = jsonDecode(op.data!);
-        }
+    // Build the operations list matching backend's SyncOperationDto
+    final operations = readyOps.map((op) {
+      final payload = <String, dynamic>{
+        'operation_type': op.operationType,
+        'entity_type': op.entityType,
+        'entity_id': op.entityId,
+        'timestamp': op.timestamp.toIso8601String(),
+        'version': 1,
+      };
+      if (op.data != null) {
+        payload['data'] = op.data;
+      }
+      return payload;
+    }).toList();
 
-        await _syncRepository.pushSync(payload);
+    try {
+      await _syncRepository.pushSync(operations);
+
+      // All pushed successfully — remove from queue
+      for (final op in readyOps) {
         await _syncDao.deleteOperation(op.id);
-        _log.d(
-            'OfflineManager: Pushed ${op.operationType} for ${op.entityType}/${op.entityId}');
-      } catch (e) {
+      }
+      _log.i('OfflineManager: Pushed ${readyOps.length} operations');
+    } catch (e) {
+      _log.w('OfflineManager: Push failed, incrementing retries', error: e);
+      for (final op in readyOps) {
         if (op.retryCount + 1 >= op.maxRetries) {
           _log.w(
               'OfflineManager: Max retries exceeded for ${op.id}, removing');
           await _syncDao.deleteOperation(op.id);
         } else {
           await _syncDao.incrementRetry(op.id);
-          _log.d(
-              'OfflineManager: Retry ${op.retryCount + 1} for ${op.id}');
         }
       }
     }

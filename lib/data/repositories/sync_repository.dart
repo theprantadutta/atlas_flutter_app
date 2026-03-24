@@ -11,8 +11,11 @@ class SyncRepository {
   SyncRepository(this.apiService);
 
   /// Push local changes to the server.
-  Future<Map<String, dynamic>> pushSync(Map<String, dynamic> data) async {
-    final response = await apiService.post('/sync/push', data: data);
+  Future<Map<String, dynamic>> pushSync(List<Map<String, dynamic>> operations) async {
+    final response = await apiService.post(
+      '/sync/push',
+      data: {'operations': operations},
+    );
     return response.data as Map<String, dynamic>;
   }
 
