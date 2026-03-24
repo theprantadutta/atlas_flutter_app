@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/models/avatar.dart';
@@ -77,7 +79,7 @@ class AvatarRepository extends BaseRepository {
     await offlineManager.queueOperation(
       operationType: 'create',
       entityType: 'avatar',
-      entityId: data['id']?.toString() ?? '',
+      entityId: data['id']?.toString() ?? const Uuid().v4(),
       data: data,
     );
     _collectionCache.clear();
