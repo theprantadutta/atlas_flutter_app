@@ -105,6 +105,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
 
       // ─── FAB ───
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'habits_fab',
         onPressed: () => showHabitFormSheet(context, ref: ref),
         icon: const Icon(Icons.add_rounded),
         label: const Text('New Habit'),

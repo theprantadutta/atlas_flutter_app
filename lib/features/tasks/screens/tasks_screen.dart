@@ -182,6 +182,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
 
       // ─── FAB ───
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'tasks_fab',
         onPressed: () => showTaskFormSheet(context, ref: ref),
         icon: const Icon(Icons.add_rounded),
         label: const Text('New Task'),
