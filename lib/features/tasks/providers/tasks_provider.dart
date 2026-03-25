@@ -70,7 +70,7 @@ class TasksNotifier extends Notifier<TasksState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final tasks = await _taskRepo.getTasks(status: 'pending');
+      final tasks = await _taskRepo.getTasks();
       state = state.copyWith(tasks: tasks, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
