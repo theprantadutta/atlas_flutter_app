@@ -64,8 +64,16 @@ class WorldNotifier extends Notifier<WorldState> {
         _worldRepository.getWorldStats(),
       ], eagerError: false);
 
+      var tiles = results[0] as List<WorldTile>;
+
+      // Auto-seed if the world is empty
+      if (tiles.isEmpty) {
+        await _worldRepository.seedWorld();
+        tiles = await _worldRepository.getWorldTiles();
+      }
+
       state = state.copyWith(
-        tiles: results[0] as List<WorldTile>,
+        tiles: tiles,
         stats: results[1] as Map<String, dynamic>?,
         isLoading: false,
       );

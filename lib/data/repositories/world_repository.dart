@@ -70,6 +70,15 @@ class WorldRepository extends BaseRepository {
 
   // ─── WRITE operations ────────────────────────────────────────
 
+  /// Seed the world map for the current user.
+  Future<void> seedWorld() async {
+    if (isOnline) {
+      await apiService.post('/world/seed');
+      _collectionCache.clear();
+      _statsCache.clear();
+    }
+  }
+
   /// Unlock a specific world tile.
   Future<Map<String, dynamic>> unlockTile(String id) async {
     if (isOnline) {

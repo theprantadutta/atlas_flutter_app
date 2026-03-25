@@ -65,26 +65,76 @@ class WorldScreen extends ConsumerWidget {
                   onRetry: () =>
                       ref.read(worldProvider.notifier).loadWorld(),
                 )
-              : Column(
-                  children: [
-                    // Stats bar
-                    _buildStatsBar(context, worldState, isDark),
-                    const SizedBox(height: 8),
+              : worldState.tiles.isEmpty
+                  ? _buildEmptyState(context, ref)
+                  : Column(
+                      children: [
+                        // Stats bar
+                        _buildStatsBar(context, worldState, isDark),
+                        const SizedBox(height: 4),
 
-                    // World grid
-                    Expanded(
-                      child: _buildWorldGrid(
-                        context,
-                        ref,
-                        worldState,
-                        isDark,
-                      ),
+                        // Instruction text
+                        _buildInstructions(context, worldState),
+                        const SizedBox(height: 4),
+
+                        // World grid
+                        Expanded(
+                          child: _buildWorldGrid(
+                            context,
+                            ref,
+                            worldState,
+                            isDark,
+                          ),
+                        ),
+
+                        // Legend
+                        _buildLegend(context, isDark),
+                      ],
                     ),
+    );
+  }
 
-                    // Legend
-                    _buildLegend(context, isDark),
-                  ],
-                ),
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              'Generating your world...',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructions(BuildContext context, WorldState worldState) {
+    final theme = Theme.of(context);
+    // Check if only the origin tile is unlocked
+    final unlockedCount = worldState.unlockedCount;
+    final String message;
+    if (unlockedCount <= 1) {
+      message = 'Tap the glowing tile to start your adventure!';
+    } else {
+      message = 'Earn XP to unlock new tiles! Tap a tile to see details and unlock it.';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        message,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 

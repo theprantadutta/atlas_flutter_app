@@ -46,6 +46,7 @@ class ApiConstants {
   static String get worldTiles => '$_base/world/tiles';
   static String worldTileUnlock(String id) => '$_base/world/tiles/$id/unlock';
   static String get worldStats => '$_base/world/stats';
+  static String get worldSeed => '$_base/world/seed';
 
   // Progress
   static String get progress => '$_base/progress';

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:atlas_flutter_app/data/models/enums.dart';
 import 'package:atlas_flutter_app/data/models/world_tile.dart';
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/world/providers/world_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
@@ -52,6 +53,11 @@ class _TileDetailPanel extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final color = _tileColor(tile.tileType);
+    final userTotalXp = ref.watch(authProvider).user?.totalXp ?? 0;
+    final hasEnoughXp = userTotalXp >= tile.unlockRequirement;
+    final progress = tile.unlockRequirement > 0
+        ? (userTotalXp / tile.unlockRequirement).clamp(0.0, 1.0)
+        : 1.0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -199,13 +205,22 @@ class _TileDetailPanel extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your XP: $userTotalXp / ${tile.unlockRequirement} required',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: LinearProgressIndicator(
-                      value: 0.3, // Placeholder — user XP / requirement
+                      value: progress,
                       backgroundColor: color.withValues(alpha: 0.12),
-                      valueColor: AlwaysStoppedAnimation(color),
+                      valueColor: AlwaysStoppedAnimation(
+                        hasEnoughXp ? AppColors.success : color,
+                      ),
                       minHeight: 8,
                     ),
                   ),
@@ -214,12 +229,14 @@ class _TileDetailPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             AppButton(
-              label: 'Unlock Tile',
-              icon: Icons.lock_open_rounded,
-              onPressed: () {
-                ref.read(worldProvider.notifier).unlockTile(tile.id);
-                Navigator.of(context).pop();
-              },
+              label: hasEnoughXp ? 'Unlock Tile' : 'Not Enough XP',
+              icon: hasEnoughXp ? Icons.lock_open_rounded : Icons.lock_rounded,
+              onPressed: hasEnoughXp
+                  ? () {
+                      ref.read(worldProvider.notifier).unlockTile(tile.id);
+                      Navigator.of(context).pop();
+                    }
+                  : null,
             ),
           ],
           const SizedBox(height: 8),
