@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logger/logger.dart';
 
 import 'package:atlas_flutter_app/data/models/world_tile.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/repositories/world_repository.dart';
+
+final _log = Logger(printer: PrettyPrinter(methodCount: 0));
 
 // ─── World State ─────────────────────────────────────────────────
 
@@ -65,11 +68,19 @@ class WorldNotifier extends Notifier<WorldState> {
       ], eagerError: false);
 
       var tiles = results[0] as List<WorldTile>;
+      _log.i('[World] Loaded ${tiles.length} tiles');
 
       // Auto-seed if the world is empty
       if (tiles.isEmpty) {
-        await _worldRepository.seedWorld();
-        tiles = await _worldRepository.getWorldTiles();
+        _log.i('[World] No tiles found, seeding world...');
+        try {
+          await _worldRepository.seedWorld();
+          _log.i('[World] Seed complete, re-fetching tiles...');
+          tiles = await _worldRepository.getWorldTiles();
+          _log.i('[World] After seed: ${tiles.length} tiles');
+        } catch (e) {
+          _log.e('[World] Seed failed', error: e);
+        }
       }
 
       state = state.copyWith(
