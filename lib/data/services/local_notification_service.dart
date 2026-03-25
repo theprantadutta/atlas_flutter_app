@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/logger.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -36,32 +38,50 @@ class LocalNotificationService {
     );
 
     await _plugin.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Create the Android notification channel
-    const channel = AndroidNotificationChannel(
-      'atlas_notifications',
-      'Atlas Notifications',
-      description: 'Notifications from Atlas',
-      importance: Importance.high,
-    );
-
-    // Create a separate channel for scheduled reminders
-    const reminderChannel = AndroidNotificationChannel(
-      'atlas_reminders',
-      'Atlas Reminders',
-      description: 'Scheduled reminders from Atlas',
-      importance: Importance.defaultImportance,
-    );
-
+    // Create Android notification channels + request permissions
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.createNotificationChannel(channel);
-    await androidPlugin?.createNotificationChannel(reminderChannel);
 
-    _log.d('[LocalNotification] Initialized with timezone support');
+    if (androidPlugin != null) {
+      const mainChannel = AndroidNotificationChannel(
+        'atlas_notifications',
+        'Atlas Notifications',
+        description: 'Push notifications from Atlas',
+        importance: Importance.high,
+      );
+      await androidPlugin.createNotificationChannel(mainChannel);
+
+      const reminderChannel = AndroidNotificationChannel(
+        'atlas_reminders',
+        'Atlas Reminders',
+        description: 'Scheduled reminders from Atlas',
+        importance: Importance.defaultImportance,
+      );
+      await androidPlugin.createNotificationChannel(reminderChannel);
+
+      // Request notification permission (Android 13+)
+      await androidPlugin.requestNotificationsPermission();
+
+      // Request exact alarm permission (Android 14+) for scheduled notifications
+      await androidPlugin.requestExactAlarmsPermission();
+    }
+
+    // Request iOS permissions
+    if (Platform.isIOS) {
+      final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      await iosPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
+    _log.i('[LocalNotification] Initialized with timezone + permission support');
   }
 
   /// Show an immediate local notification.
@@ -74,7 +94,7 @@ class LocalNotificationService {
     const androidDetails = AndroidNotificationDetails(
       'atlas_notifications',
       'Atlas Notifications',
-      channelDescription: 'Notifications from Atlas',
+      channelDescription: 'Push notifications from Atlas',
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/ic_launcher',
@@ -91,12 +111,16 @@ class LocalNotificationService {
       iOS: iosDetails,
     );
 
-    await _plugin.show(id, title, body, details, payload: payload);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+      payload: payload,
+    );
   }
 
-  /// Schedule a notification at a specific time.
-  ///
-  /// Uses [AndroidScheduleMode.inexactAllowWhileIdle] to work even in Doze mode.
+  /// Schedule a one-time notification at a specific time.
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -127,22 +151,19 @@ class LocalNotificationService {
     final tzDateTime = tz.TZDateTime.from(scheduledDate, tz.local);
 
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tzDateTime,
-      details,
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzDateTime,
+      notificationDetails: details,
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: null,
     );
 
     _log.d('[LocalNotification] Scheduled "$title" for $scheduledDate');
   }
 
   /// Schedule a daily repeating notification at a specific time.
-  ///
-  /// Useful for habit reminders — fires every day at the given hour:minute.
   Future<void> scheduleDailyNotification({
     required int id,
     required String title,
@@ -181,17 +202,16 @@ class LocalNotificationService {
       minute,
     );
 
-    // If the time has already passed today, schedule for tomorrow
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
     await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      details,
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
+      notificationDetails: details,
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -201,9 +221,68 @@ class LocalNotificationService {
         '[LocalNotification] Scheduled daily "$title" at $hour:${minute.toString().padLeft(2, '0')}');
   }
 
+  /// Schedule a weekly repeating notification at a specific day and time.
+  Future<void> scheduleWeeklyNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int dayOfWeek,
+    required int hour,
+    required int minute,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'atlas_reminders',
+      'Atlas Reminders',
+      channelDescription: 'Scheduled reminders from Atlas',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: '@mipmap/ic_launcher',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
+    while (scheduledDate.weekday != dayOfWeek || scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
+      notificationDetails: details,
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+
+    _log.d(
+        '[LocalNotification] Scheduled weekly "$title" on day $dayOfWeek at $hour:${minute.toString().padLeft(2, '0')}');
+  }
+
   /// Cancel a specific notification by ID.
   Future<void> cancelNotification(int id) async {
-    await _plugin.cancel(id);
+    await _plugin.cancel(id: id);
   }
 
   /// Cancel all notifications.
