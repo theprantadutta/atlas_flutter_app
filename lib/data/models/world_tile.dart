@@ -19,8 +19,8 @@ class WorldTile {
   final int positionY;
   final DateTime? unlockedAt;
   final Map<String, dynamic>? customProperties;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   const WorldTile({
     required this.id,
@@ -36,8 +36,8 @@ class WorldTile {
     this.positionY = 0,
     this.unlockedAt,
     this.customProperties,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory WorldTile.fromJson(Map<String, dynamic> json) =>
