@@ -15,6 +15,7 @@ import 'package:atlas_flutter_app/data/database/tables/achievements_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/world_tiles_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/progress_entries_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/sync_operations_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/notifications_table.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
@@ -23,6 +24,7 @@ import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 
 part 'atlas_database.g.dart';
 
@@ -37,6 +39,7 @@ part 'atlas_database.g.dart';
     WorldTiles,
     ProgressEntries,
     SyncOperations,
+    Notifications,
   ],
   daos: [
     TaskDao,
@@ -47,6 +50,7 @@ part 'atlas_database.g.dart';
     WorldDao,
     ProgressDao,
     SyncDao,
+    NotificationDao,
   ],
 )
 class AtlasDatabase extends _$AtlasDatabase {
@@ -63,6 +67,11 @@ class AtlasDatabase extends _$AtlasDatabase {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          await m.createTable(notifications);
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys

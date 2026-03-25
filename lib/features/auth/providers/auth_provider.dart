@@ -143,6 +143,13 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      // Unregister FCM token before logout
+      try {
+        await ref.read(fcmServiceProvider).unregisterToken();
+      } catch (_) {
+        // Continue logout regardless of FCM errors
+      }
+
       await _authService.logout();
 
       // Clean up offline services

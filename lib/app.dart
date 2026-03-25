@@ -42,6 +42,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       offlineManager.setAuthenticated(next.isAuthenticated, userId: next.user?.id);
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         _connectSignalR();
+        _initializeFcm();
       }
     });
   }
@@ -61,6 +62,28 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       default:
         break;
     }
+  }
+
+  Future<void> _initializeFcm() async {
+    final fcmService = ref.read(fcmServiceProvider);
+    final localNotificationService = ref.read(localNotificationServiceProvider);
+
+    // Wire FCM foreground messages to show local notifications
+    fcmService.onNotificationReceived = (payload) {
+      final title = payload['title'] as String? ?? '';
+      final body = payload['body'] as String? ?? '';
+      if (title.isNotEmpty || body.isNotEmpty) {
+        localNotificationService.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: title,
+          body: body,
+          payload: payload.toString(),
+        );
+      }
+    };
+
+    await fcmService.initialize();
+    await fcmService.registerToken();
   }
 
   void _connectSignalR() {

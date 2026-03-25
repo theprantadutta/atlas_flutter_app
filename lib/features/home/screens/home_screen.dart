@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/data/models/task.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_card.dart';
@@ -36,6 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         actions: [
+          _NotificationBellButton(),
           IconButton(
             icon: Icon(
               isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
@@ -656,5 +658,48 @@ class _TaskCard extends StatelessWidget {
       'creativity' => AppColors.categoryCreative,
       _ => AppColors.info,
     };
+  }
+}
+
+class _NotificationBellButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadCountProvider).when(
+          data: (count) => count,
+          loading: () => 0,
+          error: (_, _) => 0,
+        );
+
+    return Stack(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          tooltip: 'Notifications',
+          onPressed: () => context.push('/notifications'),
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              decoration: const BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                unreadCount > 99 ? '99+' : '$unreadCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
 import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 
@@ -21,6 +22,7 @@ import 'package:atlas_flutter_app/data/repositories/achievement_repository.dart'
 import 'package:atlas_flutter_app/data/repositories/world_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/progress_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/analytics_repository.dart';
+import 'package:atlas_flutter_app/data/repositories/notification_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 
 // ─── DAO Providers ─────────────────────────────────────────────
@@ -55,6 +57,10 @@ final progressDaoProvider = Provider<ProgressDao>((ref) {
 
 final syncDaoProvider = Provider<SyncDao>((ref) {
   return SyncDao(ref.read(databaseProvider));
+});
+
+final notificationDaoProvider = Provider<NotificationDao>((ref) {
+  return NotificationDao(ref.read(databaseProvider));
 });
 
 // ─── Sync Infrastructure ───────────────────────────────────────
@@ -138,5 +144,13 @@ final analyticsRepositoryProvider = Provider<AnalyticsRepository>((ref) {
   return AnalyticsRepository(
     ref.read(apiServiceProvider),
     ref.read(offlineManagerProvider),
+  );
+});
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  return NotificationRepository(
+    ref.read(apiServiceProvider),
+    ref.read(offlineManagerProvider),
+    ref.read(notificationDaoProvider),
   );
 });

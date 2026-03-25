@@ -15,5 +15,6 @@ class RouteNames {
   static const profile = 'profile';
   static const settings = 'settings';
   static const notifications = 'notifications';
+  static const notificationCenter = 'notificationCenter';
   static const syncManagement = 'syncManagement';
 }

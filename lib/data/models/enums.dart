@@ -181,3 +181,22 @@ enum SyncOperationType {
   @JsonValue('delete')
   delete,
 }
+
+enum NotificationType {
+  @JsonValue('daily_summary')
+  dailySummary,
+  @JsonValue('task_reminder')
+  taskReminder,
+  @JsonValue('goal_deadline')
+  goalDeadline,
+  @JsonValue('streak_alert')
+  streakAlert,
+  @JsonValue('achievement_unlocked')
+  achievementUnlocked,
+  @JsonValue('level_up')
+  levelUp,
+  @JsonValue('habit_reminder')
+  habitReminder,
+  @JsonValue('system_message')
+  systemMessage,
+}

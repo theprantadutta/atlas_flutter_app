@@ -6,6 +6,8 @@ import 'package:atlas_flutter_app/data/services/api_service.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 import 'package:atlas_flutter_app/data/services/signalr_service.dart';
+import 'package:atlas_flutter_app/data/services/fcm_service.dart';
+import 'package:atlas_flutter_app/data/services/local_notification_service.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 
 final databaseProvider = Provider<AtlasDatabase>((ref) {
@@ -31,6 +33,22 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 final signalRServiceProvider = Provider<SignalRService>((ref) {
   return SignalRService(ref.read(tokenServiceProvider));
+});
+
+// ─── FCM Service ────────────────────────────────────────────
+
+final fcmServiceProvider = Provider<FcmService>((ref) {
+  return FcmService(
+    ref.read(apiServiceProvider),
+    ref.read(tokenServiceProvider),
+  );
+});
+
+// ─── Local Notification Service ─────────────────────────────
+
+final localNotificationServiceProvider =
+    Provider<LocalNotificationService>((ref) {
+  return LocalNotificationService();
 });
 
 // ─── Sync Stream Providers ───────────────────────────────────

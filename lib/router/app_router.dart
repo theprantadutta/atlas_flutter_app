@@ -12,6 +12,7 @@ import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
 import 'package:atlas_flutter_app/features/goals/screens/goals_screen.dart';
 import 'package:atlas_flutter_app/features/habits/screens/habits_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
+import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
@@ -112,6 +113,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     name: RouteNames.progress,
                     builder: (context, state) =>
                         const ProgressScreen(),
+                  ),
+                  GoRoute(
+                    path: 'notifications',
+                    name: RouteNames.notificationCenter,
+                    builder: (context, state) =>
+                        const NotificationCenterScreen(),
                   ),
                 ],
               ),

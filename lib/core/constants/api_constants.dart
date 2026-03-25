@@ -55,6 +55,18 @@ class ApiConstants {
   // Analytics
   static String get analyticsDashboard => '$_base/analytics/dashboard';
 
+  // Notifications
+  static String get notifications => '$_base/notifications';
+  static String notificationById(String id) => '$_base/notifications/$id';
+  static String notificationMarkRead(String id) =>
+      '$_base/notifications/$id/read';
+  static String get notificationsReadAll => '$_base/notifications/read-all';
+  static String get notificationsUnreadCount =>
+      '$_base/notifications/unread-count';
+
+  // Device Tokens
+  static String get deviceTokens => '$_base/device-tokens';
+
   // Sync
   static String get syncPush => '$_base/sync/push';
   static String get syncPull => '$_base/sync/pull';
