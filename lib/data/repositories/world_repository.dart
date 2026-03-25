@@ -1,12 +1,15 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:logger/logger.dart';
 
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart' show WorldTilesCompanion;
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/models/world_tile.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
+
+final _log = Logger(printer: PrettyPrinter(methodCount: 2));
 
 class WorldRepository extends BaseRepository {
   final WorldDao _worldDao;
@@ -50,8 +53,9 @@ class WorldRepository extends BaseRepository {
           _entityCache.put(tile.id, tile);
         }
         return tiles;
-      } catch (_) {
-        // API failed — fall through to DAO
+      } catch (e) {
+        // Log the error so we can debug parsing failures
+        _log.e('[WorldRepo] getWorldTiles API/parse failed', error: e);
       }
     }
 
