@@ -41,11 +41,12 @@ class Avatar {
 
   /// Progress to the next level as a percentage (0.0 - 1.0).
   double get progressToNextLevel {
-    final requiredXp = xpRequiredForLevel(level + 1);
-    if (requiredXp == 0) return 1.0;
-    final xpIntoCurrentLevel =
-        currentXp - GamificationConstants.cumulativeXpForLevel(level);
-    return (xpIntoCurrentLevel / requiredXp).clamp(0.0, 1.0);
+    final currentLevelXp = GamificationConstants.xpRequiredForLevel(level);
+    final nextLevelXp = GamificationConstants.xpRequiredForLevel(level + 1);
+    final xpRange = nextLevelXp - currentLevelXp;
+    if (xpRange <= 0) return 1.0;
+    final xpIntoCurrentLevel = currentXp - currentLevelXp;
+    return (xpIntoCurrentLevel / xpRange).clamp(0.0, 1.0);
   }
 
   /// XP required to reach a specific level.

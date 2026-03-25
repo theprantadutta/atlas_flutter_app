@@ -1,93 +1,58 @@
 import 'package:flutter/material.dart';
 
 class GamificationConstants {
-  // XP rewards
-  static const int baseTaskXp = 25;
-  static const int dailyTaskXp = 25;
-  static const int weeklyTaskXp = 75;
-  static const int longTermTaskXp = 150;
-
-  // Difficulty multipliers
-  static const double easyMultiplier = 0.8;
-  static const double mediumMultiplier = 1.0;
-  static const double hardMultiplier = 1.5;
-
-  // Streak bonuses
-  static const double streakBonusPerDay = 0.1;
-  static const double maxStreakBonus = 2.0;
-
   // Level system
   static const int maxLevel = 100;
   static const int baseXpPerLevel = 100;
-  static const double levelScalingFactor = 1.5;
 
-  /// Calculate XP required for a given level.
+  /// Task XP: difficulty x 10 x type_multiplier x streak_bonus
+  static int calculateTaskXp({
+    required int difficulty,
+    required String taskType,
+    int streakCount = 0,
+  }) {
+    double baseXp = difficulty * 10;
+    double multiplier = switch (taskType) {
+      'daily' => 1.0,
+      'weekly' => 1.5,
+      'long_term' => 2.0,
+      _ => 1.0,
+    };
+    double streakBonus = 1.0 + (streakCount * 0.10).clamp(0.0, 1.0);
+    return (baseXp * multiplier * streakBonus).round();
+  }
+
+  /// Habit XP: difficulty x 10 x (1 + streak_bonus)
+  static int calculateHabitXp({
+    required int difficulty,
+    int streakCount = 0,
+  }) {
+    double baseXp = difficulty * 10;
+    double streakBonus = 1.0 + (streakCount * 0.05).clamp(0.0, 0.5);
+    return (baseXp * streakBonus).round();
+  }
+
+  /// Goal XP: (priority x 100) + (progress x 500)
+  static int calculateGoalXp({
+    required int priority,
+    double progress = 1.0,
+  }) {
+    return (priority * 100 + progress * 500).round();
+  }
+
+  /// XP required to reach a level: 100 x (level-1)^2 x 0.8
   static int xpRequiredForLevel(int level) {
     if (level <= 1) return 0;
-    return (baseXpPerLevel * level * (1 + (level - 1) * 0.1)).round();
+    return (100.0 * (level - 1) * (level - 1) * 0.8).round();
   }
 
-  /// Calculate cumulative XP needed to reach a level.
-  static int cumulativeXpForLevel(int level) {
-    int total = 0;
-    for (int i = 1; i <= level; i++) {
-      total += xpRequiredForLevel(i);
-    }
-    return total;
-  }
-
-  /// Calculate level from total XP.
-  static int levelFromXp(int totalXp) {
+  /// Calculate level from total XP (max 100)
+  static int calculateLevel(int totalXp) {
     int level = 1;
-    int cumulativeXp = 0;
-    while (level < maxLevel) {
-      cumulativeXp += xpRequiredForLevel(level + 1);
-      if (cumulativeXp > totalXp) break;
+    while (level < maxLevel && totalXp >= xpRequiredForLevel(level + 1)) {
       level++;
     }
     return level;
-  }
-
-  /// Calculate XP reward for a task based on type and difficulty.
-  static int calculateTaskXp({
-    required String taskType,
-    int difficulty = 1,
-    int streakCount = 0,
-  }) {
-    int baseXp;
-    switch (taskType) {
-      case 'daily':
-        baseXp = dailyTaskXp;
-        break;
-      case 'weekly':
-        baseXp = weeklyTaskXp;
-        break;
-      case 'long_term':
-        baseXp = longTermTaskXp;
-        break;
-      default:
-        baseXp = baseTaskXp;
-    }
-
-    double difficultyMultiplier;
-    switch (difficulty) {
-      case 1:
-        difficultyMultiplier = easyMultiplier;
-        break;
-      case 2:
-        difficultyMultiplier = mediumMultiplier;
-        break;
-      case 3:
-        difficultyMultiplier = hardMultiplier;
-        break;
-      default:
-        difficultyMultiplier = mediumMultiplier;
-    }
-
-    double streakBonus =
-        (streakCount * streakBonusPerDay).clamp(0.0, maxStreakBonus);
-
-    return (baseXp * difficultyMultiplier * (1 + streakBonus)).round();
   }
 
   // Badge tier colors

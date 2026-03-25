@@ -81,7 +81,7 @@ class ProfileScreen extends ConsumerWidget {
     final user = state.user;
     final avatar = state.avatar;
     final level = avatar?.level ?? user?.level ?? 1;
-    final currentXp = avatar?.currentXp ?? user?.totalXp ?? 0;
+    final currentXp = avatar?.currentXp ?? 0;
     final requiredXp = GamificationConstants.xpRequiredForLevel(level + 1);
 
     return Column(
