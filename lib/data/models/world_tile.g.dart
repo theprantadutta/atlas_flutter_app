@@ -22,12 +22,8 @@ WorldTile _$WorldTileFromJson(Map<String, dynamic> json) => WorldTile(
       ? null
       : DateTime.parse(json['unlocked_at'] as String),
   customProperties: json['custom_properties'] as Map<String, dynamic>?,
-  createdAt: json['created_at'] == null
-      ? null
-      : DateTime.parse(json['created_at'] as String),
-  updatedAt: json['updated_at'] == null
-      ? null
-      : DateTime.parse(json['updated_at'] as String),
+  createdAt: DateTime.parse(json['created_at'] as String),
+  updatedAt: DateTime.parse(json['updated_at'] as String),
 );
 
 Map<String, dynamic> _$WorldTileToJson(WorldTile instance) => <String, dynamic>{
@@ -44,8 +40,8 @@ Map<String, dynamic> _$WorldTileToJson(WorldTile instance) => <String, dynamic>{
   'position_y': instance.positionY,
   'unlocked_at': instance.unlockedAt?.toIso8601String(),
   'custom_properties': instance.customProperties,
-  'created_at': instance.createdAt?.toIso8601String(),
-  'updated_at': instance.updatedAt?.toIso8601String(),
+  'created_at': instance.createdAt.toIso8601String(),
+  'updated_at': instance.updatedAt.toIso8601String(),
 };
 
 const _$WorldTileTypeEnumMap = {

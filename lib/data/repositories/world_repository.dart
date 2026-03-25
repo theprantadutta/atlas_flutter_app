@@ -166,8 +166,8 @@ class WorldRepository extends BaseRepository {
             ? jsonEncode(tile.customProperties)
             : null,
       ),
-      createdAt: Value(tile.createdAt ?? DateTime.now()),
-      updatedAt: Value(tile.updatedAt ?? DateTime.now()),
+      createdAt: Value(tile.createdAt),
+      updatedAt: Value(tile.updatedAt),
     );
   }
 

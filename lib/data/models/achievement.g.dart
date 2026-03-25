@@ -12,16 +12,15 @@ Achievement _$AchievementFromJson(Map<String, dynamic> json) => Achievement(
   title: json['title'] as String,
   description: json['description'] as String?,
   iconPath: json['icon_path'] as String?,
-  achievementType: $enumDecode(
-    _$AchievementTypeEnumMap,
-    json['achievement_type'],
-  ),
-  criteria: json['criteria'] as Map<String, dynamic>?,
+  achievementType: $enumDecode(_$AchievementTypeEnumMap, json['type']),
+  targetValue: (json['target_value'] as num?)?.toDouble() ?? 0.0,
+  category: json['category'] as String?,
   isUnlocked: json['is_unlocked'] as bool? ?? false,
   progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
   unlockedAt: json['unlocked_at'] == null
       ? null
       : DateTime.parse(json['unlocked_at'] as String),
+  badgeTier: json['badge_tier'] as String? ?? 'bronze',
   createdAt: DateTime.parse(json['created_at'] as String),
   updatedAt: DateTime.parse(json['updated_at'] as String),
 );
@@ -33,11 +32,13 @@ Map<String, dynamic> _$AchievementToJson(Achievement instance) =>
       'title': instance.title,
       'description': instance.description,
       'icon_path': instance.iconPath,
-      'achievement_type': _$AchievementTypeEnumMap[instance.achievementType]!,
-      'criteria': instance.criteria,
+      'type': _$AchievementTypeEnumMap[instance.achievementType]!,
+      'target_value': instance.targetValue,
+      'category': instance.category,
       'is_unlocked': instance.isUnlocked,
       'progress': instance.progress,
       'unlocked_at': instance.unlockedAt?.toIso8601String(),
+      'badge_tier': instance.badgeTier,
       'created_at': instance.createdAt.toIso8601String(),
       'updated_at': instance.updatedAt.toIso8601String(),
     };

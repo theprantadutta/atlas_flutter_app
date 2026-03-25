@@ -176,6 +176,10 @@ class AchievementRepository extends BaseRepository {
   }
 
   AchievementsCompanion _toCompanion(Achievement achievement) {
+    final criteriaMap = <String, dynamic>{
+      'target_value': achievement.targetValue,
+      'category': achievement.category,
+    };
     return AchievementsCompanion(
       id: Value(achievement.id),
       userId: Value(achievement.userId),
@@ -183,9 +187,7 @@ class AchievementRepository extends BaseRepository {
       description: Value(achievement.description),
       iconPath: Value(achievement.iconPath),
       achievementType: Value(achievement.achievementType.name),
-      criteria: Value(
-        achievement.criteria != null ? jsonEncode(achievement.criteria) : null,
-      ),
+      criteria: Value(jsonEncode(criteriaMap)),
       isUnlocked: Value(achievement.isUnlocked),
       progress: Value(achievement.progress),
       unlockedAt: Value(achievement.unlockedAt),
@@ -197,17 +199,34 @@ class AchievementRepository extends BaseRepository {
   // ─── Helpers ─────────────────────────────────────────────────
 
   Map<String, dynamic> _driftAchievementToJson(dynamic driftAchievement) {
+    // Parse criteria JSON to extract target_value and category
+    double targetValue = 0.0;
+    String? category;
+    if (driftAchievement.criteria != null) {
+      try {
+        final criteriaMap =
+            jsonDecode(driftAchievement.criteria) as Map<String, dynamic>;
+        targetValue =
+            (criteriaMap['target_value'] as num?)?.toDouble() ?? 0.0;
+        category = criteriaMap['category'] as String?;
+      } catch (_) {
+        // Ignore parse errors
+      }
+    }
+
     return {
       'id': driftAchievement.id,
       'user_id': driftAchievement.userId,
       'title': driftAchievement.title,
       'description': driftAchievement.description,
       'icon_path': driftAchievement.iconPath,
-      'achievement_type': driftAchievement.achievementType,
-      'criteria': driftAchievement.criteria,
+      'type': driftAchievement.achievementType,
+      'target_value': targetValue,
+      'category': category,
       'is_unlocked': driftAchievement.isUnlocked,
       'progress': driftAchievement.progress,
       'unlocked_at': driftAchievement.unlockedAt?.toIso8601String(),
+      'badge_tier': 'bronze',
       'created_at': driftAchievement.createdAt.toIso8601String(),
       'updated_at': driftAchievement.updatedAt.toIso8601String(),
     };

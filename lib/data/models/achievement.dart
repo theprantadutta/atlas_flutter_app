@@ -11,11 +11,14 @@ class Achievement {
   final String title;
   final String? description;
   final String? iconPath;
+  @JsonKey(name: 'type')
   final AchievementType achievementType;
-  final Map<String, dynamic>? criteria;
+  final double targetValue;
+  final String? category;
   final bool isUnlocked;
   final double progress;
   final DateTime? unlockedAt;
+  final String badgeTier;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -26,10 +29,12 @@ class Achievement {
     this.description,
     this.iconPath,
     required this.achievementType,
-    this.criteria,
+    this.targetValue = 0.0,
+    this.category,
     this.isUnlocked = false,
     this.progress = 0.0,
     this.unlockedAt,
+    this.badgeTier = 'bronze',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -39,15 +44,6 @@ class Achievement {
 
   Map<String, dynamic> toJson() => _$AchievementToJson(this);
 
-  /// Compute badge tier based on progress.
-  String get badgeTier {
-    if (progress >= 1.0) return 'legendary';
-    if (progress >= 0.75) return 'epic';
-    if (progress >= 0.5) return 'rare';
-    if (progress >= 0.25) return 'common';
-    return 'bronze';
-  }
-
   Achievement copyWith({
     String? id,
     String? userId,
@@ -55,10 +51,12 @@ class Achievement {
     String? description,
     String? iconPath,
     AchievementType? achievementType,
-    Map<String, dynamic>? criteria,
+    double? targetValue,
+    String? category,
     bool? isUnlocked,
     double? progress,
     DateTime? unlockedAt,
+    String? badgeTier,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -69,10 +67,12 @@ class Achievement {
       description: description ?? this.description,
       iconPath: iconPath ?? this.iconPath,
       achievementType: achievementType ?? this.achievementType,
-      criteria: criteria ?? this.criteria,
+      targetValue: targetValue ?? this.targetValue,
+      category: category ?? this.category,
       isUnlocked: isUnlocked ?? this.isUnlocked,
       progress: progress ?? this.progress,
       unlockedAt: unlockedAt ?? this.unlockedAt,
+      badgeTier: badgeTier ?? this.badgeTier,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
