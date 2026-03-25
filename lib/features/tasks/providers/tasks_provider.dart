@@ -14,6 +14,7 @@ class TasksState {
   final String? searchQuery;
   final bool isLoading;
   final String? error;
+  final bool showCompletedSection;
 
   const TasksState({
     this.tasks = const [],
@@ -22,6 +23,7 @@ class TasksState {
     this.searchQuery,
     this.isLoading = true,
     this.error,
+    this.showCompletedSection = false,
   });
 
   TasksState copyWith({
@@ -31,6 +33,7 @@ class TasksState {
     String? searchQuery,
     bool? isLoading,
     String? error,
+    bool? showCompletedSection,
     bool clearError = false,
     bool clearActiveTab = false,
     bool clearCategory = false,
@@ -44,6 +47,8 @@ class TasksState {
       searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
+      showCompletedSection:
+          showCompletedSection ?? this.showCompletedSection,
     );
   }
 }
@@ -129,13 +134,22 @@ class TasksNotifier extends Notifier<TasksState> {
   Future<Map<String, dynamic>?> completeTask(String id) async {
     try {
       final response = await _taskRepo.completeTask(id);
-      final updatedList = state.tasks.where((t) => t.id != id).toList();
+      final updatedList = state.tasks
+          .map((t) => t.id == id ? t.copyWith(isCompleted: true) : t)
+          .toList();
       state = state.copyWith(tasks: updatedList);
       return response;
     } catch (e) {
       state = state.copyWith(error: e.toString());
       return null;
     }
+  }
+
+  /// Toggle visibility of the completed tasks section.
+  void toggleShowCompleted() {
+    state = state.copyWith(
+      showCompletedSection: !state.showCompletedSection,
+    );
   }
 
   /// Delete a task.
@@ -176,6 +190,16 @@ class TasksNotifier extends Notifier<TasksState> {
     }
 
     return result;
+  }
+
+  /// Filtered tasks that are NOT completed (pending).
+  List<Task> get pendingFilteredTasks {
+    return filteredTasks.where((t) => !t.isCompleted).toList();
+  }
+
+  /// Filtered tasks that ARE completed.
+  List<Task> get completedFilteredTasks {
+    return filteredTasks.where((t) => t.isCompleted).toList();
   }
 }
 

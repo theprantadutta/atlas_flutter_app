@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/shared/widgets/app_error_widget.dart';
 import 'package:atlas_flutter_app/shared/widgets/loading_shimmer.dart';
 
 import 'package:atlas_flutter_app/features/tasks/providers/tasks_provider.dart';
+import 'package:atlas_flutter_app/features/tasks/widgets/completed_task_card.dart';
 import 'package:atlas_flutter_app/features/tasks/widgets/task_card.dart';
 import 'package:atlas_flutter_app/features/tasks/widgets/task_form_sheet.dart';
 
@@ -331,41 +332,148 @@ class _TaskListBody extends ConsumerWidget {
     }
 
     // Get filtered tasks for this specific tab
-    final tasks = notifier.filteredTasks
+    final pendingTasks = notifier.pendingFilteredTasks
         .where((t) => t.type == tabType)
         .toList();
+    final completedTasks = notifier.completedFilteredTasks
+        .where((t) => t.type == tabType)
+        .toList();
+    final showCompleted = state.showCompletedSection;
 
-    if (tasks.isEmpty) {
-      return _buildEmptyState(theme);
+    if (pendingTasks.isEmpty && completedTasks.isEmpty) {
+      return _buildEmptyState(theme, hasCompleted: false);
     }
+
+    if (pendingTasks.isEmpty && completedTasks.isNotEmpty) {
+      // All caught up — show message + completed section below
+      return RefreshIndicator(
+        onRefresh: () => notifier.loadTasks(),
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+          itemCount:
+              1 + 1 + (showCompleted ? completedTasks.length : 0), // empty banner + header + items
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return _buildAllCaughtUpBanner(theme);
+            }
+            if (index == 1) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CompletedSectionHeader(
+                  count: completedTasks.length,
+                  isExpanded: showCompleted,
+                  onTap: () => notifier.toggleShowCompleted(),
+                ),
+              );
+            }
+            final completedIndex = index - 2;
+            final task = completedTasks[completedIndex];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: CompletedTaskCard(task: task, isDark: isDark),
+            );
+          },
+        ),
+      );
+    }
+
+    final hasCompletedHeader = completedTasks.isNotEmpty;
+    final itemCount = pendingTasks.length +
+        (hasCompletedHeader ? 1 : 0) +
+        (showCompleted ? completedTasks.length : 0);
 
     return RefreshIndicator(
       onRefresh: () => notifier.loadTasks(),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        itemCount: tasks.length,
+        itemCount: itemCount,
         itemBuilder: (context, index) {
-          final task = tasks[index];
+          // ─── Pending tasks ───
+          if (index < pendingTasks.length) {
+            final task = pendingTasks[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: TaskCard(task: task, isDark: isDark)
+                  .animate()
+                  .fadeIn(
+                    delay: (index * 60).ms,
+                    duration: 400.ms,
+                    curve: Curves.easeOut,
+                  )
+                  .slideX(
+                    begin: 0.06,
+                    end: 0,
+                    delay: (index * 60).ms,
+                    duration: 400.ms,
+                    curve: Curves.easeOutCubic,
+                  ),
+            );
+          }
+
+          // ─── Completed section header ───
+          if (hasCompletedHeader && index == pendingTasks.length) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _CompletedSectionHeader(
+                count: completedTasks.length,
+                isExpanded: showCompleted,
+                onTap: () => notifier.toggleShowCompleted(),
+              ),
+            );
+          }
+
+          // ─── Completed tasks ───
+          final completedIndex =
+              index - pendingTasks.length - (hasCompletedHeader ? 1 : 0);
+          final task = completedTasks[completedIndex];
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: TaskCard(task: task, isDark: isDark)
-                .animate()
-                .fadeIn(
-                  delay: (index * 60).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOut,
-                )
-                .slideX(
-                  begin: 0.06,
-                  end: 0,
-                  delay: (index * 60).ms,
-                  duration: 400.ms,
-                  curve: Curves.easeOutCubic,
-                ),
+            child: CompletedTaskCard(task: task, isDark: isDark),
           );
         },
       ),
     );
+  }
+
+  Widget _buildAllCaughtUpBanner(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.celebration_rounded,
+              size: 56,
+              color: AppColors.xpPrimary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'All caught up!',
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Great job completing your tasks.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    )
+        .animate()
+        .fadeIn(duration: 500.ms)
+        .scale(
+          begin: const Offset(0.9, 0.9),
+          end: const Offset(1.0, 1.0),
+          duration: 500.ms,
+          curve: Curves.easeOutBack,
+        );
   }
 
   Widget _buildLoadingState() {
@@ -383,7 +491,7 @@ class _TaskListBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme) {
+  Widget _buildEmptyState(ThemeData theme, {required bool hasCompleted}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -422,6 +530,74 @@ class _TaskListBody extends ConsumerWidget {
               curve: Curves.easeOutBack,
             ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Completed Section Header
+// ═══════════════════════════════════════════════════════════════════
+
+class _CompletedSectionHeader extends StatelessWidget {
+  final int count;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _CompletedSectionHeader({
+    required this.count,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        // Subtle divider
+        Divider(
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
+          height: 1,
+        ),
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 20,
+                  color: AppColors.xpPrimary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Completed ($count)',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    size: 24,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

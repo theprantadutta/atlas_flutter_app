@@ -11,10 +11,13 @@ class TaskCompletionHandler {
   ///
   /// [apiResponse] is the raw response from the complete-task endpoint.
   /// [completedTask] is the task that was just completed.
+  /// [showXpOverlay] controls whether the XP gain overlay is shown
+  /// (set to false when XP is shown inline on the card).
   void handleCompletion(
     Map<String, dynamic> apiResponse,
-    Task completedTask,
-  ) {
+    Task completedTask, {
+    bool showXpOverlay = true,
+  }) {
     // Haptic success feedback
     HapticUtils.successVibrate();
 
@@ -23,11 +26,13 @@ class TaskCompletionHandler {
         apiResponse['xp_gained'] as int? ?? completedTask.xpReward;
     final streakBonus = apiResponse['streak_bonus'] as int?;
 
-    // Show XP gain overlay
-    OverlayService.showXpGain(
-      xp: xpGained,
-      streakBonus: streakBonus,
-    );
+    // Show XP gain overlay (unless suppressed for inline display)
+    if (showXpOverlay) {
+      OverlayService.showXpGain(
+        xp: xpGained,
+        streakBonus: streakBonus,
+      );
+    }
 
     // Check for level-up
     final newLevel = apiResponse['new_level'] as int?;
