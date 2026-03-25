@@ -14,6 +14,10 @@ void showTileDetailPanel(BuildContext context, WorldTile tile) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.7,
+    ),
     builder: (_) => _TileDetailPanel(tile: tile),
   );
 }
