@@ -130,10 +130,14 @@ class ApiService {
       _pendingRequests.clear();
 
       return handler.resolve(retryResponse);
-    } on DioException catch (_) {
-      // Refresh failed — clear tokens and notify
-      await _tokenService.deleteTokens();
-      onUnauthorized?.call();
+    } on DioException catch (refreshError) {
+      // Only force logout if the server explicitly rejected the refresh
+      // (e.g., 401/403). For network errors (offline, timeout), keep
+      // tokens intact so the user can retry when connectivity returns.
+      if (refreshError.type == DioExceptionType.badResponse) {
+        await _tokenService.deleteTokens();
+        onUnauthorized?.call();
+      }
 
       // Reject all queued requests
       for (final completer in _pendingRequests) {
@@ -143,6 +147,7 @@ class ApiService {
 
       return handler.next(error);
     } catch (_) {
+      // Unknown errors (not network-related) — force logout as a safety net
       await _tokenService.deleteTokens();
       onUnauthorized?.call();
 

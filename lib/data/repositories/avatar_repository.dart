@@ -1,6 +1,10 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show AvatarsCompanion;
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/models/avatar.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -36,6 +40,10 @@ class AvatarRepository extends BaseRepository {
       try {
         final response = await apiService.get('/avatar');
         final avatar = Avatar.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistAvatarToDb(avatar);
+
         _entityCache.put('current_avatar', avatar);
         _entityCache.put(avatar.id, avatar);
         return avatar;
@@ -46,7 +54,7 @@ class AvatarRepository extends BaseRepository {
 
     // 3. Offline fallback: read from local DAO
     try {
-      final local = await _avatarDao.getAvatarByUserId('');
+      final local = await _avatarDao.getAvatarByUserId(currentUserId);
       if (local != null) {
         final avatar = Avatar.fromJson(_driftAvatarToJson(local));
         _entityCache.put('current_avatar', avatar);
@@ -67,6 +75,10 @@ class AvatarRepository extends BaseRepository {
       try {
         final response = await apiService.post('/avatar', data: data);
         final avatar = Avatar.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistAvatarToDb(avatar);
+
         _entityCache.put('current_avatar', avatar);
         _entityCache.put(avatar.id, avatar);
         _collectionCache.clear();
@@ -93,6 +105,10 @@ class AvatarRepository extends BaseRepository {
         final response =
             await apiService.put('/avatar/appearance', data: data);
         final avatar = Avatar.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistAvatarToDb(avatar);
+
         _entityCache.put('current_avatar', avatar);
         _entityCache.put(avatar.id, avatar);
         return avatar;
@@ -155,6 +171,37 @@ class AvatarRepository extends BaseRepository {
     }
 
     return {};
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistAvatarToDb(Avatar avatar) async {
+    try {
+      await _avatarDao.upsertAvatar(_toCompanion(avatar));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  AvatarsCompanion _toCompanion(Avatar avatar) {
+    return AvatarsCompanion(
+      id: Value(avatar.id),
+      userId: Value(avatar.userId),
+      name: Value(avatar.name),
+      level: Value(avatar.level),
+      currentXp: Value(avatar.currentXp),
+      strength: Value(avatar.strength),
+      wisdom: Value(avatar.wisdom),
+      intelligence: Value(avatar.intelligence),
+      appearanceData: Value(
+        avatar.appearance != null ? jsonEncode(avatar.appearance) : null,
+      ),
+      unlockedItems: Value(
+        avatar.unlockedItems != null ? jsonEncode(avatar.unlockedItems) : null,
+      ),
+      createdAt: Value(avatar.createdAt),
+      updatedAt: Value(avatar.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

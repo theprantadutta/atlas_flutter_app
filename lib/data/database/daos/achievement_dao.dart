@@ -25,6 +25,10 @@ class AchievementDao extends DatabaseAccessor<AtlasDatabase>
     return into(achievements).insert(entry);
   }
 
+  Future<int> upsertAchievement(AchievementsCompanion entry) {
+    return into(achievements).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateAchievement(AchievementsCompanion entry) {
     return update(achievements).replace(entry);
   }

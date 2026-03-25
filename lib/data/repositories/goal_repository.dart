@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show GoalsCompanion;
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/models/enums.dart';
 import 'package:atlas_flutter_app/data/models/goal.dart';
@@ -69,6 +71,9 @@ class GoalRepository extends BaseRepository {
         );
         final goals = parseList(response.data, Goal.fromJson);
 
+        // Persist to local DB
+        await _persistGoalsToDb(goals);
+
         _collectionCache.put(cacheKey, goals);
         for (final goal in goals) {
           _entityCache.put(goal.id, goal);
@@ -81,7 +86,7 @@ class GoalRepository extends BaseRepository {
 
     // 3. Offline fallback: read from local DAO
     try {
-      final localGoals = await _goalDao.getAllGoals('');
+      final localGoals = await _goalDao.getAllGoals(currentUserId);
       final goals = localGoals
           .map((g) => Goal.fromJson(_driftGoalToJson(g)))
           .toList();
@@ -100,6 +105,10 @@ class GoalRepository extends BaseRepository {
       try {
         final response = await apiService.post('/goals', data: data);
         final goal = Goal.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistGoalToDb(goal);
+
         _entityCache.put(goal.id, goal);
         _invalidateCollectionCaches();
         return goal;
@@ -124,6 +133,10 @@ class GoalRepository extends BaseRepository {
       try {
         final response = await apiService.put('/goals/$id', data: data);
         final goal = Goal.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistGoalToDb(goal);
+
         _entityCache.put(id, goal);
         _invalidateCollectionCaches();
         return goal;
@@ -156,6 +169,10 @@ class GoalRepository extends BaseRepository {
         await apiService.delete('/goals/$id');
         _entityCache.remove(id);
         _invalidateCollectionCaches();
+
+        // Remove from local DB
+        try { await _goalDao.deleteGoal(id); } catch (_) {}
+
         return;
       } catch (_) {
         // Fall through to queue
@@ -213,6 +230,10 @@ class GoalRepository extends BaseRepository {
       try {
         final response = await apiService.get('/goals/overdue');
         final goals = parseList(response.data, Goal.fromJson);
+
+        // Persist to local DB
+        await _persistGoalsToDb(goals);
+
         _collectionCache.put(cacheKey, goals);
         for (final goal in goals) {
           _entityCache.put(goal.id, goal);
@@ -225,7 +246,7 @@ class GoalRepository extends BaseRepository {
 
     // Offline: filter from local DAO
     try {
-      final localGoals = await _goalDao.getAllGoals('');
+      final localGoals = await _goalDao.getAllGoals(currentUserId);
       final now = DateTime.now();
       final goals = localGoals
           .map((g) => Goal.fromJson(_driftGoalToJson(g)))
@@ -252,6 +273,10 @@ class GoalRepository extends BaseRepository {
       try {
         final response = await apiService.get('/goals/due-soon');
         final goals = parseList(response.data, Goal.fromJson);
+
+        // Persist to local DB
+        await _persistGoalsToDb(goals);
+
         _collectionCache.put(cacheKey, goals);
         for (final goal in goals) {
           _entityCache.put(goal.id, goal);
@@ -263,6 +288,41 @@ class GoalRepository extends BaseRepository {
     }
 
     return [];
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistGoalsToDb(List<Goal> goals) async {
+    for (final goal in goals) {
+      await _persistGoalToDb(goal);
+    }
+  }
+
+  Future<void> _persistGoalToDb(Goal goal) async {
+    try {
+      await _goalDao.upsertGoal(_toCompanion(goal));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  GoalsCompanion _toCompanion(Goal goal) {
+    return GoalsCompanion(
+      id: Value(goal.id),
+      userId: Value(goal.userId),
+      title: Value(goal.title),
+      description: Value(goal.description),
+      category: Value(goal.category.name),
+      priority: Value(goal.priority.name),
+      status: Value(goal.status.name),
+      progress: Value(goal.progress),
+      startDate: Value(goal.startDate),
+      deadline: Value(goal.deadline),
+      completedAt: Value(goal.completedAt),
+      parentGoalId: Value(goal.parentGoalId),
+      createdAt: Value(goal.createdAt),
+      updatedAt: Value(goal.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

@@ -21,6 +21,10 @@ class GoalDao extends DatabaseAccessor<AtlasDatabase> with _$GoalDaoMixin {
     return into(goals).insert(entry);
   }
 
+  Future<int> upsertGoal(GoalsCompanion entry) {
+    return into(goals).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateGoal(GoalsCompanion entry) {
     return update(goals).replace(entry);
   }

@@ -10,6 +10,9 @@ abstract class BaseRepository {
   /// Whether the device currently has connectivity.
   bool get isOnline => offlineManager.isOnline;
 
+  /// The currently authenticated user's ID (empty string if unavailable).
+  String get currentUserId => offlineManager.currentUserId ?? '';
+
   /// Parses a list from an API response.
   ///
   /// Expects [data] to be a `List<dynamic>` where each element is a

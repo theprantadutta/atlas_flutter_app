@@ -1,4 +1,9 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show WorldTilesCompanion;
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/models/world_tile.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -37,6 +42,9 @@ class WorldRepository extends BaseRepository {
         final response = await apiService.get('/world/tiles');
         final tiles = parseList(response.data, WorldTile.fromJson);
 
+        // Persist to local DB
+        await _persistTilesToDb(tiles);
+
         _collectionCache.put(cacheKey, tiles);
         for (final tile in tiles) {
           _entityCache.put(tile.id, tile);
@@ -49,7 +57,7 @@ class WorldRepository extends BaseRepository {
 
     // 3. Offline fallback: read from local DAO
     try {
-      final localTiles = await _worldDao.getAllTiles('');
+      final localTiles = await _worldDao.getAllTiles(currentUserId);
       final tiles = localTiles
           .map((t) => WorldTile.fromJson(_driftTileToJson(t)))
           .toList();
@@ -108,6 +116,46 @@ class WorldRepository extends BaseRepository {
     }
 
     return {};
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistTilesToDb(List<WorldTile> tiles) async {
+    for (final tile in tiles) {
+      await _persistTileToDb(tile);
+    }
+  }
+
+  Future<void> _persistTileToDb(WorldTile tile) async {
+    try {
+      await _worldDao.upsertTile(_toCompanion(tile));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  WorldTilesCompanion _toCompanion(WorldTile tile) {
+    return WorldTilesCompanion(
+      id: Value(tile.id),
+      userId: Value(tile.userId),
+      name: Value(tile.name),
+      description: Value(tile.description),
+      imagePath: Value(tile.imagePath),
+      tileType: Value(tile.tileType.name),
+      isUnlocked: Value(tile.isUnlocked),
+      unlockRequirement: Value(tile.unlockRequirement),
+      unlockCategory: Value(tile.unlockCategory),
+      positionX: Value(tile.positionX),
+      positionY: Value(tile.positionY),
+      unlockedAt: Value(tile.unlockedAt),
+      customProperties: Value(
+        tile.customProperties != null
+            ? jsonEncode(tile.customProperties)
+            : null,
+      ),
+      createdAt: Value(tile.createdAt),
+      updatedAt: Value(tile.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

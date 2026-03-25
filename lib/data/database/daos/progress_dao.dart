@@ -27,6 +27,10 @@ class ProgressDao extends DatabaseAccessor<AtlasDatabase>
     return into(progressEntries).insert(entry);
   }
 
+  Future<int> upsertProgress(ProgressEntriesCompanion entry) {
+    return into(progressEntries).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateProgress(ProgressEntriesCompanion entry) {
     return update(progressEntries).replace(entry);
   }

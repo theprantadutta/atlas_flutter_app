@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show HabitsCompanion;
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/models/habit.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -64,6 +66,9 @@ class HabitRepository extends BaseRepository {
         );
         final habits = parseList(response.data, Habit.fromJson);
 
+        // Persist to local DB
+        await _persistHabitsToDb(habits);
+
         _collectionCache.put(cacheKey, habits);
         for (final habit in habits) {
           _entityCache.put(habit.id, habit);
@@ -76,7 +81,7 @@ class HabitRepository extends BaseRepository {
 
     // 3. Offline fallback: read from local DAO
     try {
-      final localHabits = await _habitDao.getAllHabits('');
+      final localHabits = await _habitDao.getAllHabits(currentUserId);
       final habits = localHabits
           .map((h) => Habit.fromJson(_driftHabitToJson(h)))
           .toList();
@@ -95,6 +100,10 @@ class HabitRepository extends BaseRepository {
       try {
         final response = await apiService.post('/habits', data: data);
         final habit = Habit.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistHabitToDb(habit);
+
         _entityCache.put(habit.id, habit);
         _invalidateCollectionCaches();
         return habit;
@@ -119,6 +128,10 @@ class HabitRepository extends BaseRepository {
       try {
         final response = await apiService.put('/habits/$id', data: data);
         final habit = Habit.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistHabitToDb(habit);
+
         _entityCache.put(id, habit);
         _invalidateCollectionCaches();
         return habit;
@@ -177,6 +190,10 @@ class HabitRepository extends BaseRepository {
         await apiService.delete('/habits/$id');
         _entityCache.remove(id);
         _invalidateCollectionCaches();
+
+        // Remove from local DB
+        try { await _habitDao.deleteHabit(id); } catch (_) {}
+
         return;
       } catch (_) {
         // Fall through to queue
@@ -190,6 +207,43 @@ class HabitRepository extends BaseRepository {
     );
     _entityCache.remove(id);
     _invalidateCollectionCaches();
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistHabitsToDb(List<Habit> habits) async {
+    for (final habit in habits) {
+      await _persistHabitToDb(habit);
+    }
+  }
+
+  Future<void> _persistHabitToDb(Habit habit) async {
+    try {
+      await _habitDao.upsertHabit(_toCompanion(habit));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  HabitsCompanion _toCompanion(Habit habit) {
+    return HabitsCompanion(
+      id: Value(habit.id),
+      userId: Value(habit.userId),
+      title: Value(habit.title),
+      description: Value(habit.description),
+      category: Value(habit.category.name),
+      frequency: Value(habit.frequency.name),
+      difficulty: Value(habit.difficulty),
+      isCompletedToday: Value(habit.isCompletedToday),
+      streakCount: Value(habit.streakCount),
+      longestStreak: Value(habit.longestStreak),
+      completionRate: Value(habit.completionRate),
+      totalCompletions: Value(habit.totalCompletions),
+      reminderTime: Value(habit.reminderTime),
+      lastCompletedDate: Value(habit.lastCompletedDate),
+      createdAt: Value(habit.createdAt),
+      updatedAt: Value(habit.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

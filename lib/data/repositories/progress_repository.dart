@@ -1,4 +1,9 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show ProgressEntriesCompanion;
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/models/progress_entry.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -50,6 +55,9 @@ class ProgressRepository extends BaseRepository {
         );
         final entries = parseList(response.data, ProgressEntry.fromJson);
 
+        // Persist to local DB
+        await _persistEntriesToDb(entries);
+
         _collectionCache.put(cacheKey, entries);
         return entries;
       } catch (_) {
@@ -66,7 +74,7 @@ class ProgressRepository extends BaseRepository {
           endDate != null ? DateTime.parse(endDate) : DateTime.now();
 
       final localEntries =
-          await _progressDao.getProgressByDateRange('', start, end);
+          await _progressDao.getProgressByDateRange(currentUserId, start, end);
       final entries = localEntries
           .map((p) => ProgressEntry.fromJson(_driftProgressToJson(p)))
           .toList();
@@ -115,6 +123,52 @@ class ProgressRepository extends BaseRepository {
     }
 
     return {};
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistEntriesToDb(List<ProgressEntry> entries) async {
+    for (final entry in entries) {
+      await _persistEntryToDb(entry);
+    }
+  }
+
+  Future<void> _persistEntryToDb(ProgressEntry entry) async {
+    try {
+      await _progressDao.upsertProgress(_toCompanion(entry));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  ProgressEntriesCompanion _toCompanion(ProgressEntry entry) {
+    return ProgressEntriesCompanion(
+      id: Value(entry.id),
+      userId: Value(entry.userId),
+      date: Value(entry.date),
+      xpGained: Value(entry.xpGained),
+      tasksCompleted: Value(entry.tasksCompleted),
+      category: Value(entry.category),
+      categoryBreakdown: Value(
+        entry.categoryBreakdown != null
+            ? jsonEncode(entry.categoryBreakdown)
+            : null,
+      ),
+      taskTypeBreakdown: Value(
+        entry.taskTypeBreakdown != null
+            ? jsonEncode(entry.taskTypeBreakdown)
+            : null,
+      ),
+      streakCount: Value(entry.streakCount),
+      levelAtTime: Value(entry.levelAtTime),
+      additionalMetrics: Value(
+        entry.additionalMetrics != null
+            ? jsonEncode(entry.additionalMetrics)
+            : null,
+      ),
+      createdAt: Value(entry.createdAt),
+      updatedAt: Value(entry.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

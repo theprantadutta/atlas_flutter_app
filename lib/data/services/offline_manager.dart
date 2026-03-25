@@ -29,6 +29,7 @@ class OfflineManager {
   bool _isOnline = true;
   bool _isSyncing = false;
   bool _isAuthenticated = false;
+  String? _currentUserId;
   Timer? _periodicSyncTimer;
   DateTime? _lastSyncTime;
   StreamSubscription<bool>? _connectivitySubscription;
@@ -53,15 +54,18 @@ class OfflineManager {
 
   bool get isOnline => _isOnline;
   bool get isAuthenticated => _isAuthenticated;
+  String? get currentUserId => _currentUserId;
   DateTime? get lastSyncTime => _lastSyncTime;
 
   /// Call when auth state changes. Sync only runs when authenticated.
-  void setAuthenticated(bool authenticated) {
+  void setAuthenticated(bool authenticated, {String? userId}) {
     _isAuthenticated = authenticated;
+    _currentUserId = userId;
     if (authenticated && _isOnline) {
       syncNow();
     }
     if (!authenticated) {
+      _currentUserId = null;
       _cancelPeriodicSync();
     }
   }
@@ -166,7 +170,7 @@ class OfflineManager {
     final pending = await _syncDao.getPendingOperations();
     if (pending.isEmpty) return;
 
-    // Filter to only retry-eligible operations
+    // Filter to only retry-eligible operations (exponential backoff)
     final readyOps = pending.where((op) {
       final retryDelay =
           Duration(seconds: (1 << op.retryCount).clamp(1, 300));
@@ -176,66 +180,130 @@ class OfflineManager {
 
     if (readyOps.isEmpty) return;
 
-    // Build the operations list matching backend's SyncOperationDto
-    final operations = readyOps.map((op) {
-      final payload = <String, dynamic>{
-        'operation_type': op.operationType,
-        'entity_type': op.entityType,
-        'entity_id': op.entityId,
-        'timestamp': op.timestamp.toIso8601String(),
-        'version': 1,
-      };
-      if (op.data != null) {
-        payload['data'] = op.data;
-      }
-      return payload;
-    }).toList();
-
-    try {
-      await _syncRepository.pushSync(operations);
-
-      // All pushed successfully — remove from queue
-      for (final op in readyOps) {
+    for (final op in readyOps) {
+      try {
+        await _dispatchOperation(op);
         await _syncDao.deleteOperation(op.id);
-      }
-      _log.i('OfflineManager: Pushed ${readyOps.length} operations');
-    } catch (e) {
-      _log.w('OfflineManager: Push failed, incrementing retries', error: e);
-      for (final op in readyOps) {
+        _log.d(
+            'OfflineManager: Synced ${op.operationType} ${op.entityType}/${op.entityId}');
+      } catch (e) {
         if (op.retryCount + 1 >= op.maxRetries) {
+          await _syncDao.deleteOperation(op.id);
           _log.w(
               'OfflineManager: Max retries exceeded for ${op.id}, removing');
-          await _syncDao.deleteOperation(op.id);
         } else {
           await _syncDao.incrementRetry(op.id);
+          _log.w(
+              'OfflineManager: Retry ${op.retryCount + 1} for ${op.operationType} ${op.entityType}/${op.entityId}',
+              error: e);
         }
       }
+    }
+  }
+
+  /// Dispatch a single queued operation to the appropriate REST endpoint.
+  Future<void> _dispatchOperation(SyncOperation op) async {
+    final data = op.data != null
+        ? jsonDecode(op.data!) as Map<String, dynamic>
+        : null;
+    final api = _syncRepository.apiService;
+
+    switch ('${op.operationType}_${op.entityType}') {
+      // ─── Tasks ─────────────────────────────────────────
+      case 'create_task':
+        await api.post('/tasks', data: data);
+      case 'update_task':
+        await api.put('/tasks/${op.entityId}', data: data);
+      case 'delete_task':
+        await api.delete('/tasks/${op.entityId}');
+      case 'complete_task':
+        await api.post('/tasks/${op.entityId}/complete');
+
+      // ─── Habits ────────────────────────────────────────
+      case 'create_habit':
+        await api.post('/habits', data: data);
+      case 'update_habit':
+        await api.put('/habits/${op.entityId}', data: data);
+      case 'delete_habit':
+        await api.delete('/habits/${op.entityId}');
+      case 'complete_habit':
+        await api.post('/habits/${op.entityId}/complete');
+
+      // ─── Goals ─────────────────────────────────────────
+      case 'create_goal':
+        await api.post('/goals', data: data);
+      case 'update_goal':
+        await api.put('/goals/${op.entityId}', data: data);
+      case 'delete_goal':
+        await api.delete('/goals/${op.entityId}');
+      case 'update_progress_goal':
+        await api.post('/goals/${op.entityId}/progress', data: data);
+
+      // ─── Avatar ────────────────────────────────────────
+      case 'create_avatar':
+        await api.post('/avatar', data: data);
+      case 'update_appearance_avatar':
+        await api.put('/avatar/appearance', data: data);
+      case 'unlock_item_avatar':
+        await api.post('/avatar/unlock-item', data: data);
+
+      // ─── Achievements ──────────────────────────────────
+      case 'check_achievement':
+        await api.post('/achievements/check');
+
+      // ─── World Tiles ───────────────────────────────────
+      case 'unlock_world_tile':
+        await api.post('/world/tiles/${op.entityId}/unlock');
+
+      default:
+        _log.w(
+            'OfflineManager: Unknown operation ${op.operationType}_${op.entityType}');
     }
   }
 
   // ─── Pull ───────────────────────────────────────────────────
 
   Future<void> _pullChanges() async {
-    try {
-      final response = await _syncRepository.pullSync(
-        lastSyncTimestamp: _lastSyncTime?.toIso8601String(),
-      );
+    for (final entry in _pullHandlers.entries) {
+      try {
+        final entityType = entry.key;
+        final handler = entry.value;
+        final endpoint = _endpointForEntityType(entityType);
+        if (endpoint == null) continue;
 
-      for (final entityType in _pullHandlers.keys) {
-        final entities = response[entityType];
-        if (entities != null && entities is List && entities.isNotEmpty) {
-          final typed = entities
+        final response = await _syncRepository.apiService.get(endpoint);
+
+        // Handle both List responses and single-object responses (e.g., avatar)
+        if (response.data is List) {
+          final items = (response.data as List)
               .map((e) => e as Map<String, dynamic>)
               .toList();
-          await _pullHandlers[entityType]!(typed);
+          await handler(items);
           _log.d(
-              'OfflineManager: Pulled ${typed.length} $entityType entities');
+              'OfflineManager: Pulled ${items.length} $entityType entities');
+        } else if (response.data is Map<String, dynamic>) {
+          // Single entity (e.g., avatar) — wrap in a list for the handler
+          await handler([response.data as Map<String, dynamic>]);
+          _log.d('OfflineManager: Pulled 1 $entityType entity');
         }
+      } catch (e) {
+        _log.w('OfflineManager: Pull failed for ${entry.key}', error: e);
       }
-    } catch (e) {
-      _log.e('OfflineManager: Pull failed', error: e);
-      rethrow;
     }
+  }
+
+  /// Maps entity type names to their REST GET endpoints.
+  String? _endpointForEntityType(String entityType) {
+    return switch (entityType) {
+      'task' => '/tasks',
+      'habit' => '/habits',
+      'goal' => '/goals',
+      'avatar' => '/avatar',
+      'achievement' => '/achievements',
+      'world_tile' => '/world/tiles',
+      'progress' => '/progress',
+      _ => null,
+    };
   }
 
   // ─── Pull Handler Registration ──────────────────────────────

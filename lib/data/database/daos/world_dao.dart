@@ -23,6 +23,10 @@ class WorldDao extends DatabaseAccessor<AtlasDatabase>
     return into(worldTiles).insert(entry);
   }
 
+  Future<int> upsertTile(WorldTilesCompanion entry) {
+    return into(worldTiles).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateTile(WorldTilesCompanion entry) {
     return update(worldTiles).replace(entry);
   }

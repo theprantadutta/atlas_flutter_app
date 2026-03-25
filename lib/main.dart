@@ -9,6 +9,12 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    // Firebase unavailable — continue without it (Google Sign-In won't work)
+    debugPrint('Firebase initialization failed: $e');
+  }
   runApp(const ProviderScope(child: AtlasApp()));
 }

@@ -1,4 +1,9 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show AchievementsCompanion;
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/models/achievement.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -63,6 +68,9 @@ class AchievementRepository extends BaseRepository {
         final achievements =
             parseList(response.data, Achievement.fromJson);
 
+        // Persist to local DB
+        await _persistAchievementsToDb(achievements);
+
         _collectionCache.put(cacheKey, achievements);
         for (final achievement in achievements) {
           _entityCache.put(achievement.id, achievement);
@@ -76,7 +84,7 @@ class AchievementRepository extends BaseRepository {
     // 3. Offline fallback: read from local DAO
     try {
       final localAchievements =
-          await _achievementDao.getAllAchievements('');
+          await _achievementDao.getAllAchievements(currentUserId);
       final achievements = localAchievements
           .map((a) => Achievement.fromJson(_driftAchievementToJson(a)))
           .toList();
@@ -99,6 +107,10 @@ class AchievementRepository extends BaseRepository {
         final response = await apiService.get('/achievements/recent');
         final achievements =
             parseList(response.data, Achievement.fromJson);
+
+        // Persist to local DB
+        await _persistAchievementsToDb(achievements);
+
         _collectionCache.put(cacheKey, achievements);
         for (final achievement in achievements) {
           _entityCache.put(achievement.id, achievement);
@@ -112,7 +124,7 @@ class AchievementRepository extends BaseRepository {
     // Offline fallback: filter unlocked from local DAO
     try {
       final localUnlocked =
-          await _achievementDao.getUnlockedAchievements('');
+          await _achievementDao.getUnlockedAchievements(currentUserId);
       final achievements = localUnlocked
           .map((a) => Achievement.fromJson(_driftAchievementToJson(a)))
           .toList();
@@ -145,6 +157,41 @@ class AchievementRepository extends BaseRepository {
     );
 
     return {'checked': true, 'offline': true};
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistAchievementsToDb(List<Achievement> achievements) async {
+    for (final achievement in achievements) {
+      await _persistAchievementToDb(achievement);
+    }
+  }
+
+  Future<void> _persistAchievementToDb(Achievement achievement) async {
+    try {
+      await _achievementDao.upsertAchievement(_toCompanion(achievement));
+    } catch (_) {
+      // Ignore DB write errors
+    }
+  }
+
+  AchievementsCompanion _toCompanion(Achievement achievement) {
+    return AchievementsCompanion(
+      id: Value(achievement.id),
+      userId: Value(achievement.userId),
+      title: Value(achievement.title),
+      description: Value(achievement.description),
+      iconPath: Value(achievement.iconPath),
+      achievementType: Value(achievement.achievementType.name),
+      criteria: Value(
+        achievement.criteria != null ? jsonEncode(achievement.criteria) : null,
+      ),
+      isUnlocked: Value(achievement.isUnlocked),
+      progress: Value(achievement.progress),
+      unlockedAt: Value(achievement.unlockedAt),
+      createdAt: Value(achievement.createdAt),
+      updatedAt: Value(achievement.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

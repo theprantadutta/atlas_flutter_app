@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' show TasksCompanion;
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/models/task.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
@@ -68,6 +70,9 @@ class TaskRepository extends BaseRepository {
         );
         final tasks = parseList(response.data, Task.fromJson);
 
+        // Persist to local DB
+        await _persistTasksToDb(tasks);
+
         // Cache the collection and individual entities
         _collectionCache.put(cacheKey, tasks);
         for (final task in tasks) {
@@ -81,7 +86,7 @@ class TaskRepository extends BaseRepository {
 
     // 3. Offline fallback: read from local DAO
     try {
-      final localTasks = await _taskDao.getAllTasks('');
+      final localTasks = await _taskDao.getAllTasks(currentUserId);
       final tasks = localTasks
           .map((t) => Task.fromJson(_driftTaskToJson(t)))
           .toList();
@@ -103,6 +108,10 @@ class TaskRepository extends BaseRepository {
       try {
         final response = await apiService.get('/tasks/$id');
         final task = Task.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistTaskToDb(task);
+
         _entityCache.put(id, task);
         return task;
       } catch (_) {
@@ -129,6 +138,10 @@ class TaskRepository extends BaseRepository {
       try {
         final response = await apiService.post('/tasks', data: data);
         final task = Task.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistTaskToDb(task);
+
         _entityCache.put(task.id, task);
         _invalidateCollectionCaches();
         return task;
@@ -156,6 +169,10 @@ class TaskRepository extends BaseRepository {
       try {
         final response = await apiService.put('/tasks/$id', data: data);
         final task = Task.fromJson(response.data as Map<String, dynamic>);
+
+        // Persist to local DB
+        await _persistTaskToDb(task);
+
         _entityCache.put(id, task);
         _invalidateCollectionCaches();
         return task;
@@ -217,6 +234,10 @@ class TaskRepository extends BaseRepository {
         await apiService.delete('/tasks/$id');
         _entityCache.remove(id);
         _invalidateCollectionCaches();
+
+        // Remove from local DB
+        try { await _taskDao.deleteTask(id); } catch (_) {}
+
         return;
       } catch (_) {
         // Fall through to queue
@@ -305,6 +326,41 @@ class TaskRepository extends BaseRepository {
     }
 
     return {};
+  }
+
+  // ─── DB Persistence Helpers ────────────────────────────────
+
+  Future<void> _persistTasksToDb(List<Task> tasks) async {
+    for (final task in tasks) {
+      await _persistTaskToDb(task);
+    }
+  }
+
+  Future<void> _persistTaskToDb(Task task) async {
+    try {
+      await _taskDao.upsertTask(_toCompanion(task));
+    } catch (_) {
+      // Ignore DB write errors — cache/API data is still valid
+    }
+  }
+
+  TasksCompanion _toCompanion(Task task) {
+    return TasksCompanion(
+      id: Value(task.id),
+      userId: Value(task.userId),
+      title: Value(task.title),
+      description: Value(task.description),
+      type: Value(task.type.name),
+      category: Value(task.category.name),
+      xpReward: Value(task.xpReward),
+      difficulty: Value(task.difficulty),
+      dueDate: Value(task.dueDate),
+      isCompleted: Value(task.isCompleted),
+      streakCount: Value(task.streakCount),
+      lastCompletedDate: Value(task.lastCompletedDate),
+      createdAt: Value(task.createdAt),
+      updatedAt: Value(task.updatedAt),
+    );
   }
 
   // ─── Helpers ─────────────────────────────────────────────────

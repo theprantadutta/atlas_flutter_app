@@ -21,6 +21,10 @@ class HabitDao extends DatabaseAccessor<AtlasDatabase> with _$HabitDaoMixin {
     return into(habits).insert(entry);
   }
 
+  Future<int> upsertHabit(HabitsCompanion entry) {
+    return into(habits).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateHabit(HabitsCompanion entry) {
     return update(habits).replace(entry);
   }

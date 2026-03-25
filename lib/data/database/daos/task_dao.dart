@@ -21,6 +21,10 @@ class TaskDao extends DatabaseAccessor<AtlasDatabase> with _$TaskDaoMixin {
     return into(tasks).insert(entry);
   }
 
+  Future<int> upsertTask(TasksCompanion entry) {
+    return into(tasks).insertOnConflictUpdate(entry);
+  }
+
   Future<bool> updateTask(TasksCompanion entry) {
     return update(tasks).replace(entry);
   }
