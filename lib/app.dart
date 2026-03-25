@@ -67,6 +67,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   Future<void> _initializeFcm() async {
     final fcmService = ref.read(fcmServiceProvider);
     final localNotificationService = ref.read(localNotificationServiceProvider);
+    final router = ref.read(routerProvider);
 
     // Wire FCM foreground messages to show local notifications
     fcmService.onNotificationReceived = (payload) {
@@ -77,8 +78,17 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
           id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           title: title,
           body: body,
-          payload: payload.toString(),
+          payload: payload['route'] as String? ?? '/notifications',
         );
+      }
+    };
+
+    // Wire notification tap to navigate
+    localNotificationService.onNotificationTapped = (payload) {
+      if (payload != null && payload.isNotEmpty) {
+        router.push(payload.startsWith('/') ? payload : '/notifications');
+      } else {
+        router.push('/notifications');
       }
     };
 
