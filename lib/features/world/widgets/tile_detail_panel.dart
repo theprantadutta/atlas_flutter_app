@@ -65,11 +65,12 @@ class _TileDetailPanel extends ConsumerWidget {
         color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
             width: 40,
             height: 4,
             decoration: BoxDecoration(
@@ -241,6 +242,7 @@ class _TileDetailPanel extends ConsumerWidget {
           ],
           const SizedBox(height: 8),
         ],
+      ),
       ),
     );
   }
