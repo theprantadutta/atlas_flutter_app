@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'package:atlas_flutter_app/core/config/sync_config.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -21,6 +22,7 @@ enum SyncStatus { idle, syncing, error }
 class OfflineManager {
   final SyncDao _syncDao;
   final TaskDao _taskDao;
+  final HabitDao _habitDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -82,10 +84,12 @@ class OfflineManager {
   OfflineManager({
     required SyncDao syncDao,
     required TaskDao taskDao,
+    required HabitDao habitDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
         _taskDao = taskDao,
+        _habitDao = habitDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -152,10 +156,11 @@ class OfflineManager {
     _syncStatusController.add(SyncStatus.syncing);
 
     try {
-      // Row-based sync for migrated entities (Tasks), then the legacy outbox.
+      // Row-based sync for migrated entities (Tasks, Habits), then legacy outbox.
       await _pushTasks();
+      await _pushHabits();
       await _pushChanges();
-      await _pullTasks();
+      await _pullRows();
       await _pullChanges();
 
       // Persist last sync time
@@ -344,8 +349,9 @@ class OfflineManager {
     _log.d('OfflineManager: Pushed ${ops.length} task rows');
   }
 
-  /// Pull Task deltas (incl. tombstones) since the cursor and apply with LWW.
-  Future<void> _pullTasks() async {
+  /// Pull deltas (incl. tombstones) since the cursor and apply each migrated
+  /// entity with LWW (local wins ties).
+  Future<void> _pullRows() async {
     final userId = _currentUserId;
     if (userId == null) return;
 
@@ -355,12 +361,16 @@ class OfflineManager {
     final list = (resp['entities'] as List?) ?? const [];
     for (final e in list) {
       final m = (e as Map).cast<String, dynamic>();
-      if (m['entity_type'] != 'task') continue;
       final raw = m['data'];
       final remote = raw is String
           ? jsonDecode(raw) as Map<String, dynamic>
           : (raw as Map).cast<String, dynamic>();
-      await _applyRemoteTask(userId, remote);
+      switch (m['entity_type']) {
+        case 'task':
+          await _applyRemoteTask(userId, remote);
+        case 'habit':
+          await _applyRemoteHabit(userId, remote);
+      }
     }
   }
 
@@ -421,6 +431,98 @@ class OfflineManager {
       dueDate: Value(parse(r['due_date'])),
       isCompleted: Value(r['is_completed'] == true),
       streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
+      lastCompletedDate: Value(parse(r['last_completed_date'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: Value(r['is_deleted'] == true),
+      deletedAt: Value(parse(r['deleted_at'])),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Habit sync (offline-first) ───────────────────
+
+  Future<void> _pushHabits() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _habitDao.getDirtyHabits(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final h in dirty)
+        {
+          'operation_type': h.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'habit',
+          'entity_id': h.id,
+          'data': jsonEncode(_habitWire(h)),
+          'timestamp': h.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _habitDao.markSynced([for (final h in dirty) h.id], DateTime.now());
+    await _habitDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} habit rows');
+  }
+
+  Future<void> _applyRemoteHabit(String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _habitDao.getHabitById(id);
+
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _habitDao.hardDeleteHabit(id);
+      return;
+    }
+    await _habitDao.upsertHabit(_companionFromRemoteHabit(userId, r, remoteUpdated));
+  }
+
+  Map<String, dynamic> _habitWire(Habit h) => {
+        'id': h.id,
+        'user_id': h.userId,
+        'title': h.title,
+        'description': h.description,
+        'category': h.category,
+        'frequency': h.frequency,
+        'difficulty': h.difficulty,
+        'is_completed_today': h.isCompletedToday,
+        'streak_count': h.streakCount,
+        'longest_streak': h.longestStreak,
+        'completion_rate': h.completionRate,
+        'total_completions': h.totalCompletions,
+        'reminder_time': h.reminderTime,
+        'last_completed_date': h.lastCompletedDate?.toUtc().toIso8601String(),
+        'is_deleted': h.isDeleted,
+        'updated_at': h.updatedAt.toUtc().toIso8601String(),
+      };
+
+  HabitsCompanion _companionFromRemoteHabit(
+      String userId, Map<String, dynamic> r, DateTime? updated) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    return HabitsCompanion(
+      id: Value(r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      title: Value((r['title'] ?? '').toString()),
+      description: Value(r['description']?.toString()),
+      category: Value((r['category'] ?? 'custom').toString()),
+      frequency: Value((r['frequency'] ?? 'daily').toString()),
+      difficulty: Value((r['difficulty'] as num?)?.toInt() ?? 1),
+      isCompletedToday: Value(r['is_completed_today'] == true),
+      streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
+      longestStreak: Value((r['longest_streak'] as num?)?.toInt() ?? 0),
+      completionRate: Value((r['completion_rate'] as num?)?.toDouble() ?? 0.0),
+      totalCompletions: Value((r['total_completions'] as num?)?.toInt() ?? 0),
+      reminderTime: Value(r['reminder_time']?.toString()),
       lastCompletedDate: Value(parse(r['last_completed_date'])),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),

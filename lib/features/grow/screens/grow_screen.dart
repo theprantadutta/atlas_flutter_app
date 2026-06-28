@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/sample/sample_grow.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -20,6 +21,7 @@ Color _taskColor(String category) => switch (category) {
       'learning' => AppColors.categoryLearning,
       'social' => AppColors.categorySocial,
       'creative' => AppColors.categoryCreative,
+      'productivity' => AppColors.categoryWork,
       _ => AppColors.primary,
     };
 
@@ -32,12 +34,21 @@ IconData _taskIcon(String category) => switch (category) {
       'learning' => Icons.menu_book_rounded,
       'social' => Icons.group_rounded,
       'creative' => Icons.palette_rounded,
+      'productivity' => Icons.bolt_rounded,
       _ => Icons.check_circle_outline_rounded,
     };
 
 String _cadenceLabel(String type) => switch (type) {
       'weekly' => 'Weekly',
       'longTerm' => 'Long-term',
+      _ => 'Daily',
+    };
+
+String _freqLabel(String frequency) => switch (frequency) {
+      'weekly' => 'Weekly',
+      'weekdays' => 'Weekdays',
+      'weekends' => 'Weekends',
+      'custom' => 'Custom',
       _ => 'Daily',
     };
 
@@ -56,11 +67,42 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(what)));
 
   void _onAdd() {
-    if (_segment == 0) {
-      _showNewTaskDialog();
-    } else {
-      _comingSoon('Add coming soon');
+    switch (_segment) {
+      case 0:
+        _showNewTaskDialog();
+      case 1:
+        _showNewHabitDialog();
+      default:
+        _comingSoon('Add coming soon');
     }
+  }
+
+  Future<void> _showNewHabitDialog() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New habit'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'What will you nurture?'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (title == null || title.isEmpty) return;
+    final userId = ref.read(currentUserIdProvider);
+    await ref.read(habitActionsProvider).create(userId: userId, title: title);
   }
 
   Future<void> _showNewTaskDialog() async {
@@ -257,113 +299,135 @@ class _HabitsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final habits = ref.watch(habitsProvider);
-    final doneToday = habits.where((h) => h.doneToday).length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AtlasCard(
-          child: Row(
-            children: [
-              ProgressRing(
-                progress: habits.isEmpty ? 0 : doneToday / habits.length,
-                size: 56,
-                stroke: 6,
-                child: Text('$doneToday/${habits.length}',
-                    style: Theme.of(context).textTheme.labelMedium),
+    final habitsAsync = ref.watch(habitsStreamProvider);
+    return habitsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: AppSpacing.xxl),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => const AtlasEmptyState(
+        icon: Icons.error_outline_rounded,
+        title: 'Something went wrong',
+        message: 'Could not load your habits.',
+      ),
+      data: (habits) {
+        if (habits.isEmpty) {
+          return const AtlasEmptyState(
+            icon: Icons.eco_outlined,
+            title: 'No habits yet',
+            message: 'Tap + to nurture your first habit.',
+          );
+        }
+        final doneToday = habits.where((h) => h.isCompletedToday).length;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AtlasCard(
+              child: Row(
+                children: [
+                  ProgressRing(
+                    progress: habits.isEmpty ? 0 : doneToday / habits.length,
+                    size: 56,
+                    stroke: 6,
+                    child: Text('$doneToday/${habits.length}',
+                        style: Theme.of(context).textTheme.labelMedium),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Today's habits",
+                            style: Theme.of(context).textTheme.titleMedium),
+                        Text('Keep your streaks alive',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Today\'s habits',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text('Keep your streaks alive',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant)),
-                  ],
+            ),
+            AppSpacing.gapMd,
+            ...habits.map(
+              (h) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _HabitRow(
+                  habit: h,
+                  onTap: () =>
+                      ref.read(habitActionsProvider).toggleComplete(h),
+                  onDelete: () => ref.read(habitActionsProvider).delete(h.id),
                 ),
               ),
-            ],
-          ),
-        ),
-        AppSpacing.gapMd,
-        ...habits.map(
-          (h) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: _HabitRow(
-              habit: h,
-              onTap: () => ref.read(habitsProvider.notifier).toggle(h.id),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
 
 class _HabitRow extends StatelessWidget {
-  const _HabitRow({required this.habit, required this.onTap});
-  final SampleHabit habit;
+  const _HabitRow({
+    required this.habit,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final db.Habit habit;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AtlasCard(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _IconTile(icon: habit.icon, color: habit.color, dim: !habit.doneToday),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(habit.name, style: theme.textTheme.titleMedium),
-                    Row(
-                      children: [
-                        const Icon(Icons.local_fire_department_rounded,
-                            size: 14, color: AppColors.streakFlame),
-                        const SizedBox(width: 3),
-                        Text('${habit.streak} day streak · ${habit.frequency}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              _Check(done: habit.doneToday, color: habit.color),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (var i = 0; i < habit.week.length; i++)
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: habit.week[i]
-                        ? habit.color.withValues(alpha: 0.9)
-                        : theme.colorScheme.outline.withValues(alpha: 0.4),
+    final done = habit.isCompletedToday;
+    final color = _taskColor(habit.category);
+    return Dismissible(
+      key: ValueKey(habit.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+      ),
+      child: AtlasCard(
+        onTap: onTap,
+        child: Row(
+          children: [
+            _IconTile(icon: _taskIcon(habit.category), color: color, dim: !done),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(habit.title, style: theme.textTheme.titleMedium),
+                  Row(
+                    children: [
+                      const Icon(Icons.local_fire_department_rounded,
+                          size: 14, color: AppColors.streakFlame),
+                      const SizedBox(width: 3),
+                      Text(
+                          '${habit.streakCount} day streak · ${_freqLabel(habit.frequency)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant)),
+                    ],
                   ),
-                  child: habit.week[i]
-                      ? const Icon(Icons.check_rounded,
-                          size: 13, color: Colors.white)
-                      : null,
-                ),
-            ],
-          ),
-        ],
+                ],
+              ),
+            ),
+            _Check(done: done, color: color),
+          ],
+        ),
       ),
     );
   }

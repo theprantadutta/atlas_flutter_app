@@ -1981,6 +1981,58 @@ class $HabitsTable extends Habits with TableInfo<$HabitsTable, Habit> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isDirtyMeta = const VerificationMeta(
+    'isDirty',
+  );
+  @override
+  late final GeneratedColumn<bool> isDirty = GeneratedColumn<bool>(
+    'is_dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_dirty" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
+    'lastSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+    'last_synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1999,6 +2051,10 @@ class $HabitsTable extends Habits with TableInfo<$HabitsTable, Habit> {
     lastCompletedDate,
     createdAt,
     updatedAt,
+    isDirty,
+    isDeleted,
+    deletedAt,
+    lastSyncedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2143,6 +2199,33 @@ class $HabitsTable extends Habits with TableInfo<$HabitsTable, Habit> {
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('is_dirty')) {
+      context.handle(
+        _isDirtyMeta,
+        isDirty.isAcceptableOrUnknown(data['is_dirty']!, _isDirtyMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+        _lastSyncedAtMeta,
+        lastSyncedAt.isAcceptableOrUnknown(
+          data['last_synced_at']!,
+          _lastSyncedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2216,6 +2299,22 @@ class $HabitsTable extends Habits with TableInfo<$HabitsTable, Habit> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      isDirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_dirty'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_synced_at'],
+      ),
     );
   }
 
@@ -2242,6 +2341,10 @@ class Habit extends DataClass implements Insertable<Habit> {
   final DateTime? lastCompletedDate;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isDirty;
+  final bool isDeleted;
+  final DateTime? deletedAt;
+  final DateTime? lastSyncedAt;
   const Habit({
     required this.id,
     required this.userId,
@@ -2259,6 +2362,10 @@ class Habit extends DataClass implements Insertable<Habit> {
     this.lastCompletedDate,
     required this.createdAt,
     required this.updatedAt,
+    required this.isDirty,
+    required this.isDeleted,
+    this.deletedAt,
+    this.lastSyncedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2285,6 +2392,14 @@ class Habit extends DataClass implements Insertable<Habit> {
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_dirty'] = Variable<bool>(isDirty);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || lastSyncedAt != null) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    }
     return map;
   }
 
@@ -2312,6 +2427,14 @@ class Habit extends DataClass implements Insertable<Habit> {
           : Value(lastCompletedDate),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      isDirty: Value(isDirty),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      lastSyncedAt: lastSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncedAt),
     );
   }
 
@@ -2339,6 +2462,10 @@ class Habit extends DataClass implements Insertable<Habit> {
       ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isDirty: serializer.fromJson<bool>(json['isDirty']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
     );
   }
   @override
@@ -2361,6 +2488,10 @@ class Habit extends DataClass implements Insertable<Habit> {
       'lastCompletedDate': serializer.toJson<DateTime?>(lastCompletedDate),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isDirty': serializer.toJson<bool>(isDirty),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
     };
   }
 
@@ -2381,6 +2512,10 @@ class Habit extends DataClass implements Insertable<Habit> {
     Value<DateTime?> lastCompletedDate = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isDirty,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<DateTime?> lastSyncedAt = const Value.absent(),
   }) => Habit(
     id: id ?? this.id,
     userId: userId ?? this.userId,
@@ -2400,6 +2535,10 @@ class Habit extends DataClass implements Insertable<Habit> {
         : this.lastCompletedDate,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    isDirty: isDirty ?? this.isDirty,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
   );
   Habit copyWithCompanion(HabitsCompanion data) {
     return Habit(
@@ -2437,6 +2576,12 @@ class Habit extends DataClass implements Insertable<Habit> {
           : this.lastCompletedDate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDirty: data.isDirty.present ? data.isDirty.value : this.isDirty,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
     );
   }
 
@@ -2458,7 +2603,11 @@ class Habit extends DataClass implements Insertable<Habit> {
           ..write('reminderTime: $reminderTime, ')
           ..write('lastCompletedDate: $lastCompletedDate, ')
           ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDirty: $isDirty, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
           ..write(')'))
         .toString();
   }
@@ -2481,6 +2630,10 @@ class Habit extends DataClass implements Insertable<Habit> {
     lastCompletedDate,
     createdAt,
     updatedAt,
+    isDirty,
+    isDeleted,
+    deletedAt,
+    lastSyncedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -2501,7 +2654,11 @@ class Habit extends DataClass implements Insertable<Habit> {
           other.reminderTime == this.reminderTime &&
           other.lastCompletedDate == this.lastCompletedDate &&
           other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.isDirty == this.isDirty &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.lastSyncedAt == this.lastSyncedAt);
 }
 
 class HabitsCompanion extends UpdateCompanion<Habit> {
@@ -2521,6 +2678,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
   final Value<DateTime?> lastCompletedDate;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<bool> isDirty;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<DateTime?> lastSyncedAt;
   final Value<int> rowid;
   const HabitsCompanion({
     this.id = const Value.absent(),
@@ -2539,6 +2700,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
     this.lastCompletedDate = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.isDirty = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HabitsCompanion.insert({
@@ -2558,6 +2723,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
     this.lastCompletedDate = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.isDirty = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        userId = Value(userId),
@@ -2583,6 +2752,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
     Expression<DateTime>? lastCompletedDate,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<bool>? isDirty,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<DateTime>? lastSyncedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2602,6 +2775,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
       if (lastCompletedDate != null) 'last_completed_date': lastCompletedDate,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDirty != null) 'is_dirty': isDirty,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2623,6 +2800,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
     Value<DateTime?>? lastCompletedDate,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<bool>? isDirty,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<DateTime?>? lastSyncedAt,
     Value<int>? rowid,
   }) {
     return HabitsCompanion(
@@ -2642,6 +2823,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
       lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isDirty: isDirty ?? this.isDirty,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2697,6 +2882,18 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (isDirty.present) {
+      map['is_dirty'] = Variable<bool>(isDirty.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2722,6 +2919,10 @@ class HabitsCompanion extends UpdateCompanion<Habit> {
           ..write('lastCompletedDate: $lastCompletedDate, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('isDirty: $isDirty, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8659,6 +8860,10 @@ typedef $$HabitsTableCreateCompanionBuilder =
       Value<DateTime?> lastCompletedDate,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<bool> isDirty,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> lastSyncedAt,
       Value<int> rowid,
     });
 typedef $$HabitsTableUpdateCompanionBuilder =
@@ -8679,6 +8884,10 @@ typedef $$HabitsTableUpdateCompanionBuilder =
       Value<DateTime?> lastCompletedDate,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<bool> isDirty,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> lastSyncedAt,
       Value<int> rowid,
     });
 
@@ -8768,6 +8977,26 @@ class $$HabitsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDirty => $composableBuilder(
+    column: $table.isDirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8860,6 +9089,26 @@ class $$HabitsTableOrderingComposer
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isDirty => $composableBuilder(
+    column: $table.isDirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HabitsTableAnnotationComposer
@@ -8936,6 +9185,20 @@ class $$HabitsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDirty =>
+      $composableBuilder(column: $table.isDirty, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => column,
+  );
 }
 
 class $$HabitsTableTableManager
@@ -8982,6 +9245,10 @@ class $$HabitsTableTableManager
                 Value<DateTime?> lastCompletedDate = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDirty = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HabitsCompanion(
                 id: id,
@@ -9000,6 +9267,10 @@ class $$HabitsTableTableManager
                 lastCompletedDate: lastCompletedDate,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                isDirty: isDirty,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                lastSyncedAt: lastSyncedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9020,6 +9291,10 @@ class $$HabitsTableTableManager
                 Value<DateTime?> lastCompletedDate = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<bool> isDirty = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HabitsCompanion.insert(
                 id: id,
@@ -9038,6 +9313,10 @@ class $$HabitsTableTableManager
                 lastCompletedDate: lastCompletedDate,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                isDirty: isDirty,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                lastSyncedAt: lastSyncedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

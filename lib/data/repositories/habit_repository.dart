@@ -1,14 +1,16 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
-import 'package:atlas_flutter_app/data/database/atlas_database.dart' show HabitsCompanion;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/models/habit.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
 
+/// Local-first Habit repository: Drift is the source of truth. Writes land
+/// locally first and are marked dirty for later (premium) sync.
 class HabitRepository extends BaseRepository {
   final HabitDao _habitDao;
+  final _uuid = const Uuid();
 
   HabitRepository(
     super.apiService,
@@ -16,261 +18,122 @@ class HabitRepository extends BaseRepository {
     this._habitDao,
   );
 
-  // ─── Caches ──────────────────────────────────────────────────
+  // ─── READ ─────────────────────────────────────────────────────
 
-  final LRUCache<String, List<Habit>> _collectionCache =
-      LRUCache(maxSize: 100, ttl: Duration(minutes: 3));
-  final LRUCache<String, Habit> _entityCache =
-      LRUCache(maxSize: 200, ttl: Duration(minutes: 3));
-  final LRUCache<String, Map<String, dynamic>> _statsCache =
-      LRUCache(maxSize: 50, ttl: Duration(minutes: 5));
-
-  // ─── Cache key helpers ───────────────────────────────────────
-
-  String _collectionKey({
-    String? category,
-    String? frequency,
-    String? search,
-  }) =>
-      'habits:$category:$frequency:$search';
-
-  // ─── READ operations ─────────────────────────────────────────
-
-  /// Fetch all habits.
   Future<List<Habit>> getHabits({
     String? category,
     String? frequency,
     String? search,
   }) async {
-    final cacheKey = _collectionKey(
-      category: category,
-      frequency: frequency,
-      search: search,
-    );
-
-    // 1. Check LRU cache
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
-
-    // 2. If online, try API
-    if (isOnline) {
-      try {
-        final queryParams = <String, dynamic>{};
-        if (category != null) queryParams['category'] = category;
-        if (frequency != null) queryParams['frequency'] = frequency;
-        if (search != null) queryParams['search'] = search;
-
-        final response = await apiService.get(
-          '/habits',
-          queryParameters: queryParams.isNotEmpty ? queryParams : null,
-        );
-        final habits = parseList(response.data, Habit.fromJson);
-
-        // Persist to local DB
-        await _persistHabitsToDb(habits);
-
-        _collectionCache.put(cacheKey, habits);
-        for (final habit in habits) {
-          _entityCache.put(habit.id, habit);
-        }
-        return habits;
-      } catch (_) {
-        // API failed — fall through to DAO
-      }
+    final rows = await _habitDao.getAllHabits(currentUserId);
+    Iterable<Habit> habits = rows.map(_toModel);
+    if (category != null) {
+      habits = habits.where((h) => h.category.name == category);
     }
-
-    // 3. Offline fallback: read from local DAO
-    try {
-      final localHabits = await _habitDao.getAllHabits(currentUserId);
-      final habits = localHabits
-          .map((h) => Habit.fromJson(_driftHabitToJson(h)))
-          .toList();
-      _collectionCache.put(cacheKey, habits);
-      return habits;
-    } catch (_) {
-      return [];
+    if (frequency != null) {
+      habits = habits.where((h) => h.frequency.name == frequency);
     }
+    if (search != null && search.isNotEmpty) {
+      final q = search.toLowerCase();
+      habits = habits.where((h) => h.title.toLowerCase().contains(q));
+    }
+    return habits.toList();
   }
 
-  // ─── WRITE operations ────────────────────────────────────────
+  Future<Habit> getHabitById(String id) async {
+    final row = await _habitDao.getHabitById(id);
+    if (row == null) throw Exception('Habit $id not found');
+    return _toModel(row);
+  }
 
-  /// Create a new habit.
+  // ─── WRITE (local-first) ──────────────────────────────────────
+
   Future<Habit> createHabit(Map<String, dynamic> data) async {
-    if (isOnline) {
-      try {
-        final response = await apiService.post('/habits', data: data);
-        final habit = Habit.fromJson(response.data as Map<String, dynamic>);
-
-        // Persist to local DB
-        await _persistHabitToDb(habit);
-
-        _entityCache.put(habit.id, habit);
-        _invalidateCollectionCaches();
-        return habit;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'create',
-      entityType: 'habit',
-      entityId: data['id']?.toString() ?? const Uuid().v4(),
-      data: data,
-    );
-    _invalidateCollectionCaches();
-    return Habit.fromJson(data);
+    final now = DateTime.now();
+    final id = data['id']?.toString() ?? _uuid.v4();
+    await _habitDao.insertHabit(db.HabitsCompanion(
+      id: Value(id),
+      userId: Value(data['user_id']?.toString() ?? currentUserId),
+      title: Value(data['title']?.toString() ?? ''),
+      description: Value(data['description']?.toString()),
+      category: Value(data['category']?.toString() ?? 'custom'),
+      frequency: Value(data['frequency']?.toString() ?? 'daily'),
+      difficulty: Value((data['difficulty'] as int?) ?? 1),
+      createdAt: Value(now),
+      updatedAt: Value(now),
+      isDirty: const Value(true),
+    ));
+    return getHabitById(id);
   }
 
-  /// Update an existing habit.
   Future<Habit> updateHabit(String id, Map<String, dynamic> data) async {
-    if (isOnline) {
-      try {
-        final response = await apiService.put('/habits/$id', data: data);
-        final habit = Habit.fromJson(response.data as Map<String, dynamic>);
-
-        // Persist to local DB
-        await _persistHabitToDb(habit);
-
-        _entityCache.put(id, habit);
-        _invalidateCollectionCaches();
-        return habit;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'update',
-      entityType: 'habit',
-      entityId: id,
-      data: data,
+    final now = DateTime.now();
+    await _habitDao.updateFields(
+      id,
+      db.HabitsCompanion(
+        title: data.containsKey('title')
+            ? Value(data['title'].toString())
+            : const Value.absent(),
+        description: data.containsKey('description')
+            ? Value(data['description']?.toString())
+            : const Value.absent(),
+        category: data.containsKey('category')
+            ? Value(data['category'].toString())
+            : const Value.absent(),
+        frequency: data.containsKey('frequency')
+            ? Value(data['frequency'].toString())
+            : const Value.absent(),
+        updatedAt: Value(now),
+        isDirty: const Value(true),
+      ),
     );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
-
-    final existing = _entityCache.get(id);
-    if (existing != null) {
-      final merged = <String, dynamic>{...existing.toJson(), ...data};
-      return Habit.fromJson(merged);
-    }
-    return Habit.fromJson({...data, 'id': id});
+    return getHabitById(id);
   }
 
-  /// Mark a habit as completed for today.
   Future<Map<String, dynamic>> completeHabit(String id) async {
-    if (isOnline) {
-      try {
-        final response = await apiService.post('/habits/$id/complete');
-        _entityCache.remove(id);
-        _invalidateCollectionCaches();
-        _statsCache.clear();
-        return response.data as Map<String, dynamic>;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'complete',
-      entityType: 'habit',
-      entityId: id,
+    final row = await _habitDao.getHabitById(id);
+    final now = DateTime.now();
+    final next = !(row?.isCompletedToday ?? false);
+    final streak = next
+        ? (row?.streakCount ?? 0) + 1
+        : ((row?.streakCount ?? 1) - 1).clamp(0, 1 << 30);
+    await _habitDao.updateFields(
+      id,
+      db.HabitsCompanion(
+        isCompletedToday: Value(next),
+        streakCount: Value(streak),
+        lastCompletedDate: Value(next ? now : null),
+        updatedAt: Value(now),
+        isDirty: const Value(true),
+      ),
     );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
-    _statsCache.clear();
-
-    return {'id': id, 'is_completed_today': true};
+    return {'id': id, 'is_completed_today': next};
   }
 
-  /// Delete a habit.
   Future<void> deleteHabit(String id) async {
-    if (isOnline) {
-      try {
-        await apiService.delete('/habits/$id');
-        _entityCache.remove(id);
-        _invalidateCollectionCaches();
-
-        // Remove from local DB
-        try { await _habitDao.deleteHabit(id); } catch (_) {}
-
-        return;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'delete',
-      entityType: 'habit',
-      entityId: id,
-    );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
+    await _habitDao.softDeleteHabit(id, DateTime.now());
   }
 
-  // ─── DB Persistence Helpers ────────────────────────────────
+  // ─── Mapping ──────────────────────────────────────────────────
 
-  Future<void> _persistHabitsToDb(List<Habit> habits) async {
-    for (final habit in habits) {
-      await _persistHabitToDb(habit);
-    }
-  }
+  Habit _toModel(db.Habit row) => Habit.fromJson(_rowToJson(row));
 
-  Future<void> _persistHabitToDb(Habit habit) async {
-    try {
-      await _habitDao.upsertHabit(_toCompanion(habit));
-    } catch (_) {
-      // Ignore DB write errors
-    }
-  }
-
-  HabitsCompanion _toCompanion(Habit habit) {
-    return HabitsCompanion(
-      id: Value(habit.id),
-      userId: Value(habit.userId),
-      title: Value(habit.title),
-      description: Value(habit.description),
-      category: Value(habit.category.name),
-      frequency: Value(habit.frequency.name),
-      difficulty: Value(habit.difficulty),
-      isCompletedToday: Value(habit.isCompletedToday),
-      streakCount: Value(habit.streakCount),
-      longestStreak: Value(habit.longestStreak),
-      completionRate: Value(habit.completionRate),
-      totalCompletions: Value(habit.totalCompletions),
-      reminderTime: Value(habit.reminderTime),
-      lastCompletedDate: Value(habit.lastCompletedDate),
-      createdAt: Value(habit.createdAt),
-      updatedAt: Value(habit.updatedAt),
-    );
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────
-
-  void _invalidateCollectionCaches() {
-    _collectionCache.clear();
-  }
-
-  Map<String, dynamic> _driftHabitToJson(dynamic driftHabit) {
-    return {
-      'id': driftHabit.id,
-      'user_id': driftHabit.userId,
-      'title': driftHabit.title,
-      'description': driftHabit.description,
-      'category': driftHabit.category,
-      'frequency': driftHabit.frequency,
-      'difficulty': driftHabit.difficulty,
-      'is_completed_today': driftHabit.isCompletedToday,
-      'streak_count': driftHabit.streakCount,
-      'longest_streak': driftHabit.longestStreak,
-      'completion_rate': driftHabit.completionRate,
-      'total_completions': driftHabit.totalCompletions,
-      'reminder_time': driftHabit.reminderTime,
-      'last_completed_date':
-          driftHabit.lastCompletedDate?.toIso8601String(),
-      'created_at': driftHabit.createdAt.toIso8601String(),
-      'updated_at': driftHabit.updatedAt.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> _rowToJson(db.Habit row) => {
+        'id': row.id,
+        'user_id': row.userId,
+        'title': row.title,
+        'description': row.description,
+        'category': row.category,
+        'frequency': row.frequency,
+        'difficulty': row.difficulty,
+        'is_completed_today': row.isCompletedToday,
+        'streak_count': row.streakCount,
+        'longest_streak': row.longestStreak,
+        'completion_rate': row.completionRate,
+        'total_completions': row.totalCompletions,
+        'reminder_time': row.reminderTime,
+        'last_completed_date': row.lastCompletedDate?.toIso8601String(),
+        'created_at': row.createdAt.toIso8601String(),
+        'updated_at': row.updatedAt.toIso8601String(),
+      };
 }
