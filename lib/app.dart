@@ -26,7 +26,16 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _wireUnauthorizedHandler();
     _initializeOfflineServices();
+  }
+
+  /// When a token refresh fails irrecoverably, drop the session so the router
+  /// redirects the user to the login screen.
+  void _wireUnauthorizedHandler() {
+    ref.read(apiServiceProvider).onUnauthorized = () {
+      ref.read(authProvider.notifier).markLoggedOut();
+    };
   }
 
   void _initializeOfflineServices() {

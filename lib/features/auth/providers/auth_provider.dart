@@ -139,6 +139,21 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Force the session to the logged-out state without calling the server.
+  ///
+  /// Used when a token refresh fails irrecoverably (e.g. the refresh token has
+  /// expired or been revoked). The API client has already cleared the stored
+  /// tokens at that point, so we only reset local state; the router redirect
+  /// then sends the user to the login screen.
+  void markLoggedOut() {
+    if (!state.isAuthenticated && !state.isInitializing) return;
+    ref.read(signalRServiceProvider).disconnect();
+    state = const AuthState(
+      isInitializing: false,
+      isAuthenticated: false,
+    );
+  }
+
   /// Log out and clear auth state.
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
