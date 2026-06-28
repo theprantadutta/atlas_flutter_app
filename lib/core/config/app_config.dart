@@ -12,4 +12,8 @@ class AppConfig {
 
   static const int connectTimeout = 30000;
   static const int receiveTimeout = 30000;
+
+  /// Demo mode drives the app entirely from local sample data (no backend).
+  /// Used during the UI redesign; set to false once the backend is wired.
+  static const bool demoMode = true;
 }

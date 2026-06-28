@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/core/config/app_config.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
@@ -46,8 +47,10 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       ),
     );
 
-    // Listen to auth state changes and update OfflineManager accordingly
+    // Listen to auth state changes and update OfflineManager accordingly.
+    // In demo mode we skip the network-backed services entirely.
     ref.listenManual<AuthState>(authProvider, (prev, next) {
+      if (AppConfig.demoMode) return;
       offlineManager.setAuthenticated(next.isAuthenticated, userId: next.user?.id);
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         _connectSignalR();
@@ -58,6 +61,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (AppConfig.demoMode) return;
     switch (state) {
       case AppLifecycleState.resumed:
         ref.read(offlineManagerProvider).onAppResumed();

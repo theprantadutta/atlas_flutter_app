@@ -1,446 +1,295 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
-import 'package:atlas_flutter_app/data/models/avatar.dart';
-import 'package:atlas_flutter_app/data/models/task.dart';
-
-import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
-import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
-import 'package:atlas_flutter_app/features/notifications/providers/notification_provider.dart';
+import 'package:atlas_flutter_app/core/sample/sample_data.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_card.dart';
-import 'package:atlas_flutter_app/shared/widgets/xp_progress_bar.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+/// Home — the showpiece. A time-aware greeting, the living-world hero that
+/// flourishes as you tend to today, and a gentle list of today's rituals.
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final homeState = ref.watch(homeProvider);
     final isDark = theme.brightness == Brightness.dark;
+    final home = ref.watch(homeSampleProvider);
+
+    // Checking off today's rituals visibly greens your world.
+    final worldProgress =
+        (home.worldProgress * 0.7 + home.dayProgress * 0.3).clamp(0.0, 1.0);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Atlas',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.xxl),
+          children: [
+            _GreetingHeader(name: home.greetingName, isDark: isDark)
+                .animate()
+                .fadeIn(duration: AppMotion.medium),
+            AppSpacing.gapLg,
+            _Hero(home: home, worldProgress: worldProgress)
+                .animate()
+                .fadeIn(duration: AppMotion.medium, delay: 80.ms)
+                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
+            AppSpacing.gapMd,
+            _StatStrip(home: home)
+                .animate()
+                .fadeIn(duration: AppMotion.medium, delay: 160.ms),
+            AppSpacing.gapXl,
+            _TodayHeader(done: home.doneCount, total: home.today.length),
+            AppSpacing.gapMd,
+            ...List.generate(home.today.length, (i) {
+              final item = home.today[i];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _TodayTile(
+                  item: item,
+                  onTap: () =>
+                      ref.read(homeSampleProvider.notifier).toggle(item.id),
+                )
+                    .animate()
+                    .fadeIn(
+                        duration: AppMotion.medium, delay: (220 + i * 60).ms)
+                    .slideY(begin: 0.08, end: 0, curve: AppMotion.standard),
+              );
+            }),
+            AppSpacing.gapMd,
+            _WorldNudge(progress: worldProgress, onTap: () => context.go('/world')),
+          ],
         ),
-        actions: [
-          _NotificationBellButton(),
-          IconButton(
-            icon: Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            ),
-            tooltip: 'Toggle theme',
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Logout',
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => ref.read(homeProvider.notifier).loadDashboard(),
-        child: homeState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  // ─── Hero Avatar Card ───
-                  _buildHeroCard(theme, homeState, isDark),
-                  const SizedBox(height: 20),
-
-                  // ─── Stats Row ───
-                  _buildStatsRow(theme, homeState, isDark),
-                  const SizedBox(height: 20),
-
-                  // ─── Attribute Bars ───
-                  if (homeState.avatar != null) ...[
-                    _buildAttributeSection(theme, homeState.avatar!, isDark),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // ─── Quick Actions ───
-                  _buildQuickActions(theme, isDark),
-                  const SizedBox(height: 20),
-
-                  // ─── Today's Tasks ───
-                  _buildTodayTasks(theme, homeState.todayTasks, isDark),
-                ],
-              ),
       ),
     );
   }
+}
 
-  // ─── Hero Avatar Card ───────────────────────────────────────────
+// ─── Greeting header ────────────────────────────────────────────────
 
-  Widget _buildHeroCard(ThemeData theme, HomeState homeState, bool isDark) {
-    final user = homeState.user;
-    final avatar = homeState.avatar;
-    final level = avatar?.level ?? user?.level ?? 1;
-    final currentXp = avatar?.currentXp ?? 0;
-    final requiredXp = GamificationConstants.xpRequiredForLevel(level + 1);
-    final displayName = avatar?.name ?? user?.fullName ?? 'Adventurer';
+class _GreetingHeader extends ConsumerWidget {
+  const _GreetingHeader({required this.name, required this.isDark});
+  final String name;
+  final bool isDark;
 
-    final gradient = AppColors.heroPrimaryGradient(isDark);
-    final shadowColor = isDark ? AppColors.primary : const Color(0xFF3B6CB0);
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 5) return 'Rest well';
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    if (h < 21) return 'Good evening';
+    return 'Good night';
+  }
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor.withValues(alpha: 0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _greeting,
+                style: theme.textTheme.labelLarge
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 2),
+              Text(name, style: theme.textTheme.displaySmall),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Avatar circle
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      displayName.isNotEmpty
-                          ? displayName[0].toUpperCase()
-                          : 'A',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+        ),
+        _CircleButton(
+          icon: Icons.notifications_none_rounded,
+          badge: true,
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Notifications coming soon')),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        _CircleButton(
+          icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleButton extends StatelessWidget {
+  const _CircleButton({required this.icon, required this.onTap, this.badge = false});
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: theme.colorScheme.surfaceContainerHighest,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Icon(icon, size: 22, color: theme.colorScheme.onSurface),
+            ),
+          ),
+        ),
+        if (badge)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: AppColors.streakFlame,
+                shape: BoxShape.circle,
+                border: Border.all(color: theme.colorScheme.surface, width: 1.5),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Hero: the living world + level/XP ──────────────────────────────
+
+class _Hero extends StatelessWidget {
+  const _Hero({required this.home, required this.worldProgress});
+  final HomeState home;
+  final double worldProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final xpFrac = (home.xp / home.xpForNext).clamp(0.0, 1.0);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: Stack(
+        children: [
+          LivingHorizon(
+            height: 260,
+            progress: worldProgress,
+            borderRadius: BorderRadius.zero,
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.surfaceDark.withValues(alpha: 0.66),
+                  ],
+                  stops: const [0.45, 1.0],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Level $level',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            bottom: AppSpacing.md,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _GoldChip('Level ${home.level}'),
+                    const Spacer(),
+                    Text(
+                      'Lvl ${home.level + 1}',
+                      style: theme.textTheme.labelMedium
+                          ?.copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _XpBar(fraction: xpFrac),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${home.xp} / ${home.xpForNext} XP · ${home.xpForNext - home.xp} to go',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            XpProgressBar(
-              currentXp: currentXp,
-              requiredXp: requiredXp > 0 ? requiredXp : 100,
-              currentLevel: level,
-              showLabels: true,
-              showXpText: true,
-              height: 22,
-              backgroundColor: Colors.white.withValues(alpha: 0.15),
-              labelColor: Colors.white,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Stats Row ──────────────────────────────────────────────────
-
-  Widget _buildStatsRow(ThemeData theme, HomeState homeState, bool isDark) {
-    final analytics = homeState.analyticsData;
-    final user = homeState.user;
-
-    final todayXp = analytics?.todayXp ?? 0;
-    final streak = user?.currentStreak ?? analytics?.currentStreak ?? 0;
-    final level = homeState.avatar?.level ?? user?.level ?? 1;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            label: 'Today XP',
-            value: '+$todayXp',
-            icon: Icons.bolt_rounded,
-            iconColor: AppColors.xpPrimary,
-            isDark: isDark,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: 'Streak',
-            value: '$streak',
-            icon: Icons.local_fire_department_rounded,
-            iconColor: AppColors.streakFlame,
-            isDark: isDark,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: 'Level',
-            value: '$level',
-            icon: Icons.shield_rounded,
-            iconColor: AppColors.tertiary,
-            isDark: isDark,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Attribute Bars Section ─────────────────────────────────────
-
-  Widget _buildAttributeSection(
-    ThemeData theme,
-    Avatar avatar,
-    bool isDark,
-  ) {
-    return AppCard(
-      header: 'Attributes',
-      child: Column(
-        children: [
-          _AttributeBar(
-            label: 'Strength',
-            value: avatar.strength,
-            maxValue: 100,
-            color: AppColors.streakFlame,
-            icon: Icons.fitness_center_rounded,
-          ),
-          const SizedBox(height: 14),
-          _AttributeBar(
-            label: 'Wisdom',
-            value: avatar.wisdom,
-            maxValue: 100,
-            color: AppColors.info,
-            icon: Icons.auto_stories_rounded,
-          ),
-          const SizedBox(height: 14),
-          _AttributeBar(
-            label: 'Intelligence',
-            value: avatar.intelligence,
-            maxValue: 100,
-            color: AppColors.badgeEpic,
-            icon: Icons.psychology_rounded,
           ),
         ],
       ),
     );
   }
-
-  // ─── Quick Actions ──────────────────────────────────────────────
-
-  Widget _buildQuickActions(ThemeData theme, bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: theme.textTheme.titleLarge,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionCard(
-                label: 'Tasks',
-                icon: Icons.check_circle_outline_rounded,
-                color: AppColors.info,
-                isDark: isDark,
-                onTap: () => context.go('/tasks'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionCard(
-                label: 'Habits',
-                icon: Icons.loop_rounded,
-                color: AppColors.xpPrimary,
-                isDark: isDark,
-                onTap: () => context.go('/habits'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _QuickActionCard(
-                label: 'Goals',
-                icon: Icons.flag_rounded,
-                color: AppColors.tertiary,
-                isDark: isDark,
-                onTap: () => context.go('/goals'),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ─── Today's Tasks ──────────────────────────────────────────────
-
-  Widget _buildTodayTasks(
-    ThemeData theme,
-    List<Task> tasks,
-    bool isDark,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Today's Tasks",
-          style: theme.textTheme.titleLarge,
-        ),
-        const SizedBox(height: 12),
-        if (tasks.isEmpty)
-          AppCard(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.task_alt_rounded,
-                      size: 48,
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No tasks yet',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Add tasks to start earning XP!',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else
-          ...tasks.map((task) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _TaskCard(task: task, isDark: isDark),
-              )),
-      ],
-    );
-  }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Private Helper Widgets
-// ═══════════════════════════════════════════════════════════════════
-
-class _StatCard extends StatelessWidget {
+class _GoldChip extends StatelessWidget {
+  const _GoldChip(this.label);
   final String label;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
-  final bool isDark;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-    required this.isDark,
-  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xxs + 2),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
-        ),
+        gradient: AppColors.goldGradient,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 2),
+          const Icon(Icons.auto_awesome_rounded,
+              size: 13, color: Color(0xFF3A2A00)),
+          const SizedBox(width: 5),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: const Color(0xFF3A2A00),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _XpBar extends StatelessWidget {
+  const _XpBar({required this.fraction});
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      child: Stack(
+        children: [
+          Container(height: 10, color: Colors.white.withValues(alpha: 0.22)),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: fraction),
+            duration: AppMotion.slow,
+            curve: AppMotion.standard,
+            builder: (context, value, _) => FractionallySizedBox(
+              widthFactor: value == 0 ? 0.001 : value,
+              child: Container(
+                height: 10,
+                decoration: const BoxDecoration(gradient: AppColors.auroraGradient),
+              ),
             ),
           ),
         ],
@@ -449,60 +298,40 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _AttributeBar extends StatelessWidget {
-  final String label;
-  final int value;
-  final int maxValue;
-  final Color color;
-  final IconData icon;
+// ─── Quiet stat strip ───────────────────────────────────────────────
 
-  const _AttributeBar({
-    required this.label,
-    required this.value,
-    required this.maxValue,
-    required this.color,
-    required this.icon,
-  });
+class _StatStrip extends StatelessWidget {
+  const _StatStrip({required this.home});
+  final HomeState home;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final progress = maxValue > 0 ? (value / maxValue).clamp(0.0, 1.0) : 0.0;
-
     return Row(
       children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: color.withValues(alpha: 0.12),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 10,
-            ),
+          child: _StatPill(
+            icon: Icons.local_fire_department_rounded,
+            color: AppColors.streakFlame,
+            value: '${home.streak}',
+            label: 'day streak',
           ),
         ),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 32,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.right,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _StatPill(
+            icon: Icons.bolt_rounded,
+            color: AppColors.xpPrimary,
+            value: '+${home.xpToday}',
+            label: 'XP today',
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _StatPill(
+            icon: Icons.spa_rounded,
+            color: AppColors.secondary,
+            value: '${home.dueCount}',
+            label: 'to tend',
           ),
         ),
       ],
@@ -510,59 +339,129 @@ class _AttributeBar extends StatelessWidget {
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
-  final String label;
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+  });
   final IconData icon;
   final Color color;
-  final bool isDark;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.sm, horizontal: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: AppSpacing.xs),
+          Text(value,
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          Text(label,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Today ──────────────────────────────────────────────────────────
+
+class _TodayHeader extends StatelessWidget {
+  const _TodayHeader({required this.done, required this.total});
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text('Today', style: theme.textTheme.headlineSmall),
+        const Spacer(),
+        Text(
+          '$done of $total tended',
+          style: theme.textTheme.labelLarge
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _TodayTile extends StatelessWidget {
+  const _TodayTile({required this.item, required this.onTap});
+  final TodayItem item;
   final VoidCallback onTap;
 
-  const _QuickActionCard({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.isDark,
-    required this.onTap,
-  });
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final done = item.done;
 
     return Material(
-      color: isDark ? AppColors.cardDark : AppColors.cardLight,
-      borderRadius: BorderRadius.circular(16),
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.all(AppSpacing.sm + 2),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark
-                  ? AppColors.cardBorderDark
-                  : AppColors.cardBorderLight,
-            ),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: theme.colorScheme.outline),
           ),
-          child: Column(
+          child: Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  color: item.color.withValues(alpha: done ? 0.10 : 0.16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(item.icon,
+                    color: item.color.withValues(alpha: done ? 0.6 : 1), size: 22),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        decoration: done ? TextDecoration.lineThrough : null,
+                        color: done
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      done ? 'Tended · +${item.xp} XP' : item.note,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: AppSpacing.xs),
+              _CheckCircle(done: done, color: item.color),
             ],
           ),
         ),
@@ -571,135 +470,90 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _TaskCard extends StatelessWidget {
-  final Task task;
-  final bool isDark;
-
-  const _TaskCard({required this.task, required this.isDark});
+class _CheckCircle extends StatelessWidget {
+  const _CheckCircle({required this.done, required this.color});
+  final bool done;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
+    return AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.standard,
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(14),
+        shape: BoxShape.circle,
+        color: done ? color : Colors.transparent,
         border: Border.all(
-          color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
+          color: done ? color : theme.colorScheme.outline,
+          width: 2,
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _categoryColor(task.category.name),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (task.description != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    task.description!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.xpPrimary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '+${task.xpReward} XP',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.xpPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: done
+          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+          : null,
     );
-  }
-
-  Color _categoryColor(String category) {
-    return switch (category) {
-      'health' => AppColors.categoryHealth,
-      'fitness' => AppColors.categoryFitness,
-      'mindfulness' => AppColors.categoryMindfulness,
-      'work' => AppColors.categoryWork,
-      'learning' => AppColors.categoryLearning,
-      'social' => AppColors.categorySocial,
-      'creativity' => AppColors.categoryCreative,
-      _ => AppColors.info,
-    };
   }
 }
 
-class _NotificationBellButton extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final unreadCount = ref.watch(unreadCountProvider).when(
-          data: (count) => count,
-          loading: () => 0,
-          error: (_, _) => 0,
-        );
+// ─── World nudge ────────────────────────────────────────────────────
 
-    return Stack(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined),
-          tooltip: 'Notifications',
-          onPressed: () => context.push('/notifications'),
-        ),
-        if (unreadCount > 0)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              decoration: const BoxDecoration(
-                color: AppColors.error,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                unreadCount > 99 ? '99+' : '$unreadCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+class _WorldNudge extends StatelessWidget {
+  const _WorldNudge({required this.progress, required this.onTap});
+  final double progress;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pct = (progress * 100).round();
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: theme.colorScheme.outline),
           ),
-      ],
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: LivingHorizon(
+                    height: 52,
+                    progress: progress,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Your world is $pct% alive',
+                        style: theme.textTheme.titleMedium),
+                    Text('Keep tending it to watch it grow',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

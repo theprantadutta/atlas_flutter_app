@@ -6,8 +6,11 @@ import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_text_field.dart';
+import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -43,7 +46,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void _evaluatePasswordStrength() {
     final password = _passwordController.text;
     double strength = 0;
-
     if (password.length >= 8) strength += 0.25;
     if (RegExp(r'[A-Z]').hasMatch(password)) strength += 0.25;
     if (RegExp(r'[0-9]').hasMatch(password)) strength += 0.25;
@@ -51,13 +53,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         .hasMatch(password)) {
       strength += 0.25;
     }
-
     setState(() => _passwordStrength = strength);
   }
 
   void _onCreateAccount() {
     if (!_formKey.currentState!.validate()) return;
-
     ref.read(authProvider.notifier).register(
           _emailController.text.trim(),
           _passwordController.text,
@@ -65,16 +65,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         );
   }
 
-  void _onGoogleSignUp() {
-    ref.read(authProvider.notifier).signInWithGoogle();
-  }
+  void _onGoogleSignUp() => ref.read(authProvider.notifier).signInWithGoogle();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authState = ref.watch(authProvider);
 
-    // Show error snackbar when the error changes
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.error != null && next.error != previous?.error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -86,292 +83,202 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
     });
 
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // ─── Main Content ───
-            SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: MediaQuery.of(context).size.height -
-                      MediaQuery.of(context).padding.top -
-                      MediaQuery.of(context).padding.bottom,
-                ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 36),
-
-                      // ─── Header ───
-                      _buildHeader(theme),
-
-                      const SizedBox(height: 32),
-
-                      // ─── Form ───
-                      Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AppTextField(
-                              controller: _fullNameController,
-                              label: 'Full Name',
-                              hint: 'John Doe',
-                              prefixIcon: Icons.person_outline,
-                              textInputAction: TextInputAction.next,
-                              textCapitalization: TextCapitalization.words,
-                              validator: Validators.validateFullName,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                            ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _emailController,
-                              label: 'Email',
-                              hint: 'you@example.com',
-                              prefixIcon: Icons.email_outlined,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              validator: Validators.validateEmail,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                            ),
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _passwordController,
-                              label: 'Password',
-                              hint: 'Create a strong password',
-                              prefixIcon: Icons.lock_outline,
-                              isPassword: true,
-                              textInputAction: TextInputAction.next,
-                              validator: Validators.validatePassword,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                            ),
-                            const SizedBox(height: 8),
-
-                            // ─── Password Strength Indicator ───
-                            _buildPasswordStrengthBar(theme),
-
-                            const SizedBox(height: 16),
-                            AppTextField(
-                              controller: _confirmPasswordController,
-                              label: 'Confirm Password',
-                              hint: 'Re-enter your password',
-                              prefixIcon: Icons.lock_outline,
-                              isPassword: true,
-                              textInputAction: TextInputAction.done,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please confirm your password';
-                                }
-                                if (value != _passwordController.text) {
-                                  return 'Passwords do not match';
-                                }
-                                return null;
-                              },
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              onSubmitted: (_) => _onCreateAccount(),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ─── Create Account Button ───
-                      AppButton(
-                        label: 'Create Account',
-                        onPressed:
-                            authState.isLoading ? null : _onCreateAccount,
-                        isLoading: authState.isLoading,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // ─── OR Divider ───
-                      _buildOrDivider(theme),
-
-                      const SizedBox(height: 24),
-
-                      // ─── Google Sign Up ───
-                      AppButton(
-                        label: 'Continue with Google',
-                        variant: AppButtonVariant.outline,
-                        icon: Icons.g_mobiledata_rounded,
-                        onPressed:
-                            authState.isLoading ? null : _onGoogleSignUp,
-                      ),
-
-                      const Spacer(),
-
-                      // ─── Login Link ───
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 24, top: 32),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already have an account? ',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () =>
-                                  context.goNamed(RouteNames.login),
-                              child: Text(
-                                'Log In',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── Loading Overlay ───
-            if (authState.isLoading)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.15),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Header Widget ──────────────────────────────────────────────
-
-  Widget _buildHeader(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Column(
+    return AuthScaffold(
+      title: 'Begin your world',
+      subtitle: 'A calmer way to grow, one day at a time.',
+      isBusy: authState.isLoading,
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.30),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: _fullNameController,
+                label: 'Name',
+                hint: 'What should we call you?',
+                prefixIcon: Icons.person_outline_rounded,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                validator: Validators.validateFullName,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+              ),
+              AppSpacing.gapMd,
+              AppTextField(
+                controller: _emailController,
+                label: 'Email',
+                hint: 'you@example.com',
+                prefixIcon: Icons.alternate_email_rounded,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: Validators.validateEmail,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+              ),
+              AppSpacing.gapMd,
+              AppTextField(
+                controller: _passwordController,
+                label: 'Password',
+                hint: 'Create a strong password',
+                prefixIcon: Icons.lock_outline_rounded,
+                isPassword: true,
+                textInputAction: TextInputAction.next,
+                validator: Validators.validatePassword,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+              ),
+              if (_passwordController.text.isNotEmpty) ...[
+                AppSpacing.gapXs,
+                _PasswordStrengthBar(strength: _passwordStrength),
+              ],
+              AppSpacing.gapMd,
+              AppTextField(
+                controller: _confirmPasswordController,
+                label: 'Confirm password',
+                hint: 'Re-enter your password',
+                prefixIcon: Icons.lock_outline_rounded,
+                isPassword: true,
+                textInputAction: TextInputAction.done,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+                  return null;
+                },
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                onSubmitted: (_) => _onCreateAccount(),
               ),
             ],
           ),
-          child: const Center(
-            child: Text(
-              'A',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1,
-              ),
-            ),
-          ),
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Create Account',
-          style: theme.textTheme.displaySmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
-          ),
+        AppSpacing.gapLg,
+        AppButton(
+          label: 'Create account',
+          onPressed: authState.isLoading ? null : _onCreateAccount,
+          isLoading: authState.isLoading,
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Start your journey today',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        AppSpacing.gapLg,
+        _OrDivider(theme: theme),
+        AppSpacing.gapLg,
+        AppButton(
+          label: 'Continue with Google',
+          variant: AppButtonVariant.outline,
+          icon: Icons.g_mobiledata_rounded,
+          onPressed: authState.isLoading ? null : _onGoogleSignUp,
         ),
+        AppSpacing.gapXl,
+        _FooterLink(
+          leading: 'Already have an account? ',
+          action: 'Log in',
+          onTap: () => context.goNamed(RouteNames.login),
+        ),
+        AppSpacing.gapLg,
       ],
     );
   }
+}
 
-  // ─── Password Strength Bar ──────────────────────────────────────
+class _PasswordStrengthBar extends StatelessWidget {
+  const _PasswordStrengthBar({required this.strength});
+  final double strength;
 
-  Widget _buildPasswordStrengthBar(ThemeData theme) {
-    final label = switch (_passwordStrength) {
-      <= 0.0 => '',
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = switch (strength) {
       <= 0.25 => 'Weak',
       <= 0.5 => 'Fair',
       <= 0.75 => 'Good',
       _ => 'Strong',
     };
-
-    final color = switch (_passwordStrength) {
-      <= 0.0 => Colors.transparent,
+    final color = switch (strength) {
       <= 0.25 => AppColors.error,
       <= 0.5 => AppColors.warning,
       <= 0.75 => AppColors.info,
       _ => AppColors.success,
     };
 
-    if (_passwordController.text.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: _passwordStrength,
-            backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.3),
-            valueColor: AlwaysStoppedAnimation(color),
-            minHeight: 4,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: strength),
+            duration: AppMotion.fast,
+            builder: (context, value, _) => LinearProgressIndicator(
+              value: value,
+              backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.3),
+              valueColor: AlwaysStoppedAnimation(color),
+              minHeight: 5,
+            ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xxs),
         Text(
           label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
+          style: theme.textTheme.labelSmall
+              ?.copyWith(color: color, fontWeight: FontWeight.w700),
         ),
       ],
     );
   }
+}
 
-  // ─── OR Divider ─────────────────────────────────────────────────
+class _OrDivider extends StatelessWidget {
+  const _OrDivider({required this.theme});
+  final ThemeData theme;
 
-  Widget _buildOrDivider(ThemeData theme) {
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: Divider(color: theme.colorScheme.outline),
-        ),
+        Expanded(child: Divider(color: theme.colorScheme.outline)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Text(
-            'OR',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.5,
-            ),
+            'or',
+            style: theme.textTheme.labelMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),
-        Expanded(
-          child: Divider(color: theme.colorScheme.outline),
+        Expanded(child: Divider(color: theme.colorScheme.outline)),
+      ],
+    );
+  }
+}
+
+class _FooterLink extends StatelessWidget {
+  const _FooterLink({
+    required this.leading,
+    required this.action,
+    required this.onTap,
+  });
+  final String leading;
+  final String action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          leading,
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        GestureDetector(
+          onTap: onTap,
+          child: Text(
+            action,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ],
     );
