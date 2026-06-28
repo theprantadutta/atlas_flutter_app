@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class TokenService {
   static const _accessTokenKey = 'atlas_access_token';
   static const _refreshTokenKey = 'atlas_refresh_token';
+  static const _userKey = 'atlas_cached_user';
   final _storage = const FlutterSecureStorage();
 
   Future<void> saveTokens({
@@ -26,4 +27,12 @@ class TokenService {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
   }
+
+  // ─── Cached user profile (offline-first login) ───
+  Future<void> saveUserJson(String json) =>
+      _storage.write(key: _userKey, value: json);
+
+  Future<String?> getUserJson() => _storage.read(key: _userKey);
+
+  Future<void> clearUser() => _storage.delete(key: _userKey);
 }

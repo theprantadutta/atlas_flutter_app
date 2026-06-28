@@ -6,6 +6,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:atlas_flutter_app/core/config/sync_config.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
@@ -138,6 +139,9 @@ class OfflineManager {
 
   /// Push pending local changes then pull remote changes.
   Future<void> syncNow() async {
+    // Sync is a premium feature — gated off until enabled. The app is fully
+    // local-first regardless; nothing here runs while disabled.
+    if (!SyncConfig.enabled) return;
     if (!_isOnline || _isSyncing || !_isAuthenticated) return;
 
     _isSyncing = true;

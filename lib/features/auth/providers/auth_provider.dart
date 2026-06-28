@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/config/app_config.dart';
@@ -5,6 +7,7 @@ import 'package:atlas_flutter_app/core/sample/sample_data.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
+import 'package:atlas_flutter_app/data/services/token_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 // ─── Auth State ───────────────────────────────────────────────────
@@ -47,21 +50,46 @@ class AuthState {
 
 class AuthNotifier extends Notifier<AuthState> {
   late final AuthService _authService;
+  late final TokenService _tokenService;
 
   @override
   AuthState build() {
     _authService = ref.read(authServiceProvider);
+    _tokenService = ref.read(tokenServiceProvider);
     // Kick off initial auth check asynchronously
     Future.microtask(() => checkAuthStatus());
     return const AuthState();
   }
 
+  // ─── Offline-first user cache ───
+  Future<void> _cacheUser(User user) async {
+    try {
+      await _tokenService.saveUserJson(jsonEncode(user.toJson()));
+    } catch (_) {/* best-effort */}
+  }
+
+  Future<User?> _loadCachedUser() async {
+    try {
+      final json = await _tokenService.getUserJson();
+      if (json == null) return null;
+      return User.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Check whether the user has valid tokens and, if so, load their profile.
   Future<void> checkAuthStatus() async {
-    // Demo mode: skip the backend, show the splash briefly, then land on login.
+    // Demo mode: no backend. Remember the user across launches via the cache
+    // (so "log in once" works), otherwise show login.
     if (AppConfig.demoMode) {
       await Future<void>.delayed(const Duration(milliseconds: 1100));
-      state = const AuthState(isInitializing: false, isAuthenticated: false);
+      final cached = await _loadCachedUser();
+      state = AuthState(
+        isInitializing: false,
+        isAuthenticated: cached != null,
+        user: cached,
+      );
       return;
     }
     try {
@@ -71,12 +99,21 @@ class AuthNotifier extends Notifier<AuthState> {
         return;
       }
 
-      final user = await _authService.getCurrentUser();
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: true,
-        user: user,
-      );
+      // Token present: try to refresh the profile online, but fall back to the
+      // cached user when offline so the session survives without a network.
+      try {
+        final user = await _authService.getCurrentUser();
+        await _cacheUser(user);
+        state =
+            AuthState(isInitializing: false, isAuthenticated: true, user: user);
+      } catch (_) {
+        final cached = await _loadCachedUser();
+        state = AuthState(
+          isInitializing: false,
+          isAuthenticated: cached != null,
+          user: cached,
+        );
+      }
     } catch (_) {
       state = const AuthState(isInitializing: false);
     }
@@ -86,10 +123,12 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> _demoSignIn() async {
     state = state.copyWith(isLoading: true, clearError: true);
     await Future<void>.delayed(const Duration(milliseconds: 700));
+    final user = sampleUser();
+    await _cacheUser(user); // remember across launches (offline "log in once")
     state = AuthState(
       isInitializing: false,
       isAuthenticated: true,
-      user: sampleUser(),
+      user: user,
     );
   }
 
@@ -102,6 +141,7 @@ class AuthNotifier extends Notifier<AuthState> {
         email: email,
         password: password,
       );
+      await _cacheUser(user);
       state = AuthState(
         isInitializing: false,
         isAuthenticated: true,
@@ -129,6 +169,7 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         fullName: fullName,
       );
+      await _cacheUser(user);
       state = AuthState(
         isInitializing: false,
         isAuthenticated: true,
@@ -148,6 +189,7 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.signInWithGoogle();
+      await _cacheUser(user);
       state = AuthState(
         isInitializing: false,
         isAuthenticated: true,
@@ -169,6 +211,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// then sends the user to the login screen.
   void markLoggedOut() {
     if (!state.isAuthenticated && !state.isInitializing) return;
+    _tokenService.clearUser();
     ref.read(signalRServiceProvider).disconnect();
     state = const AuthState(
       isInitializing: false,
@@ -195,6 +238,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {
       // Continue logout regardless of errors
     } finally {
+      await _tokenService.clearUser();
       state = const AuthState(
         isInitializing: false,
         isAuthenticated: false,

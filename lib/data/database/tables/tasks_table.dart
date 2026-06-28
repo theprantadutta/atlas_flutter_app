@@ -17,6 +17,17 @@ class Tasks extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
+  // ─── Sync metadata (offline-first) ───
+  /// Needs to be pushed to the server.
+  BoolColumn get isDirty => boolean().withDefault(const Constant(true))();
+
+  /// Soft-delete tombstone (kept so the deletion can sync, then purged).
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  /// Last time this row was confirmed in sync with the server.
+  DateTimeColumn get lastSyncedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

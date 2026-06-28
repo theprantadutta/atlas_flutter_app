@@ -72,6 +72,13 @@ class AtlasDatabase extends _$AtlasDatabase {
         if (from < 2) {
           await m.createTable(notifications);
         }
+        if (from < 3) {
+          // Offline-first sync metadata on Tasks.
+          await m.addColumn(tasks, tasks.isDirty);
+          await m.addColumn(tasks, tasks.isDeleted);
+          await m.addColumn(tasks, tasks.deletedAt);
+          await m.addColumn(tasks, tasks.lastSyncedAt);
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys

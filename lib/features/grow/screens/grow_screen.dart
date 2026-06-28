@@ -3,10 +3,43 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/sample/sample_grow.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+
+// ─── Task category → visuals (local-first tasks come from Drift) ───
+Color _taskColor(String category) => switch (category) {
+      'health' => AppColors.categoryHealth,
+      'fitness' => AppColors.categoryFitness,
+      'mindfulness' => AppColors.categoryMindfulness,
+      'finance' => AppColors.categoryFinance,
+      'work' => AppColors.categoryWork,
+      'learning' => AppColors.categoryLearning,
+      'social' => AppColors.categorySocial,
+      'creative' => AppColors.categoryCreative,
+      _ => AppColors.primary,
+    };
+
+IconData _taskIcon(String category) => switch (category) {
+      'health' => Icons.favorite_rounded,
+      'fitness' => Icons.directions_run_rounded,
+      'mindfulness' => Icons.self_improvement_rounded,
+      'finance' => Icons.savings_rounded,
+      'work' => Icons.work_outline_rounded,
+      'learning' => Icons.menu_book_rounded,
+      'social' => Icons.group_rounded,
+      'creative' => Icons.palette_rounded,
+      _ => Icons.check_circle_outline_rounded,
+    };
+
+String _cadenceLabel(String type) => switch (type) {
+      'weekly' => 'Weekly',
+      'longTerm' => 'Long-term',
+      _ => 'Daily',
+    };
 
 /// The Grow hub — one calm home for Tasks, Habits and Goals.
 class GrowScreen extends ConsumerStatefulWidget {
@@ -22,6 +55,42 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
   void _comingSoon(String what) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(what)));
 
+  void _onAdd() {
+    if (_segment == 0) {
+      _showNewTaskDialog();
+    } else {
+      _comingSoon('Add coming soon');
+    }
+  }
+
+  Future<void> _showNewTaskDialog() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New task'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'What needs tending?'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (title == null || title.isEmpty) return;
+    final userId = ref.read(currentUserIdProvider);
+    await ref.read(taskActionsProvider).create(userId: userId, title: title);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,7 +105,7 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
               subtitle: 'Small steps, every day',
               trailing: CircleActionButton(
                 icon: Icons.add_rounded,
-                onTap: () => _comingSoon('Add coming soon'),
+                onTap: _onAdd,
               ),
             ),
             AppSpacing.gapLg,
@@ -68,72 +137,114 @@ class _TasksView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(tasksProvider);
-    const cadences = ['Daily', 'Weekly', 'Long-term'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final cadence in cadences) ...[
-          if (tasks.any((t) => t.cadence == cadence)) ...[
-            SectionHeader(title: cadence),
-            ...tasks.where((t) => t.cadence == cadence).map(
-                  (t) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: _TaskRow(
-                      task: t,
-                      onTap: () =>
-                          ref.read(tasksProvider.notifier).toggle(t.id),
+    final tasksAsync = ref.watch(tasksStreamProvider);
+    return tasksAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: AppSpacing.xxl),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => const AtlasEmptyState(
+        icon: Icons.error_outline_rounded,
+        title: 'Something went wrong',
+        message: 'Could not load your tasks.',
+      ),
+      data: (tasks) {
+        if (tasks.isEmpty) {
+          return const AtlasEmptyState(
+            icon: Icons.task_alt_rounded,
+            title: 'No tasks yet',
+            message: 'Tap + to add your first task.',
+          );
+        }
+        const cadences = ['Daily', 'Weekly', 'Long-term'];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final cadence in cadences)
+              if (tasks.any((t) => _cadenceLabel(t.type) == cadence)) ...[
+                SectionHeader(title: cadence),
+                ...tasks.where((t) => _cadenceLabel(t.type) == cadence).map(
+                      (t) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _TaskRow(
+                          task: t,
+                          onTap: () =>
+                              ref.read(taskActionsProvider).toggleComplete(t),
+                          onDelete: () =>
+                              ref.read(taskActionsProvider).delete(t.id),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            AppSpacing.gapXs,
+                AppSpacing.gapXs,
+              ],
           ],
-        ],
-      ],
+        );
+      },
     );
   }
 }
 
 class _TaskRow extends StatelessWidget {
-  const _TaskRow({required this.task, required this.onTap});
-  final SampleTask task;
+  const _TaskRow({
+    required this.task,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final db.Task task;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final done = task.done;
-    return AtlasCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.sm + 2),
-      child: Row(
-        children: [
-          _IconTile(icon: task.icon, color: task.color, dim: done),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    decoration: done ? TextDecoration.lineThrough : null,
-                    color: done
-                        ? theme.colorScheme.onSurfaceVariant
-                        : theme.colorScheme.onSurface,
+    final done = task.isCompleted;
+    final color = _taskColor(task.category);
+    return Dismissible(
+      key: ValueKey(task.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+      ),
+      child: AtlasCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(AppSpacing.sm + 2),
+        child: Row(
+          children: [
+            _IconTile(icon: _taskIcon(task.category), color: color, dim: done),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      color: done
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.colorScheme.onSurface,
+                    ),
                   ),
-                ),
-                Text(
-                  done ? 'Done · +${task.xp} XP' : task.note,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                ),
-              ],
+                  Text(
+                    done
+                        ? 'Done · +${task.xpReward} XP'
+                        : (task.description ?? '+${task.xpReward} XP'),
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _Check(done: done, color: task.color),
-        ],
+            _Check(done: done, color: color),
+          ],
+        ),
       ),
     );
   }
