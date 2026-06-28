@@ -30,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.xxl),
+              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
           children: [
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()

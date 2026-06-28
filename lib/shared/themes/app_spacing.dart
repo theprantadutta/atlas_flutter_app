@@ -27,6 +27,9 @@ class AppSpacing {
   // ─── Screen gutters ───
   static const double gutter = 20;
 
+  /// Bottom padding for scroll views so content clears the floating nav.
+  static const double bottomNavSpace = 112;
+
   // ─── Common SizedBox helpers (vertical) ───
   static const SizedBox gapXs = SizedBox(height: xs);
   static const SizedBox gapSm = SizedBox(height: sm);

@@ -42,7 +42,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
             AppSpacing.gutter,
             AppSpacing.md,
             AppSpacing.gutter,
-            AppSpacing.xxl,
+            AppSpacing.bottomNavSpace,
           ),
           children: [
             AtlasHeader(

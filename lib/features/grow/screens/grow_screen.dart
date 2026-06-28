@@ -29,7 +29,7 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.xxl),
+              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
           children: [
             AtlasHeader(
               title: 'Grow',

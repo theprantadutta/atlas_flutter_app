@@ -71,7 +71,7 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
             AppSpacing.gutter,
             AppSpacing.md,
             AppSpacing.gutter,
-            AppSpacing.xxl,
+            AppSpacing.bottomNavSpace,
           ),
           children: [
             AtlasHeader(title: 'Your Avatar', onBack: () => context.pop()),

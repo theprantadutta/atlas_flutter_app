@@ -27,7 +27,7 @@ class ProgressScreen extends ConsumerWidget {
             AppSpacing.gutter,
             AppSpacing.md,
             AppSpacing.gutter,
-            AppSpacing.xxl,
+            AppSpacing.bottomNavSpace,
           ),
           children: [
             AtlasHeader(
