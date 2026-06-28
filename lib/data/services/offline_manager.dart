@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/config/sync_config.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -19,6 +20,7 @@ enum SyncStatus { idle, syncing, error }
 /// when connectivity is restored, and pulls remote changes periodically.
 class OfflineManager {
   final SyncDao _syncDao;
+  final TaskDao _taskDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -79,9 +81,11 @@ class OfflineManager {
 
   OfflineManager({
     required SyncDao syncDao,
+    required TaskDao taskDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
+        _taskDao = taskDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -148,7 +152,10 @@ class OfflineManager {
     _syncStatusController.add(SyncStatus.syncing);
 
     try {
+      // Row-based sync for migrated entities (Tasks), then the legacy outbox.
+      await _pushTasks();
       await _pushChanges();
+      await _pullTasks();
       await _pullChanges();
 
       // Persist last sync time
@@ -308,6 +315,120 @@ class OfflineManager {
       'progress' => '/progress',
       _ => null,
     };
+  }
+
+  // ─── Row-based Task sync (offline-first) ────────────────────
+
+  /// Push dirty Task rows (incl. tombstones) as upserts via /sync/push.
+  Future<void> _pushTasks() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _taskDao.getDirtyTasks(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final t in dirty)
+        {
+          'operation_type': t.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'task',
+          'entity_id': t.id,
+          'data': jsonEncode(_taskWire(t)),
+          'timestamp': t.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _taskDao.markSynced([for (final t in dirty) t.id], DateTime.now());
+    await _taskDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} task rows');
+  }
+
+  /// Pull Task deltas (incl. tombstones) since the cursor and apply with LWW.
+  Future<void> _pullTasks() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+
+    final resp = await _syncRepository.pullSync(
+      lastSyncTimestamp: _lastSyncTime?.toUtc().toIso8601String(),
+    );
+    final list = (resp['entities'] as List?) ?? const [];
+    for (final e in list) {
+      final m = (e as Map).cast<String, dynamic>();
+      if (m['entity_type'] != 'task') continue;
+      final raw = m['data'];
+      final remote = raw is String
+          ? jsonDecode(raw) as Map<String, dynamic>
+          : (raw as Map).cast<String, dynamic>();
+      await _applyRemoteTask(userId, remote);
+    }
+  }
+
+  /// Apply a remote task using last-write-wins with local winning ties.
+  Future<void> _applyRemoteTask(String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _taskDao.getTaskById(id);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _taskDao.hardDeleteTask(id);
+      return;
+    }
+    await _taskDao.upsertTask(_companionFromRemote(userId, r, remoteUpdated));
+  }
+
+  Map<String, dynamic> _taskWire(Task t) => {
+        'id': t.id,
+        'user_id': t.userId,
+        'title': t.title,
+        'description': t.description,
+        'type': t.type,
+        'category': t.category,
+        'xp_reward': t.xpReward,
+        'difficulty': t.difficulty,
+        'due_date': t.dueDate?.toUtc().toIso8601String(),
+        'is_completed': t.isCompleted,
+        'streak_count': t.streakCount,
+        'last_completed_date': t.lastCompletedDate?.toUtc().toIso8601String(),
+        'is_deleted': t.isDeleted,
+        'updated_at': t.updatedAt.toUtc().toIso8601String(),
+      };
+
+  TasksCompanion _companionFromRemote(
+      String userId, Map<String, dynamic> r, DateTime? updated) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    // Backend lowercases enum names; restore the only camelCase one.
+    var type = (r['type'] ?? 'daily').toString();
+    if (type == 'longterm') type = 'longTerm';
+    return TasksCompanion(
+      id: Value(r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      title: Value((r['title'] ?? '').toString()),
+      description: Value(r['description']?.toString()),
+      type: Value(type),
+      category: Value((r['category'] ?? 'custom').toString()),
+      xpReward: Value((r['xp_reward'] as num?)?.toInt() ?? 25),
+      difficulty: Value((r['difficulty'] as num?)?.toInt() ?? 1),
+      dueDate: Value(parse(r['due_date'])),
+      isCompleted: Value(r['is_completed'] == true),
+      streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
+      lastCompletedDate: Value(parse(r['last_completed_date'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: Value(r['is_deleted'] == true),
+      deletedAt: Value(parse(r['deleted_at'])),
+      lastSyncedAt: Value(DateTime.now()),
+    );
   }
 
   // ─── Pull Handler Registration ──────────────────────────────

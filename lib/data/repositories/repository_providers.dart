@@ -77,6 +77,7 @@ final conflictResolutionServiceProvider =
 final offlineManagerProvider = Provider<OfflineManager>((ref) {
   return OfflineManager(
     syncDao: ref.read(syncDaoProvider),
+    taskDao: ref.read(taskDaoProvider),
     syncRepository: ref.read(syncRepositoryProvider),
     conflictResolution: ref.read(conflictResolutionServiceProvider),
   );
