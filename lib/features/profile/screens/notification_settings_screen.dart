@@ -1,163 +1,171 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/features/profile/providers/notification_settings_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
-class NotificationSettingsScreen extends ConsumerWidget {
+/// Notifications — gentle control over what reaches you. Calm nudges, never
+/// nagging.
+class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final settings = ref.watch(notificationSettingsProvider);
+  ConsumerState<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
+}
 
+class _NotificationSettingsScreenState
+    extends ConsumerState<NotificationSettingsScreen> {
+  late final List<_NotifSetting> _settings = [
+    _NotifSetting(
+      icon: Icons.check_circle_outline_rounded,
+      color: AppColors.categoryWork,
+      title: 'Task reminders',
+      subtitle: 'A soft nudge when something is due',
+      value: true,
+    ),
+    _NotifSetting(
+      icon: Icons.loop_rounded,
+      color: AppColors.xpPrimary,
+      title: 'Habit reminders',
+      subtitle: 'Little prompts to keep your rhythm',
+      value: true,
+    ),
+    _NotifSetting(
+      icon: Icons.flag_outlined,
+      color: AppColors.tertiary,
+      title: 'Goal deadlines',
+      subtitle: 'A heads-up as a goal draws near',
+      value: false,
+    ),
+    _NotifSetting(
+      icon: Icons.emoji_events_rounded,
+      color: AppColors.badgeLegendary,
+      title: 'Achievements',
+      subtitle: 'Celebrate the moments you earn',
+      value: true,
+    ),
+    _NotifSetting(
+      icon: Icons.wb_twilight_rounded,
+      color: AppColors.secondary,
+      title: 'Daily summary',
+      subtitle: 'A kind recap of your day',
+      value: false,
+    ),
+    _NotifSetting(
+      icon: Icons.nightlight_round,
+      color: AppColors.categoryMindfulness,
+      title: 'Quiet hours',
+      subtitle: 'We rest while you do, 10pm to 7am',
+      value: true,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Notification Settings',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.md,
+            AppSpacing.gutter,
+            AppSpacing.xxl,
           ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Text(
-              'Choose which notifications you want to receive.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          children: [
+            AtlasHeader(
+              title: 'Notifications',
+              subtitle: 'Choose what reaches you',
+              onBack: () => context.pop(),
             ),
-          ),
-
-          _NotificationTile(
-            icon: Icons.check_circle_rounded,
-            color: AppColors.info,
-            title: 'Task Reminders',
-            subtitle: 'Get reminded about upcoming and overdue tasks',
-            value: settings.taskReminders,
-            onChanged: () => ref
-                .read(notificationSettingsProvider.notifier)
-                .toggle('taskReminders'),
-            isDark: isDark,
-          ),
-          _NotificationTile(
-            icon: Icons.loop_rounded,
-            color: AppColors.xpPrimary,
-            title: 'Habit Reminders',
-            subtitle: 'Daily reminders for your habits',
-            value: settings.habitReminders,
-            onChanged: () => ref
-                .read(notificationSettingsProvider.notifier)
-                .toggle('habitReminders'),
-            isDark: isDark,
-          ),
-          _NotificationTile(
-            icon: Icons.flag_rounded,
-            color: AppColors.tertiary,
-            title: 'Goal Deadlines',
-            subtitle: 'Alerts when goal deadlines are approaching',
-            value: settings.goalDeadlines,
-            onChanged: () => ref
-                .read(notificationSettingsProvider.notifier)
-                .toggle('goalDeadlines'),
-            isDark: isDark,
-          ),
-          _NotificationTile(
-            icon: Icons.emoji_events_rounded,
-            color: AppColors.badgeLegendary,
-            title: 'Achievement Notifications',
-            subtitle: 'Celebrate when you unlock new achievements',
-            value: settings.achievementNotifications,
-            onChanged: () => ref
-                .read(notificationSettingsProvider.notifier)
-                .toggle('achievementNotifications'),
-            isDark: isDark,
-          ),
-          _NotificationTile(
-            icon: Icons.summarize_rounded,
-            color: AppColors.secondary,
-            title: 'Daily Summary',
-            subtitle: 'End-of-day summary of your progress',
-            value: settings.dailySummary,
-            onChanged: () => ref
-                .read(notificationSettingsProvider.notifier)
-                .toggle('dailySummary'),
-            isDark: isDark,
-          ),
-        ],
+            AppSpacing.gapLg,
+            for (var i = 0; i < _settings.length; i++) ...[
+              if (i > 0) AppSpacing.gapSm,
+              _NotifTile(
+                setting: _settings[i],
+                onChanged: (v) => setState(() => _settings[i].value = v),
+              )
+                  .animate()
+                  .fadeIn(
+                    duration: AppMotion.medium,
+                    delay: (60 * i).ms,
+                  )
+                  .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _NotificationTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final VoidCallback onChanged;
-  final bool isDark;
-
-  const _NotificationTile({
+class _NotifSetting {
+  _NotifSetting({
     required this.icon,
     required this.color,
     required this.title,
     required this.subtitle,
     required this.value,
-    required this.onChanged,
-    required this.isDark,
   });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  bool value;
+}
+
+class _NotifTile extends StatelessWidget {
+  const _NotifTile({required this.setting, required this.onChanged});
+  final _NotifSetting setting;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.cardDark : AppColors.cardLight,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? AppColors.cardBorderDark : AppColors.cardBorderLight,
-        ),
-      ),
-      child: SwitchListTile.adaptive(
-        secondary: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+    return AtlasCard(
+      onTap: () => onChanged(!setting.value),
+      padding: const EdgeInsets.all(AppSpacing.sm + 2),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: setting.color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Icon(setting.icon, color: setting.color, size: 22),
           ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(setting.title, style: theme.textTheme.titleMedium),
+                Text(
+                  setting.subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(width: AppSpacing.xs),
+          Switch.adaptive(
+            value: setting.value,
+            onChanged: onChanged,
+            activeThumbColor: theme.colorScheme.onPrimary,
+            activeTrackColor: setting.color,
           ),
-        ),
-        value: value,
-        onChanged: (_) => onChanged(),
-        activeTrackColor: AppColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        ],
       ),
     );
   }

@@ -1,157 +1,183 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/features/notifications/providers/notification_provider.dart';
-import 'package:atlas_flutter_app/features/notifications/widgets/notification_card.dart';
+import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
-class NotificationCenterScreen extends ConsumerStatefulWidget {
+/// Notification Center — a gentle, swipe-to-dismiss feed. Unread items are
+/// lightly emphasized; nothing here shames the user.
+class NotificationCenterScreen extends ConsumerWidget {
   const NotificationCenterScreen({super.key});
 
   @override
-  ConsumerState<NotificationCenterScreen> createState() =>
-      _NotificationCenterScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(notificationsProvider);
+    final notifier = ref.read(notificationsProvider.notifier);
+    final unread = items.where((n) => !n.read).length;
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.md,
+            AppSpacing.gutter,
+            AppSpacing.xxl,
+          ),
+          children: [
+            AtlasHeader(
+              title: 'Notifications',
+              subtitle: unread > 0 ? '$unread new' : "You're all caught up",
+              onBack: () => context.pop(),
+              trailing: unread > 0
+                  ? TextButton(
+                      onPressed: notifier.markAllRead,
+                      child: const Text('Mark all read'),
+                    )
+                  : null,
+            ),
+            AppSpacing.gapLg,
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xxl),
+                child: const AtlasEmptyState(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'All clear',
+                  message: 'Nothing needs your attention right now.',
+                ),
+              )
+            else
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) AppSpacing.gapSm,
+                Dismissible(
+                  key: ValueKey(items[i].id),
+                  onDismissed: (_) => notifier.dismiss(items[i].id),
+                  background: const _DismissBackground(
+                    alignment: Alignment.centerLeft,
+                  ),
+                  secondaryBackground: const _DismissBackground(
+                    alignment: Alignment.centerRight,
+                  ),
+                  child: _NotificationCard(item: items[i])
+                      .animate(delay: Duration(milliseconds: 40 * i))
+                      .fadeIn(duration: AppMotion.medium)
+                      .slideY(
+                        begin: 0.06,
+                        end: 0,
+                        duration: AppMotion.medium,
+                        curve: AppMotion.standard,
+                      ),
+                ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _NotificationCenterScreenState
-    extends ConsumerState<NotificationCenterScreen> {
+class _DismissBackground extends StatelessWidget {
+  const _DismissBackground({required this.alignment});
+  final Alignment alignment;
+
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(
-        () => ref.read(notificationProvider.notifier).loadNotifications());
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      ),
+      child: const Icon(
+        Icons.delete_outline_rounded,
+        color: AppColors.error,
+      ),
+    );
   }
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({required this.item});
+  final SampleNotification item;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final state = ref.watch(notificationProvider);
+    final unread = !item.read;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Notifications',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        actions: [
-          if (state.unreadCount > 0)
-            IconButton(
-              icon: const Icon(Icons.check_circle_outline_rounded),
-              tooltip: 'Mark all as read',
-              onPressed: () =>
-                  ref.read(notificationProvider.notifier).markAllAsRead(),
+    return AtlasCard(
+      color: unread ? theme.colorScheme.primary.withValues(alpha: 0.06) : null,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
             ),
-        ],
-      ),
-      body: state.isLoading
-          ? _buildShimmerList(isDark)
-          : state.notifications.isEmpty
-              ? _buildEmptyState(theme)
-              : RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(notificationProvider.notifier).refresh(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    itemCount: state.notifications.length,
-                    itemBuilder: (context, index) {
-                      final notification = state.notifications[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Dismissible(
-                          key: Key(notification.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            margin: const EdgeInsets.only(bottom: 0),
-                            decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: AppColors.error,
-                            ),
-                          ),
-                          onDismissed: (_) {
-                            ref
-                                .read(notificationProvider.notifier)
-                                .deleteNotification(notification.id);
-                          },
-                          child: NotificationCard(
-                            notification: notification,
-                            isDark: isDark,
-                            onTap: () {
-                              if (!notification.isRead) {
-                                ref
-                                    .read(notificationProvider.notifier)
-                                    .markAsRead(notification.id);
-                              }
-                            },
-                          ),
+            child: Icon(item.icon, color: item.color, size: 22),
+          ),
+          AppSpacing.hGapMd,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (unread) ...[
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
                         ),
-                      );
-                    },
+                      ),
+                      AppSpacing.hGapXs,
+                    ],
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight:
+                              unread ? FontWeight.w700 : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    AppSpacing.hGapSm,
+                    Text(
+                      item.timeLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  item.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.4,
                   ),
                 ),
-    );
-  }
-
-  Widget _buildEmptyState(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.notifications_none_rounded,
-            size: 64,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No notifications yet',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'When you receive notifications, they will appear here',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color:
-                  theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildShimmerList(bool isDark) {
-    return Shimmer.fromColors(
-      baseColor: isDark ? AppColors.cardDark : Colors.grey.shade200,
-      highlightColor: isDark ? AppColors.cardBorderDark : Colors.grey.shade100,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        itemCount: 6,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          );
-        },
       ),
     );
   }

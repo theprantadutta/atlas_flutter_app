@@ -1,371 +1,372 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/data/models/enums.dart';
-import 'package:atlas_flutter_app/data/models/world_tile.dart';
-import 'package:atlas_flutter_app/features/world/providers/world_provider.dart';
-import 'package:atlas_flutter_app/features/world/widgets/tile_detail_panel.dart';
+import 'package:atlas_flutter_app/core/sample/sample_world.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_card.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_error_widget.dart';
-import 'package:atlas_flutter_app/shared/widgets/loading_shimmer.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
+/// The "Your World" tab — a living map that flourishes tile by tile as the
+/// user tends their habits. Tab root, so it carries no back button.
 class WorldScreen extends ConsumerWidget {
   const WorldScreen({super.key});
 
-  Color _tileColor(WorldTileType type, bool isUnlocked, bool isDark) {
-    if (!isUnlocked) {
-      return isDark
-          ? AppColors.cardBorderDark.withValues(alpha: 0.6)
-          : AppColors.cardBorderLight;
-    }
-    return switch (type) {
-      WorldTileType.grass => AppColors.success,
-      WorldTileType.forest => AppColors.xpPrimary,
-      WorldTileType.mountain => const Color(0xFF78909C),
-      WorldTileType.water => AppColors.info,
-      WorldTileType.desert => AppColors.tertiary,
-      WorldTileType.city => AppColors.categoryWork,
-      WorldTileType.building => AppColors.categoryFitness,
-      WorldTileType.special => AppColors.badgeLegendary,
-    };
-  }
-
-  IconData _tileIcon(WorldTileType type) => switch (type) {
-        WorldTileType.grass => Icons.grass_rounded,
-        WorldTileType.forest => Icons.park_rounded,
-        WorldTileType.mountain => Icons.terrain_rounded,
-        WorldTileType.water => Icons.water_rounded,
-        WorldTileType.desert => Icons.wb_sunny_rounded,
-        WorldTileType.city => Icons.location_city_rounded,
-        WorldTileType.building => Icons.house_rounded,
-        WorldTileType.special => Icons.auto_awesome_rounded,
-      };
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final worldState = ref.watch(worldProvider);
+    final tiles = ref.watch(worldProvider);
+    final unlockedCount = tiles.where((t) => t.unlocked).length;
+    final total = tiles.length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'World Map',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.md,
+            AppSpacing.gutter,
+            AppSpacing.xxl,
           ),
-        ),
-      ),
-      body: worldState.isLoading
-          ? Center(child: LoadingShimmer.card(height: 300))
-          : worldState.error != null
-              ? AppErrorDisplay(
-                  message: worldState.error!,
-                  onRetry: () =>
-                      ref.read(worldProvider.notifier).loadWorld(),
-                )
-              : worldState.tiles.isEmpty
-                  ? _buildEmptyState(context, ref)
-                  : Column(
-                      children: [
-                        // Stats bar
-                        _buildStatsBar(context, worldState, isDark),
-                        const SizedBox(height: 4),
-
-                        // Instruction text
-                        _buildInstructions(context, worldState),
-                        const SizedBox(height: 4),
-
-                        // World grid
-                        Expanded(
-                          child: _buildWorldGrid(
-                            context,
-                            ref,
-                            worldState,
-                            isDark,
-                          ),
-                        ),
-
-                        // Legend
-                        _buildLegend(context, isDark),
-                      ],
-                    ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(
-              'Generating your world...',
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            AtlasHeader(
+              title: 'Your World',
+              subtitle: 'Tend yourself, watch it grow',
+              trailing: CircleActionButton(
+                icon: Icons.emoji_events_outlined,
+                onTap: () => context.push('/world/achievements'),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'This may take a moment',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 24),
-            TextButton.icon(
-              onPressed: () => ref.read(worldProvider.notifier).loadWorld(),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
+            AppSpacing.gapLg,
+            _HeroBanner(unlockedCount: unlockedCount, total: total),
+            AppSpacing.gapLg,
+            _WorldGrid(tiles: tiles),
+            AppSpacing.gapXl,
+            const SectionHeader(title: 'Legend'),
+            const _Legend(),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInstructions(BuildContext context, WorldState worldState) {
-    final theme = Theme.of(context);
-    // Check if only the origin tile is unlocked
-    final unlockedCount = worldState.unlockedCount;
-    final String message;
-    if (unlockedCount <= 1) {
-      message = 'Tap the glowing tile to start your adventure!';
-    } else {
-      message = 'Earn XP to unlock new tiles! Tap a tile to see details and unlock it.';
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        message,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  Widget _buildStatsBar(
-    BuildContext context,
-    WorldState worldState,
-    bool isDark,
-  ) {
-    final theme = Theme.of(context);
-    final unlocked = worldState.unlockedCount;
-    final total = worldState.totalCount > 0 ? worldState.totalCount : 64;
-    final progress = unlocked / total;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: AppCard(
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.xpPrimary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.explore_rounded,
-                    color: AppColors.xpPrimary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$unlocked / $total tiles unlocked',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          backgroundColor:
-                              AppColors.xpPrimary.withValues(alpha: 0.12),
-                          valueColor: const AlwaysStoppedAnimation(
-                              AppColors.xpPrimary),
-                          minHeight: 6,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWorldGrid(
-    BuildContext context,
-    WidgetRef ref,
-    WorldState worldState,
-    bool isDark,
-  ) {
-    // Build an 8x8 grid. Map tiles to positions or fill with placeholders.
-    final tileMap = <String, WorldTile>{};
-    for (final tile in worldState.tiles) {
-      tileMap['${tile.positionX},${tile.positionY}'] = tile;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: InteractiveViewer(
-        minScale: 0.5,
-        maxScale: 3.0,
-        boundaryMargin: const EdgeInsets.all(40),
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: GridView.count(
-              crossAxisCount: 8,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 3,
-              crossAxisSpacing: 3,
-              children: List.generate(64, (index) {
-                final x = index % 8;
-                final y = index ~/ 8;
-                final tile = tileMap['$x,$y'];
-
-                if (tile != null) {
-                  return _WorldTileWidget(
-                    tile: tile,
-                    color: _tileColor(tile.tileType, tile.isUnlocked, isDark),
-                    icon: _tileIcon(tile.tileType),
-                    isSelected: worldState.selectedTile?.id == tile.id,
-                    onTap: () {
-                      ref.read(worldProvider.notifier).selectTile(tile);
-                      showTileDetailPanel(context, tile);
-                    },
-                  );
-                }
-
-                // Empty/placeholder tile
-                return Container(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.cardDark.withValues(alpha: 0.4)
-                        : AppColors.cardBorderLight.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegend(BuildContext context, bool isDark) {
-    final theme = Theme.of(context);
-    final types = [
-      (WorldTileType.forest, 'Forest'),
-      (WorldTileType.mountain, 'Mountain'),
-      (WorldTileType.water, 'Water'),
-      (WorldTileType.city, 'City'),
-      (WorldTileType.special, 'Special'),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 6,
-        alignment: WrapAlignment.center,
-        children: types.map((entry) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: _tileColor(entry.$1, true, isDark),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                entry.$2,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          );
-        }).toList(),
       ),
     );
   }
 }
 
-class _WorldTileWidget extends StatelessWidget {
-  final WorldTile tile;
-  final Color color;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
+/// A living horizon hero with an overlaid "alive" count.
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner({required this.unlockedCount, required this.total});
 
-  const _WorldTileWidget({
-    required this.tile,
-    required this.color,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
+  final int unlockedCount;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progress = total == 0 ? 0.0 : unlockedCount / total;
+
+    return Stack(
+      children: [
+        LivingHorizon(
+          height: 150,
+          progress: progress,
+          borderRadius:
+              const BorderRadius.all(Radius.circular(AppSpacing.radiusLg)),
+        ),
+        Positioned(
+          left: AppSpacing.md,
+          bottom: AppSpacing.md,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xxs + 2,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.32),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.eco_rounded,
+                    size: 15, color: AppColors.auroraTeal),
+                AppSpacing.hGapXs,
+                Text(
+                  '$unlockedCount / $total tiles alive',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ).animate().fadeIn(duration: AppMotion.medium).slideY(
+          begin: 0.06,
+          end: 0,
+          duration: AppMotion.medium,
+          curve: AppMotion.standard,
+        );
+  }
+}
+
+class _WorldGrid extends ConsumerWidget {
+  const _WorldGrid({required this.tiles});
+
+  final List<WorldTileInfo> tiles;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tiles.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 5,
+        mainAxisSpacing: AppSpacing.xs,
+        crossAxisSpacing: AppSpacing.xs,
+      ),
+      itemBuilder: (context, index) => _WorldTile(
+        tile: tiles[index],
+        onTap: () => _onTap(context, ref, index, tiles[index]),
+      ),
+    );
+  }
+
+  void _onTap(
+    BuildContext context,
+    WidgetRef ref,
+    int index,
+    WorldTileInfo tile,
+  ) {
+    if (tile.glowing) {
+      ref.read(worldProvider.notifier).unlock(index);
+      return;
+    }
+    _showTileSheet(context, tile);
+  }
+}
+
+class _WorldTile extends StatelessWidget {
+  const _WorldTile({required this.tile, required this.onTap});
+
+  final WorldTileInfo tile;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = tile.type.color;
+
+    late final Color bg;
+    late final Widget icon;
+    Border? border;
+    List<BoxShadow>? shadow;
+
+    if (tile.unlocked) {
+      bg = color.withValues(alpha: 0.18);
+      icon = Icon(tile.type.icon, color: color, size: 22);
+    } else if (tile.glowing) {
+      bg = color.withValues(alpha: 0.22);
+      icon = Icon(tile.type.icon, color: color, size: 22);
+      border = Border.all(color: AppColors.auroraLilac, width: 1.5);
+      shadow = [
+        BoxShadow(
+          color: AppColors.auroraLilac.withValues(alpha: 0.45),
+          blurRadius: 16,
+          spreadRadius: 1,
+        ),
+        BoxShadow(
+          color: AppColors.auroraTeal.withValues(alpha: 0.30),
+          blurRadius: 22,
+          spreadRadius: 1,
+        ),
+      ];
+    } else {
+      bg = theme.colorScheme.surfaceContainerHighest;
+      icon = Icon(
+        Icons.lock_outline,
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        size: 18,
+      );
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: AppMotion.fast,
+        curve: AppMotion.standard,
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(6),
-          border: isSelected
-              ? Border.all(color: Colors.white, width: 2)
-              : null,
-          boxShadow: tile.isUnlocked
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 4,
-                  ),
-                ]
-              : null,
+          color: bg,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: border,
+          boxShadow: shadow,
         ),
-        child: Center(
-          child: tile.isUnlocked
-              ? Icon(icon, size: 16, color: Colors.white.withValues(alpha: 0.85))
-              : Icon(
-                  Icons.lock_rounded,
-                  size: 12,
-                  color: Colors.grey.withValues(alpha: 0.5),
+        child: Center(child: icon),
+      ),
+    );
+  }
+}
+
+void _showTileSheet(BuildContext context, WorldTileInfo tile) {
+  final theme = Theme.of(context);
+  final color = tile.type.color;
+  final unlocked = tile.unlocked;
+
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.radiusXl),
+        ),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.outline,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              ),
+            ),
+          ),
+          AppSpacing.gapLg,
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: unlocked
+                      ? color.withValues(alpha: 0.18)
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
-        ),
+                child: Icon(
+                  unlocked ? tile.type.icon : Icons.lock_outline,
+                  color: unlocked ? color : theme.colorScheme.onSurfaceVariant,
+                  size: 28,
+                ),
+              ),
+              AppSpacing.hGapMd,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tile.type.label,
+                      style: theme.textTheme.headlineSmall,
+                    ),
+                    Text(
+                      unlocked ? 'Flourishing' : 'Dormant',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          AppSpacing.gapMd,
+          Text(
+            unlocked
+                ? 'A peaceful ${tile.type.label.toLowerCase()}, earned by '
+                    'tending your habits. Keep going and your world grows '
+                    'richer.'
+                : 'This ${tile.type.label.toLowerCase()} is still dormant. '
+                    'It needs ${tile.cost} XP to bloom — tend your habits to '
+                    'bring it to life.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
+          ),
+          if (!unlocked) ...[
+            AppSpacing.gapMd,
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.tertiary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded,
+                      size: 18, color: AppColors.tertiary),
+                  AppSpacing.hGapSm,
+                  Text(
+                    '${tile.cost} XP to bloom',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppColors.tertiary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AtlasCard(
+      child: Wrap(
+        spacing: AppSpacing.md,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final type in TileType.values)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: type.color.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  ),
+                  child: Icon(type.icon, color: type.color, size: 15),
+                ),
+                AppSpacing.hGapXs,
+                Text(
+                  type.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

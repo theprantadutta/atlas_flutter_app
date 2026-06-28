@@ -9,15 +9,13 @@ import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
-import 'package:atlas_flutter_app/features/goals/screens/goals_screen.dart';
-import 'package:atlas_flutter_app/features/habits/screens/habits_screen.dart';
+import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
 import 'package:atlas_flutter_app/features/progress/screens/progress_screen.dart';
-import 'package:atlas_flutter_app/features/tasks/screens/tasks_screen.dart';
 import 'package:atlas_flutter_app/features/world/screens/world_screen.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_navigation_shell.dart';
@@ -45,38 +43,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authProvider);
       final isOnSplash = state.matchedLocation == '/splash';
 
-      // While initializing, redirect to splash (unless already there)
       if (authState.isInitializing) {
         return isOnSplash ? null : '/splash';
       }
 
-      // Once initialized, redirect away from splash
       if (isOnSplash) {
         return authState.isAuthenticated ? '/' : '/login';
       }
 
-      final isOnLogin = state.matchedLocation == '/login';
-      final isOnSignup = state.matchedLocation == '/signup';
-      final isOnAuthPage = isOnLogin || isOnSignup;
+      final isOnAuthPage = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/signup';
 
-      if (!authState.isAuthenticated && !isOnAuthPage) {
-        return '/login';
-      }
-
-      if (authState.isAuthenticated && isOnAuthPage) {
-        return '/';
-      }
-
+      if (!authState.isAuthenticated && !isOnAuthPage) return '/login';
+      if (authState.isAuthenticated && isOnAuthPage) return '/';
       return null;
     },
     routes: [
-      // ─── Splash route (shown during auth initialization) ───
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
-
-      // ─── Auth routes (outside the shell) ───
       GoRoute(
         path: '/login',
         name: RouteNames.login,
@@ -88,13 +74,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignupScreen(),
       ),
 
-      // ─── Main shell with bottom navigation ───
+      // ─── Main shell: Home · Grow · World · You ───
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return AppNavigationShell(navigationShell: navigationShell);
-        },
+        builder: (context, state, navigationShell) =>
+            AppNavigationShell(navigationShell: navigationShell),
         branches: [
-          // Branch 0: Home
+          // Home
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -105,14 +90,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'analytics',
                     name: RouteNames.analytics,
-                    builder: (context, state) =>
-                        const AnalyticsScreen(),
+                    builder: (context, state) => const AnalyticsScreen(),
                   ),
                   GoRoute(
                     path: 'progress',
                     name: RouteNames.progress,
-                    builder: (context, state) =>
-                        const ProgressScreen(),
+                    builder: (context, state) => const ProgressScreen(),
                   ),
                   GoRoute(
                     path: 'notifications',
@@ -125,76 +108,47 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Branch 1: Tasks
+          // Grow
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/tasks',
-                name: RouteNames.tasks,
-                builder: (context, state) =>
-                    const TasksScreen(),
+                path: '/grow',
+                name: RouteNames.grow,
+                builder: (context, state) => const GrowScreen(),
               ),
             ],
           ),
 
-          // Branch 2: Habits
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/habits',
-                name: RouteNames.habits,
-                builder: (context, state) =>
-                    const HabitsScreen(),
-              ),
-            ],
-          ),
-
-          // Branch 3: Goals
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/goals',
-                name: RouteNames.goals,
-                builder: (context, state) =>
-                    const GoalsScreen(),
-              ),
-            ],
-          ),
-
-          // Branch 4: World
+          // World
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/world',
                 name: RouteNames.world,
-                builder: (context, state) =>
-                    const WorldScreen(),
+                builder: (context, state) => const WorldScreen(),
                 routes: [
                   GoRoute(
                     path: 'achievements',
                     name: RouteNames.achievements,
-                    builder: (context, state) =>
-                        const AchievementsScreen(),
+                    builder: (context, state) => const AchievementsScreen(),
                   ),
                 ],
               ),
             ],
           ),
 
-          // Branch 5: Profile
+          // You
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/profile',
                 name: RouteNames.profile,
-                builder: (context, state) =>
-                    const ProfileScreen(),
+                builder: (context, state) => const ProfileScreen(),
                 routes: [
                   GoRoute(
                     path: 'avatar',
                     name: RouteNames.avatar,
-                    builder: (context, state) =>
-                        const AvatarScreen(),
+                    builder: (context, state) => const AvatarScreen(),
                   ),
                   GoRoute(
                     path: 'notifications',
@@ -205,8 +159,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'sync',
                     name: RouteNames.syncManagement,
-                    builder: (context, state) =>
-                        const SyncManagementScreen(),
+                    builder: (context, state) => const SyncManagementScreen(),
                   ),
                 ],
               ),

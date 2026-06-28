@@ -44,6 +44,26 @@ class HomeScreen extends ConsumerWidget {
             _StatStrip(home: home)
                 .animate()
                 .fadeIn(duration: AppMotion.medium, delay: 160.ms),
+            AppSpacing.gapMd,
+            Row(
+              children: [
+                Expanded(
+                  child: _HomeLink(
+                    icon: Icons.insights_rounded,
+                    label: 'Insights',
+                    onTap: () => context.push('/analytics'),
+                  ),
+                ),
+                AppSpacing.hGapSm,
+                Expanded(
+                  child: _HomeLink(
+                    icon: Icons.calendar_today_rounded,
+                    label: 'Progress',
+                    onTap: () => context.push('/progress'),
+                  ),
+                ),
+              ],
+            ),
             AppSpacing.gapXl,
             _TodayHeader(done: home.doneCount, total: home.today.length),
             AppSpacing.gapMd,
@@ -109,9 +129,7 @@ class _GreetingHeader extends ConsumerWidget {
         _CircleButton(
           icon: Icons.notifications_none_rounded,
           badge: true,
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Notifications coming soon')),
-          ),
+          onTap: () => context.push('/notifications'),
         ),
         const SizedBox(width: AppSpacing.xs),
         _CircleButton(
@@ -494,6 +512,46 @@ class _CheckCircle extends StatelessWidget {
       child: done
           ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
           : null,
+    );
+  }
+}
+
+// ─── Quick links (Insights / Progress) ─────────────────────────────
+
+class _HomeLink extends StatelessWidget {
+  const _HomeLink({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(label, style: theme.textTheme.titleSmall),
+              const Spacer(),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

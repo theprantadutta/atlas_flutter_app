@@ -4,6 +4,7 @@ class RouteNames {
   static const login = 'login';
   static const signup = 'signup';
   static const home = 'home';
+  static const grow = 'grow';
   static const tasks = 'tasks';
   static const habits = 'habits';
   static const goals = 'goals';
