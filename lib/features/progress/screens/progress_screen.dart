@@ -3,61 +3,129 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
+import 'package:atlas_flutter_app/core/sample/sample_extra.dart' show DayEntry;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// Progress — a calm, day-by-day ledger of the week, with each day's XP shown
-/// as a thin bar so days can be compared at a glance.
+/// as a thin bar so days can be compared at a glance. Reads the local-first
+/// Drift ledger (source of truth).
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final days = ref.watch(progressProvider);
-    final maxXp = days.fold<int>(0, (p, e) => e.xp > p ? e.xp : p);
+    final entriesAsync = ref.watch(progressEntriesStreamProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
-          children: [
-            AtlasHeader(
-              title: 'Progress',
-              subtitle: 'Day by day',
-              onBack: () => context.pop(),
-            ),
-            AppSpacing.gapLg,
-            const SectionHeader(title: 'This week'),
-            for (var i = 0; i < days.length; i++) ...[
-              if (i > 0) AppSpacing.gapSm,
-              _DayCard(
-                entry: days[i],
-                maxXp: maxXp,
-                isToday: days[i].label == 'Today',
-              )
-                  .animate(delay: Duration(milliseconds: 40 * i))
-                  .fadeIn(duration: AppMotion.medium)
-                  .slideY(
-                    begin: 0.06,
-                    end: 0,
-                    duration: AppMotion.medium,
-                    curve: AppMotion.standard,
-                  ),
-            ],
-          ],
+        child: entriesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) =>
+              const Center(child: Text('Could not load your progress')),
+          data: (rows) {
+            final today = DateTime.now();
+            final days = rows.map((r) => _toDay(r, today)).toList();
+            final maxXp = days.fold<int>(0, (p, e) => e.xp > p ? e.xp : p);
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.md,
+                AppSpacing.gutter,
+                AppSpacing.bottomNavSpace,
+              ),
+              children: [
+                AtlasHeader(
+                  title: 'Progress',
+                  subtitle: 'Day by day',
+                  onBack: () => context.pop(),
+                ),
+                AppSpacing.gapLg,
+                const SectionHeader(title: 'This week'),
+                if (days.isEmpty)
+                  const AtlasEmptyState(
+                    icon: Icons.timeline_rounded,
+                    title: 'No history yet',
+                    message: 'Tend your habits and your week will fill in here.',
+                  )
+                else
+                  for (var i = 0; i < days.length; i++) ...[
+                    if (i > 0) AppSpacing.gapSm,
+                    _DayCard(
+                      entry: days[i],
+                      maxXp: maxXp,
+                      isToday: days[i].label == 'Today',
+                    )
+                        .animate(delay: Duration(milliseconds: 40 * i))
+                        .fadeIn(duration: AppMotion.medium)
+                        .slideY(
+                          begin: 0.06,
+                          end: 0,
+                          duration: AppMotion.medium,
+                          curve: AppMotion.standard,
+                        ),
+                  ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+/// Map a Drift progress row to the ledger view model, labelling the day
+/// relative to today.
+DayEntry _toDay(ProgressEntry row, DateTime today) {
+  return DayEntry(
+    label: _labelFor(row.date, today),
+    date: _dateStr(row.date),
+    xp: row.xpGained,
+    tasks: row.tasksCompleted,
+    streak: row.streakCount,
+  );
+}
+
+String _labelFor(DateTime date, DateTime today) {
+  final d = DateTime(date.year, date.month, date.day);
+  final t = DateTime(today.year, today.month, today.day);
+  final diff = t.difference(d).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  const names = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  return names[d.weekday - 1];
+}
+
+String _dateStr(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[date.month - 1]} ${date.day}';
 }
 
 class _DayCard extends StatelessWidget {

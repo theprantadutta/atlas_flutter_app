@@ -1,13 +1,11 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart';
-
-import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
-import 'package:atlas_flutter_app/data/database/atlas_database.dart' show ProgressEntriesCompanion;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/models/progress_entry.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
 
+/// Local-first Progress repository: Drift is the source of truth.
 class ProgressRepository extends BaseRepository {
   final ProgressDao _progressDao;
 
@@ -17,177 +15,50 @@ class ProgressRepository extends BaseRepository {
     this._progressDao,
   );
 
-  // ─── Caches ──────────────────────────────────────────────────
+  // ─── READ ─────────────────────────────────────────────────────
 
-  final LRUCache<String, List<ProgressEntry>> _collectionCache =
-      LRUCache(maxSize: 50, ttl: Duration(minutes: 5));
-  final LRUCache<String, Map<String, dynamic>> _statsCache =
-      LRUCache(maxSize: 20, ttl: Duration(minutes: 5));
-
-  // ─── Cache key helpers ───────────────────────────────────────
-
-  String _collectionKey({String? startDate, String? endDate}) =>
-      'progress:$startDate:$endDate';
-
-  // ─── READ operations ─────────────────────────────────────────
-
-  /// Get progress entries with optional date range.
   Future<List<ProgressEntry>> getProgress({
     String? startDate,
     String? endDate,
   }) async {
-    final cacheKey = _collectionKey(startDate: startDate, endDate: endDate);
+    final start = startDate != null
+        ? DateTime.parse(startDate)
+        : DateTime.now().subtract(const Duration(days: 30));
+    final end = endDate != null ? DateTime.parse(endDate) : DateTime.now();
+    final rows =
+        await _progressDao.getProgressByDateRange(currentUserId, start, end);
+    return rows.map(_toModel).toList();
+  }
 
-    // 1. Check LRU cache
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
+  // ─── Mapping ──────────────────────────────────────────────────
 
-    // 2. If online, try API
-    if (isOnline) {
+  ProgressEntry _toModel(db.ProgressEntry row) =>
+      ProgressEntry.fromJson(_rowToJson(row));
+
+  Map<String, dynamic> _rowToJson(db.ProgressEntry row) {
+    Map<String, dynamic>? decode(String? s) {
+      if (s == null || s.isEmpty) return null;
       try {
-        final queryParams = <String, dynamic>{};
-        if (startDate != null) queryParams['start_date'] = startDate;
-        if (endDate != null) queryParams['end_date'] = endDate;
-
-        final response = await apiService.get(
-          '/progress',
-          queryParameters: queryParams.isNotEmpty ? queryParams : null,
-        );
-        final entries = parseList(response.data, ProgressEntry.fromJson);
-
-        // Persist to local DB
-        await _persistEntriesToDb(entries);
-
-        _collectionCache.put(cacheKey, entries);
-        return entries;
+        return jsonDecode(s) as Map<String, dynamic>;
       } catch (_) {
-        // API failed — fall through to DAO
+        return null;
       }
     }
 
-    // 3. Offline fallback: read from local DAO
-    try {
-      final start = startDate != null
-          ? DateTime.parse(startDate)
-          : DateTime.now().subtract(const Duration(days: 30));
-      final end =
-          endDate != null ? DateTime.parse(endDate) : DateTime.now();
-
-      final localEntries =
-          await _progressDao.getProgressByDateRange(currentUserId, start, end);
-      final entries = localEntries
-          .map((p) => ProgressEntry.fromJson(_driftProgressToJson(p)))
-          .toList();
-      _collectionCache.put(cacheKey, entries);
-      return entries;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  // ─── STATS operations ───────────────────────────────────────
-
-  /// Get progress trend data.
-  Future<Map<String, dynamic>> getProgressTrend() async {
-    final cached = _statsCache.get('progress_trend');
-    if (cached != null) return cached;
-
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/progress/trend');
-        final trend = response.data as Map<String, dynamic>;
-        _statsCache.put('progress_trend', trend);
-        return trend;
-      } catch (_) {
-        // Fall through
-      }
-    }
-
-    return {};
-  }
-
-  /// Get category breakdown of progress.
-  Future<Map<String, dynamic>> getCategoryBreakdown() async {
-    final cached = _statsCache.get('progress_categories');
-    if (cached != null) return cached;
-
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/progress/categories');
-        final breakdown = response.data as Map<String, dynamic>;
-        _statsCache.put('progress_categories', breakdown);
-        return breakdown;
-      } catch (_) {
-        // Fall through
-      }
-    }
-
-    return {};
-  }
-
-  // ─── DB Persistence Helpers ────────────────────────────────
-
-  Future<void> _persistEntriesToDb(List<ProgressEntry> entries) async {
-    for (final entry in entries) {
-      await _persistEntryToDb(entry);
-    }
-  }
-
-  Future<void> _persistEntryToDb(ProgressEntry entry) async {
-    try {
-      await _progressDao.upsertProgress(_toCompanion(entry));
-    } catch (_) {
-      // Ignore DB write errors
-    }
-  }
-
-  ProgressEntriesCompanion _toCompanion(ProgressEntry entry) {
-    return ProgressEntriesCompanion(
-      id: Value(entry.id),
-      userId: Value(entry.userId),
-      date: Value(entry.date),
-      xpGained: Value(entry.xpGained),
-      tasksCompleted: Value(entry.tasksCompleted),
-      category: Value(entry.category),
-      categoryBreakdown: Value(
-        entry.categoryBreakdown != null
-            ? jsonEncode(entry.categoryBreakdown)
-            : null,
-      ),
-      taskTypeBreakdown: Value(
-        entry.taskTypeBreakdown != null
-            ? jsonEncode(entry.taskTypeBreakdown)
-            : null,
-      ),
-      streakCount: Value(entry.streakCount),
-      levelAtTime: Value(entry.levelAtTime),
-      additionalMetrics: Value(
-        entry.additionalMetrics != null
-            ? jsonEncode(entry.additionalMetrics)
-            : null,
-      ),
-      createdAt: Value(entry.createdAt),
-      updatedAt: Value(entry.updatedAt),
-    );
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────
-
-  Map<String, dynamic> _driftProgressToJson(dynamic driftProgress) {
     return {
-      'id': driftProgress.id,
-      'user_id': driftProgress.userId,
-      'date': driftProgress.date.toIso8601String(),
-      'xp_gained': driftProgress.xpGained,
-      'tasks_completed': driftProgress.tasksCompleted,
-      'category': driftProgress.category,
-      'category_breakdown': driftProgress.categoryBreakdown,
-      'task_type_breakdown': driftProgress.taskTypeBreakdown,
-      'streak_count': driftProgress.streakCount,
-      'level_at_time': driftProgress.levelAtTime,
-      'additional_metrics': driftProgress.additionalMetrics,
-      'created_at': driftProgress.createdAt.toIso8601String(),
-      'updated_at': driftProgress.updatedAt.toIso8601String(),
+      'id': row.id,
+      'user_id': row.userId,
+      'date': row.date.toIso8601String(),
+      'xp_gained': row.xpGained,
+      'tasks_completed': row.tasksCompleted,
+      'category': row.category,
+      'category_breakdown': decode(row.categoryBreakdown),
+      'task_type_breakdown': decode(row.taskTypeBreakdown),
+      'streak_count': row.streakCount,
+      'level_at_time': row.levelAtTime,
+      'additional_metrics': decode(row.additionalMetrics),
+      'created_at': row.createdAt.toIso8601String(),
+      'updated_at': row.updatedAt.toIso8601String(),
     };
   }
 }

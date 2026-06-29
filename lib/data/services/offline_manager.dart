@@ -14,6 +14,7 @@ import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -31,6 +32,7 @@ class OfflineManager {
   final AvatarDao _avatarDao;
   final WorldDao _worldDao;
   final AchievementDao _achievementDao;
+  final ProgressDao _progressDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -97,6 +99,7 @@ class OfflineManager {
     required AvatarDao avatarDao,
     required WorldDao worldDao,
     required AchievementDao achievementDao,
+    required ProgressDao progressDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
@@ -106,6 +109,7 @@ class OfflineManager {
         _avatarDao = avatarDao,
         _worldDao = worldDao,
         _achievementDao = achievementDao,
+        _progressDao = progressDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -179,6 +183,7 @@ class OfflineManager {
       await _pushAvatar();
       await _pushWorldTiles();
       await _pushAchievements();
+      await _pushProgress();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -398,6 +403,8 @@ class OfflineManager {
           await _applyRemoteWorldTile(userId, remote);
         case 'achievement':
           await _applyRemoteAchievement(userId, remote);
+        case 'progress_entry':
+          await _applyRemoteProgress(userId, remote);
       }
     }
   }
@@ -978,6 +985,118 @@ class OfflineManager {
       isUnlocked: Value(r['is_unlocked'] == true),
       progress: Value((r['progress'] as num?)?.toDouble() ?? 0.0),
       unlockedAt: Value(parse(r['unlocked_at'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Progress entry sync (offline-first) ──────────
+
+  Future<void> _pushProgress() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _progressDao.getDirtyEntries(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final p in dirty)
+        {
+          'operation_type': p.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'progress_entry',
+          'entity_id': p.id,
+          'data': jsonEncode(_progressWire(p)),
+          'timestamp': p.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _progressDao
+        .markSynced([for (final p in dirty) p.id], DateTime.now());
+    await _progressDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} progress rows');
+  }
+
+  /// Daily entries are keyed by calendar day (one per day), seeded
+  /// independently per device — match on the day to avoid duplicates.
+  Future<void> _applyRemoteProgress(
+      String userId, Map<String, dynamic> r) async {
+    final date =
+        DateTime.tryParse(r['date']?.toString() ?? '')?.toLocal() ??
+            DateTime.now();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _progressDao.getEntryForDay(userId, date);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _progressDao.hardDeleteEntry(local.id);
+      return;
+    }
+    await _progressDao.upsertProgress(
+      _companionFromRemoteProgress(userId, r, remoteUpdated, local?.id, date),
+    );
+  }
+
+  Map<String, dynamic> _progressWire(ProgressEntry p) {
+    Map<String, dynamic>? decode(String? s) {
+      if (s == null || s.isEmpty) return null;
+      try {
+        return jsonDecode(s) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return {
+      'id': p.id,
+      'user_id': p.userId,
+      'date': p.date.toUtc().toIso8601String(),
+      'xp_gained': p.xpGained,
+      'tasks_completed': p.tasksCompleted,
+      'category': p.category,
+      'category_breakdown': decode(p.categoryBreakdown),
+      'task_type_breakdown': decode(p.taskTypeBreakdown),
+      'streak_count': p.streakCount,
+      'level_at_time': p.levelAtTime,
+      'additional_metrics': decode(p.additionalMetrics),
+      'is_deleted': p.isDeleted,
+      'updated_at': p.updatedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  ProgressEntriesCompanion _companionFromRemoteProgress(String userId,
+      Map<String, dynamic> r, DateTime? updated, String? existingId, DateTime date) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    String? enc(dynamic v) {
+      if (v == null) return null;
+      if (v is String) return v.isEmpty ? null : v;
+      return jsonEncode(v);
+    }
+
+    return ProgressEntriesCompanion(
+      id: Value(existingId ?? r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      date: Value(date),
+      xpGained: Value((r['xp_gained'] as num?)?.toInt() ?? 0),
+      tasksCompleted: Value((r['tasks_completed'] as num?)?.toInt() ?? 0),
+      category: Value(r['category']?.toString()),
+      categoryBreakdown: Value(enc(r['category_breakdown'])),
+      taskTypeBreakdown: Value(enc(r['task_type_breakdown'])),
+      streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
+      levelAtTime: Value((r['level_at_time'] as num?)?.toInt() ?? 1),
+      additionalMetrics: Value(enc(r['additional_metrics'])),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
       isDirty: const Value(false),
