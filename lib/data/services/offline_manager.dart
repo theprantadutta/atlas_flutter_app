@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -29,6 +30,7 @@ class OfflineManager {
   final GoalDao _goalDao;
   final AvatarDao _avatarDao;
   final WorldDao _worldDao;
+  final AchievementDao _achievementDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -94,6 +96,7 @@ class OfflineManager {
     required GoalDao goalDao,
     required AvatarDao avatarDao,
     required WorldDao worldDao,
+    required AchievementDao achievementDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
@@ -102,6 +105,7 @@ class OfflineManager {
         _goalDao = goalDao,
         _avatarDao = avatarDao,
         _worldDao = worldDao,
+        _achievementDao = achievementDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -174,6 +178,7 @@ class OfflineManager {
       await _pushGoals();
       await _pushAvatar();
       await _pushWorldTiles();
+      await _pushAchievements();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -391,6 +396,8 @@ class OfflineManager {
           await _applyRemoteAvatar(userId, remote);
         case 'world_tile':
           await _applyRemoteWorldTile(userId, remote);
+        case 'achievement':
+          await _applyRemoteAchievement(userId, remote);
       }
     }
   }
@@ -854,6 +861,122 @@ class OfflineManager {
       unlockCategory: Value(r['unlock_category']?.toString()),
       positionX: Value((r['position_x'] as num?)?.toInt() ?? 0),
       positionY: Value((r['position_y'] as num?)?.toInt() ?? 0),
+      unlockedAt: Value(parse(r['unlocked_at'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Achievement sync (offline-first) ─────────────
+
+  Future<void> _pushAchievements() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _achievementDao.getDirtyAchievements(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final a in dirty)
+        {
+          'operation_type': a.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'achievement',
+          'entity_id': a.id,
+          'data': jsonEncode(_achievementWire(a)),
+          'timestamp': a.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _achievementDao
+        .markSynced([for (final a in dirty) a.id], DateTime.now());
+    await _achievementDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} achievement rows');
+  }
+
+  /// Achievements are seeded independently per device, so the title is the
+  /// natural key — match on it to avoid duplicating the gallery.
+  Future<void> _applyRemoteAchievement(
+      String userId, Map<String, dynamic> r) async {
+    final title = (r['title'] ?? '').toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _achievementDao.getAchievementByTitle(userId, title);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) {
+        await _achievementDao.hardDeleteAchievement(local.id);
+      }
+      return;
+    }
+    await _achievementDao.upsertAchievement(
+      _companionFromRemoteAchievement(userId, r, remoteUpdated, local?.id),
+    );
+  }
+
+  Map<String, dynamic> _achievementWire(Achievement a) {
+    Map<String, dynamic>? criteria;
+    if (a.criteria != null && a.criteria!.isNotEmpty) {
+      try {
+        criteria = jsonDecode(a.criteria!) as Map<String, dynamic>;
+      } catch (_) {
+        // Malformed criteria — omit it.
+      }
+    }
+    return {
+      'id': a.id,
+      'user_id': a.userId,
+      'title': a.title,
+      'description': a.description,
+      'icon_path': a.iconPath,
+      'type': a.achievementType,
+      'criteria': criteria,
+      'is_unlocked': a.isUnlocked,
+      'progress': a.progress,
+      'unlocked_at': a.unlockedAt?.toUtc().toIso8601String(),
+      'is_deleted': a.isDeleted,
+      'updated_at': a.updatedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  AchievementsCompanion _companionFromRemoteAchievement(
+      String userId, Map<String, dynamic> r, DateTime? updated, String? existingId) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    String? criteriaJson;
+    final c = r['criteria'];
+    if (c is Map) {
+      criteriaJson = jsonEncode(c);
+    } else if (c is String && c.isNotEmpty) {
+      criteriaJson = c;
+    } else if (r['target_value'] != null) {
+      criteriaJson = jsonEncode({
+        'target_value': (r['target_value'] as num).toDouble(),
+        'category': r['category'],
+        'task_type': null,
+      });
+    }
+    return AchievementsCompanion(
+      id: Value(existingId ?? r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      title: Value((r['title'] ?? '').toString()),
+      description: Value(r['description']?.toString()),
+      iconPath: Value(r['icon_path']?.toString()),
+      achievementType: Value((r['type'] ?? 'milestone').toString()),
+      criteria: Value(criteriaJson),
+      isUnlocked: Value(r['is_unlocked'] == true),
+      progress: Value((r['progress'] as num?)?.toDouble() ?? 0.0),
       unlockedAt: Value(parse(r['unlocked_at'])),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),

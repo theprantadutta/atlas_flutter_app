@@ -107,6 +107,13 @@ class AtlasDatabase extends _$AtlasDatabase {
           await m.addColumn(worldTiles, worldTiles.deletedAt);
           await m.addColumn(worldTiles, worldTiles.lastSyncedAt);
         }
+        if (from < 8) {
+          // Offline-first sync metadata on Achievements.
+          await m.addColumn(achievements, achievements.isDirty);
+          await m.addColumn(achievements, achievements.isDeleted);
+          await m.addColumn(achievements, achievements.deletedAt);
+          await m.addColumn(achievements, achievements.lastSyncedAt);
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys
