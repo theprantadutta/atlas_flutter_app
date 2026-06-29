@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/core/config/sync_config.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -23,6 +24,7 @@ class OfflineManager {
   final SyncDao _syncDao;
   final TaskDao _taskDao;
   final HabitDao _habitDao;
+  final GoalDao _goalDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -85,11 +87,13 @@ class OfflineManager {
     required SyncDao syncDao,
     required TaskDao taskDao,
     required HabitDao habitDao,
+    required GoalDao goalDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
         _taskDao = taskDao,
         _habitDao = habitDao,
+        _goalDao = goalDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -159,6 +163,7 @@ class OfflineManager {
       // Row-based sync for migrated entities (Tasks, Habits), then legacy outbox.
       await _pushTasks();
       await _pushHabits();
+      await _pushGoals();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -370,6 +375,8 @@ class OfflineManager {
           await _applyRemoteTask(userId, remote);
         case 'habit':
           await _applyRemoteHabit(userId, remote);
+        case 'goal':
+          await _applyRemoteGoal(userId, remote);
       }
     }
   }
@@ -524,6 +531,102 @@ class OfflineManager {
       totalCompletions: Value((r['total_completions'] as num?)?.toInt() ?? 0),
       reminderTime: Value(r['reminder_time']?.toString()),
       lastCompletedDate: Value(parse(r['last_completed_date'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: Value(r['is_deleted'] == true),
+      deletedAt: Value(parse(r['deleted_at'])),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Goal sync (offline-first) ────────────────────
+
+  Future<void> _pushGoals() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _goalDao.getDirtyGoals(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final g in dirty)
+        {
+          'operation_type': g.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'goal',
+          'entity_id': g.id,
+          'data': jsonEncode(_goalWire(g)),
+          'timestamp': g.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _goalDao.markSynced([for (final g in dirty) g.id], DateTime.now());
+    await _goalDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} goal rows');
+  }
+
+  Future<void> _applyRemoteGoal(String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _goalDao.getGoalById(id);
+
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _goalDao.hardDeleteGoal(id);
+      return;
+    }
+    await _goalDao.upsertGoal(_companionFromRemoteGoal(userId, r, remoteUpdated));
+  }
+
+  Map<String, dynamic> _goalWire(Goal g) => {
+        'id': g.id,
+        'user_id': g.userId,
+        'title': g.title,
+        'description': g.description,
+        'category': g.category,
+        'priority': g.priority,
+        'status': g.status,
+        'progress': g.progress,
+        'start_date': g.startDate?.toUtc().toIso8601String(),
+        'deadline': g.deadline?.toUtc().toIso8601String(),
+        'completed_at': g.completedAt?.toUtc().toIso8601String(),
+        'parent_goal_id': g.parentGoalId,
+        'is_deleted': g.isDeleted,
+        'updated_at': g.updatedAt.toUtc().toIso8601String(),
+      };
+
+  GoalsCompanion _companionFromRemoteGoal(
+      String userId, Map<String, dynamic> r, DateTime? updated) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    // Backend lowercases enum names; restore the camelCase statuses.
+    var status = (r['status'] ?? 'notStarted').toString();
+    status = switch (status) {
+      'notstarted' => 'notStarted',
+      'inprogress' => 'inProgress',
+      'onhold' => 'onHold',
+      _ => status,
+    };
+    return GoalsCompanion(
+      id: Value(r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      title: Value((r['title'] ?? '').toString()),
+      description: Value(r['description']?.toString()),
+      category: Value((r['category'] ?? 'personal').toString()),
+      priority: Value((r['priority'] ?? 'medium').toString()),
+      status: Value(status),
+      progress: Value((r['progress'] as num?)?.toDouble() ?? 0.0),
+      startDate: Value(parse(r['start_date'])),
+      deadline: Value(parse(r['deadline'])),
+      completedAt: Value(parse(r['completed_at'])),
+      parentGoalId: Value(r['parent_goal_id']?.toString()),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
       isDirty: const Value(false),

@@ -1,15 +1,15 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
-import 'package:atlas_flutter_app/data/database/atlas_database.dart' show GoalsCompanion;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
-import 'package:atlas_flutter_app/data/models/enums.dart';
 import 'package:atlas_flutter_app/data/models/goal.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
 
+/// Local-first Goal repository: Drift is the source of truth.
 class GoalRepository extends BaseRepository {
   final GoalDao _goalDao;
+  final _uuid = const Uuid();
 
   GoalRepository(
     super.apiService,
@@ -17,336 +17,126 @@ class GoalRepository extends BaseRepository {
     this._goalDao,
   );
 
-  // ─── Caches ──────────────────────────────────────────────────
+  // ─── READ ─────────────────────────────────────────────────────
 
-  final LRUCache<String, List<Goal>> _collectionCache =
-      LRUCache(maxSize: 100, ttl: Duration(minutes: 5));
-  final LRUCache<String, Goal> _entityCache =
-      LRUCache(maxSize: 200, ttl: Duration(minutes: 5));
-  final LRUCache<String, Map<String, dynamic>> _statsCache =
-      LRUCache(maxSize: 50, ttl: Duration(minutes: 5));
-
-  // ─── Cache key helpers ───────────────────────────────────────
-
-  String _collectionKey({
-    String? category,
-    String? status,
-    String? priority,
-    String? search,
-  }) =>
-      'goals:$category:$status:$priority:$search';
-
-  // ─── READ operations ─────────────────────────────────────────
-
-  /// Fetch all goals with optional filters.
   Future<List<Goal>> getGoals({
     String? category,
     String? status,
     String? priority,
     String? search,
   }) async {
-    final cacheKey = _collectionKey(
-      category: category,
-      status: status,
-      priority: priority,
-      search: search,
-    );
-
-    // 1. Check LRU cache
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
-
-    // 2. If online, try API
-    if (isOnline) {
-      try {
-        final queryParams = <String, dynamic>{};
-        if (category != null) queryParams['category'] = category;
-        if (status != null) queryParams['status'] = status;
-        if (priority != null) queryParams['priority'] = priority;
-        if (search != null) queryParams['search'] = search;
-
-        final response = await apiService.get(
-          '/goals',
-          queryParameters: queryParams.isNotEmpty ? queryParams : null,
-        );
-        final goals = parseList(response.data, Goal.fromJson);
-
-        // Persist to local DB
-        await _persistGoalsToDb(goals);
-
-        _collectionCache.put(cacheKey, goals);
-        for (final goal in goals) {
-          _entityCache.put(goal.id, goal);
-        }
-        return goals;
-      } catch (_) {
-        // API failed — fall through to DAO
-      }
+    final rows = await _goalDao.getAllGoals(currentUserId);
+    Iterable<Goal> items = rows.map(_toModel);
+    if (category != null) items = items.where((g) => g.category.name == category);
+    if (status != null) items = items.where((g) => g.status.name == status);
+    if (priority != null) items = items.where((g) => g.priority.name == priority);
+    if (search != null && search.isNotEmpty) {
+      final q = search.toLowerCase();
+      items = items.where((g) => g.title.toLowerCase().contains(q));
     }
-
-    // 3. Offline fallback: read from local DAO
-    try {
-      final localGoals = await _goalDao.getAllGoals(currentUserId);
-      final goals = localGoals
-          .map((g) => Goal.fromJson(_driftGoalToJson(g)))
-          .toList();
-      _collectionCache.put(cacheKey, goals);
-      return goals;
-    } catch (_) {
-      return [];
-    }
+    return items.toList();
   }
 
-  // ─── WRITE operations ────────────────────────────────────────
+  Future<Goal> getGoalById(String id) async {
+    final row = await _goalDao.getGoalById(id);
+    if (row == null) throw Exception('Goal $id not found');
+    return _toModel(row);
+  }
 
-  /// Create a new goal.
+  // ─── WRITE (local-first) ──────────────────────────────────────
+
   Future<Goal> createGoal(Map<String, dynamic> data) async {
-    if (isOnline) {
-      try {
-        final response = await apiService.post('/goals', data: data);
-        final goal = Goal.fromJson(response.data as Map<String, dynamic>);
-
-        // Persist to local DB
-        await _persistGoalToDb(goal);
-
-        _entityCache.put(goal.id, goal);
-        _invalidateCollectionCaches();
-        return goal;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'create',
-      entityType: 'goal',
-      entityId: data['id']?.toString() ?? const Uuid().v4(),
-      data: data,
-    );
-    _invalidateCollectionCaches();
-    return Goal.fromJson(data);
+    final now = DateTime.now();
+    final id = data['id']?.toString() ?? _uuid.v4();
+    await _goalDao.insertGoal(db.GoalsCompanion(
+      id: Value(id),
+      userId: Value(data['user_id']?.toString() ?? currentUserId),
+      title: Value(data['title']?.toString() ?? ''),
+      description: Value(data['description']?.toString()),
+      category: Value(data['category']?.toString() ?? 'personal'),
+      priority: Value(data['priority']?.toString() ?? 'medium'),
+      status: Value(data['status']?.toString() ?? 'notStarted'),
+      progress: Value((data['progress'] as num?)?.toDouble() ?? 0.0),
+      deadline: Value(_parse(data['deadline'])),
+      createdAt: Value(now),
+      updatedAt: Value(now),
+      isDirty: const Value(true),
+    ));
+    return getGoalById(id);
   }
 
-  /// Update an existing goal.
   Future<Goal> updateGoal(String id, Map<String, dynamic> data) async {
-    if (isOnline) {
-      try {
-        final response = await apiService.put('/goals/$id', data: data);
-        final goal = Goal.fromJson(response.data as Map<String, dynamic>);
-
-        // Persist to local DB
-        await _persistGoalToDb(goal);
-
-        _entityCache.put(id, goal);
-        _invalidateCollectionCaches();
-        return goal;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'update',
-      entityType: 'goal',
-      entityId: id,
-      data: data,
+    final now = DateTime.now();
+    await _goalDao.updateFields(
+      id,
+      db.GoalsCompanion(
+        title: data.containsKey('title')
+            ? Value(data['title'].toString())
+            : const Value.absent(),
+        description: data.containsKey('description')
+            ? Value(data['description']?.toString())
+            : const Value.absent(),
+        category: data.containsKey('category')
+            ? Value(data['category'].toString())
+            : const Value.absent(),
+        priority: data.containsKey('priority')
+            ? Value(data['priority'].toString())
+            : const Value.absent(),
+        status: data.containsKey('status')
+            ? Value(data['status'].toString())
+            : const Value.absent(),
+        deadline: data.containsKey('deadline')
+            ? Value(_parse(data['deadline']))
+            : const Value.absent(),
+        updatedAt: Value(now),
+        isDirty: const Value(true),
+      ),
     );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
-
-    final existing = _entityCache.get(id);
-    if (existing != null) {
-      final merged = <String, dynamic>{...existing.toJson(), ...data};
-      return Goal.fromJson(merged);
-    }
-    return Goal.fromJson({...data, 'id': id});
+    return getGoalById(id);
   }
 
-  /// Delete a goal.
+  Future<Goal> updateGoalProgress(String id, Map<String, dynamic> data) async {
+    final now = DateTime.now();
+    final progress = ((data['progress'] as num?)?.toDouble() ?? 0.0).clamp(0.0, 1.0);
+    final done = progress >= 1.0;
+    await _goalDao.updateFields(
+      id,
+      db.GoalsCompanion(
+        progress: Value(progress),
+        status: done ? const Value('completed') : const Value.absent(),
+        completedAt: done ? Value(now) : const Value.absent(),
+        updatedAt: Value(now),
+        isDirty: const Value(true),
+      ),
+    );
+    return getGoalById(id);
+  }
+
   Future<void> deleteGoal(String id) async {
-    if (isOnline) {
-      try {
-        await apiService.delete('/goals/$id');
-        _entityCache.remove(id);
-        _invalidateCollectionCaches();
-
-        // Remove from local DB
-        try { await _goalDao.deleteGoal(id); } catch (_) {}
-
-        return;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
-
-    await offlineManager.queueOperation(
-      operationType: 'delete',
-      entityType: 'goal',
-      entityId: id,
-    );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
+    await _goalDao.softDeleteGoal(id, DateTime.now());
   }
 
-  /// Update progress on a goal.
-  Future<Map<String, dynamic>> updateGoalProgress(
-    String id,
-    Map<String, dynamic> data,
-  ) async {
-    if (isOnline) {
-      try {
-        final response =
-            await apiService.post('/goals/$id/progress', data: data);
-        _entityCache.remove(id);
-        _invalidateCollectionCaches();
-        _statsCache.clear();
-        return response.data as Map<String, dynamic>;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
+  // ─── Mapping ──────────────────────────────────────────────────
 
-    await offlineManager.queueOperation(
-      operationType: 'update_progress',
-      entityType: 'goal',
-      entityId: id,
-      data: data,
-    );
-    _entityCache.remove(id);
-    _invalidateCollectionCaches();
-    _statsCache.clear();
+  static DateTime? _parse(dynamic v) =>
+      v == null ? null : DateTime.tryParse(v.toString());
 
-    return {'id': id, ...data};
-  }
+  Goal _toModel(db.Goal row) => Goal.fromJson(_rowToJson(row));
 
-  /// Get overdue goals.
-  Future<List<Goal>> getOverdueGoals() async {
-    const cacheKey = 'goals:overdue';
-
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
-
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/goals/overdue');
-        final goals = parseList(response.data, Goal.fromJson);
-
-        // Persist to local DB
-        await _persistGoalsToDb(goals);
-
-        _collectionCache.put(cacheKey, goals);
-        for (final goal in goals) {
-          _entityCache.put(goal.id, goal);
-        }
-        return goals;
-      } catch (_) {
-        // Fall through
-      }
-    }
-
-    // Offline: filter from local DAO
-    try {
-      final localGoals = await _goalDao.getAllGoals(currentUserId);
-      final now = DateTime.now();
-      final goals = localGoals
-          .map((g) => Goal.fromJson(_driftGoalToJson(g)))
-          .where((g) =>
-              g.deadline != null &&
-              g.deadline!.isBefore(now) &&
-              g.status != GoalStatus.completed)
-          .toList();
-      _collectionCache.put(cacheKey, goals);
-      return goals;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Get goals due soon.
-  Future<List<Goal>> getGoalsDueSoon() async {
-    const cacheKey = 'goals:due_soon';
-
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
-
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/goals/due-soon');
-        final goals = parseList(response.data, Goal.fromJson);
-
-        // Persist to local DB
-        await _persistGoalsToDb(goals);
-
-        _collectionCache.put(cacheKey, goals);
-        for (final goal in goals) {
-          _entityCache.put(goal.id, goal);
-        }
-        return goals;
-      } catch (_) {
-        // Fall through
-      }
-    }
-
-    return [];
-  }
-
-  // ─── DB Persistence Helpers ────────────────────────────────
-
-  Future<void> _persistGoalsToDb(List<Goal> goals) async {
-    for (final goal in goals) {
-      await _persistGoalToDb(goal);
-    }
-  }
-
-  Future<void> _persistGoalToDb(Goal goal) async {
-    try {
-      await _goalDao.upsertGoal(_toCompanion(goal));
-    } catch (_) {
-      // Ignore DB write errors
-    }
-  }
-
-  GoalsCompanion _toCompanion(Goal goal) {
-    return GoalsCompanion(
-      id: Value(goal.id),
-      userId: Value(goal.userId),
-      title: Value(goal.title),
-      description: Value(goal.description),
-      category: Value(goal.category.name),
-      priority: Value(goal.priority.name),
-      status: Value(goal.status.name),
-      progress: Value(goal.progress),
-      startDate: Value(goal.startDate),
-      deadline: Value(goal.deadline),
-      completedAt: Value(goal.completedAt),
-      parentGoalId: Value(goal.parentGoalId),
-      createdAt: Value(goal.createdAt),
-      updatedAt: Value(goal.updatedAt),
-    );
-  }
-
-  // ─── Helpers ─────────────────────────────────────────────────
-
-  void _invalidateCollectionCaches() {
-    _collectionCache.clear();
-  }
-
-  Map<String, dynamic> _driftGoalToJson(dynamic driftGoal) {
-    return {
-      'id': driftGoal.id,
-      'user_id': driftGoal.userId,
-      'title': driftGoal.title,
-      'description': driftGoal.description,
-      'category': driftGoal.category,
-      'priority': driftGoal.priority,
-      'status': driftGoal.status,
-      'progress': driftGoal.progress,
-      'start_date': driftGoal.startDate?.toIso8601String(),
-      'deadline': driftGoal.deadline?.toIso8601String(),
-      'completed_at': driftGoal.completedAt?.toIso8601String(),
-      'parent_goal_id': driftGoal.parentGoalId,
-      'created_at': driftGoal.createdAt.toIso8601String(),
-      'updated_at': driftGoal.updatedAt.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> _rowToJson(db.Goal row) => {
+        'id': row.id,
+        'user_id': row.userId,
+        'title': row.title,
+        'description': row.description,
+        'category': row.category,
+        'priority': row.priority,
+        'status': row.status,
+        'progress': row.progress,
+        'start_date': row.startDate?.toIso8601String(),
+        'deadline': row.deadline?.toIso8601String(),
+        'completed_at': row.completedAt?.toIso8601String(),
+        'parent_goal_id': row.parentGoalId,
+        'created_at': row.createdAt.toIso8601String(),
+        'updated_at': row.updatedAt.toIso8601String(),
+      };
 }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_grow.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
+import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -22,6 +22,10 @@ Color _taskColor(String category) => switch (category) {
       'social' => AppColors.categorySocial,
       'creative' => AppColors.categoryCreative,
       'productivity' => AppColors.categoryWork,
+      'career' => AppColors.categoryWork,
+      'financial' => AppColors.categoryFinance,
+      'relationships' => AppColors.categorySocial,
+      'personal' => AppColors.primary,
       _ => AppColors.primary,
     };
 
@@ -35,6 +39,10 @@ IconData _taskIcon(String category) => switch (category) {
       'social' => Icons.group_rounded,
       'creative' => Icons.palette_rounded,
       'productivity' => Icons.bolt_rounded,
+      'career' => Icons.work_outline_rounded,
+      'financial' => Icons.savings_rounded,
+      'relationships' => Icons.favorite_border_rounded,
+      'personal' => Icons.flag_outlined,
       _ => Icons.check_circle_outline_rounded,
     };
 
@@ -51,6 +59,24 @@ String _freqLabel(String frequency) => switch (frequency) {
       'custom' => 'Custom',
       _ => 'Daily',
     };
+
+String _goalStatusLabel(db.Goal g) {
+  if (g.status == 'completed' || g.progress >= 1.0) return 'Completed';
+  final d = g.deadline;
+  if (d != null && d.difference(DateTime.now()).inDays <= 21) return 'Due soon';
+  return 'On track';
+}
+
+String _goalDueLabel(db.Goal g) {
+  if (g.status == 'completed' || g.progress >= 1.0) return 'done';
+  final d = g.deadline;
+  if (d == null) return 'no deadline';
+  final days = d.difference(DateTime.now()).inDays;
+  if (days < 0) return 'overdue';
+  if (days == 0) return 'today';
+  if (days < 14) return 'in $days days';
+  return 'in ${(days / 7).round()} weeks';
+}
 
 /// The Grow hub — one calm home for Tasks, Habits and Goals.
 class GrowScreen extends ConsumerStatefulWidget {
@@ -72,9 +98,39 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
         _showNewTaskDialog();
       case 1:
         _showNewHabitDialog();
+      case 2:
+        _showNewGoalDialog();
       default:
         _comingSoon('Add coming soon');
     }
+  }
+
+  Future<void> _showNewGoalDialog() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New goal'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'What are you working toward?'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+    if (title == null || title.isEmpty) return;
+    final userId = ref.read(currentUserIdProvider);
+    await ref.read(goalActionsProvider).create(userId: userId, title: title);
   }
 
   Future<void> _showNewHabitDialog() async {
@@ -440,61 +496,108 @@ class _GoalsView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final goals = ref.watch(goalsProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final g in goals)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: _GoalCard(goal: g),
-          ),
-      ],
+    final goalsAsync = ref.watch(goalsStreamProvider);
+    return goalsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.only(top: AppSpacing.xxl),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => const AtlasEmptyState(
+        icon: Icons.error_outline_rounded,
+        title: 'Something went wrong',
+        message: 'Could not load your goals.',
+      ),
+      data: (goals) {
+        if (goals.isEmpty) {
+          return const AtlasEmptyState(
+            icon: Icons.flag_outlined,
+            title: 'No goals yet',
+            message: 'Tap + to set a horizon to grow toward.',
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final g in goals)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: _GoalCard(
+                  goal: g,
+                  onTap: () => ref.read(goalActionsProvider).bumpProgress(g),
+                  onDelete: () => ref.read(goalActionsProvider).delete(g.id),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _GoalCard extends StatelessWidget {
-  const _GoalCard({required this.goal});
-  final SampleGoal goal;
+  const _GoalCard({
+    required this.goal,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final db.Goal goal;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final done = goal.status == 'Completed';
-    return AtlasCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _IconTile(icon: goal.icon, color: goal.color, dim: done),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(goal.title, style: theme.textTheme.titleMedium),
-              ),
-              _StatusChip(status: goal.status, color: goal.color),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: AtlasProgressBar(
-                  fraction: goal.progress,
-                  color: done ? AppColors.success : null,
+    final color = _taskColor(goal.category);
+    final done = goal.status == 'completed' || goal.progress >= 1.0;
+    final status = _goalStatusLabel(goal);
+    return Dismissible(
+      key: ValueKey(goal.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+      ),
+      child: AtlasCard(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _IconTile(icon: _taskIcon(goal.category), color: color, dim: done),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(goal.title, style: theme.textTheme.titleMedium),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text('${(goal.progress * 100).round()}%',
-                  style: theme.textTheme.labelLarge),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text('Target · ${goal.dueLabel}',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        ],
+                _StatusChip(status: status, color: color),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: AtlasProgressBar(
+                    fraction: goal.progress,
+                    color: done ? AppColors.success : null,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text('${(goal.progress * 100).round()}%',
+                    style: theme.textTheme.labelLarge),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text('Target · ${_goalDueLabel(goal)}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
       ),
     );
   }
