@@ -13,6 +13,16 @@ class Notifications extends Table {
   TextColumn get entityId => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
+  // ─── Offline-first sync metadata ───
+  // updatedAt drives last-write-wins (notifications previously had only
+  // createdAt); defaulted so the migration backfills existing rows.
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get isDirty => boolean().withDefault(const Constant(true))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  DateTimeColumn get lastSyncedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

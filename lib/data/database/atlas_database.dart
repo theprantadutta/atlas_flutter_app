@@ -121,6 +121,15 @@ class AtlasDatabase extends _$AtlasDatabase {
           await m.addColumn(progressEntries, progressEntries.deletedAt);
           await m.addColumn(progressEntries, progressEntries.lastSyncedAt);
         }
+        if (from < 10) {
+          // Offline-first sync metadata on Notifications (incl. updatedAt
+          // for last-write-wins).
+          await m.addColumn(notifications, notifications.updatedAt);
+          await m.addColumn(notifications, notifications.isDirty);
+          await m.addColumn(notifications, notifications.isDeleted);
+          await m.addColumn(notifications, notifications.deletedAt);
+          await m.addColumn(notifications, notifications.lastSyncedAt);
+        }
       },
       beforeOpen: (details) async {
         // Enable foreign keys

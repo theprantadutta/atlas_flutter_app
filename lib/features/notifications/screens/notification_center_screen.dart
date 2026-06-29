@@ -1,86 +1,150 @@
-import 'package:flutter/material.dart';
+// Hide Flutter's Notification widget — we use the Drift Notification row here.
+import 'package:flutter/material.dart' hide Notification;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
+import 'package:atlas_flutter_app/core/sample/sample_extra.dart'
+    show SampleNotification;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_providers.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
+    show currentUserIdProvider;
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
-/// Notification Center — a gentle, swipe-to-dismiss feed. Unread items are
-/// lightly emphasized; nothing here shames the user.
+/// Notification Center — a gentle, swipe-to-dismiss feed backed by the
+/// local-first Drift store. Unread items are lightly emphasized; nothing here
+/// shames the user.
 class NotificationCenterScreen extends ConsumerWidget {
   const NotificationCenterScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(notificationsProvider);
-    final notifier = ref.read(notificationsProvider.notifier);
-    final unread = items.where((n) => !n.read).length;
+    final notificationsAsync = ref.watch(notificationsStreamProvider);
+    final actions = ref.read(notificationActionsProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
-          children: [
-            AtlasHeader(
-              title: 'Notifications',
-              subtitle: unread > 0 ? '$unread new' : "You're all caught up",
-              onBack: () => context.pop(),
-              trailing: unread > 0
-                  ? TextButton(
-                      onPressed: notifier.markAllRead,
-                      child: const Text('Mark all read'),
-                    )
-                  : null,
-            ),
-            AppSpacing.gapLg,
-            if (items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.xxl),
-                child: const AtlasEmptyState(
-                  icon: Icons.notifications_none_rounded,
-                  title: 'All clear',
-                  message: 'Nothing needs your attention right now.',
+        child: notificationsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) =>
+              const Center(child: Text('Could not load your notifications')),
+          data: (rows) {
+            final items = rows.map(_toView).toList();
+            final unread = items.where((n) => !n.read).length;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.md,
+                AppSpacing.gutter,
+                AppSpacing.bottomNavSpace,
+              ),
+              children: [
+                AtlasHeader(
+                  title: 'Notifications',
+                  subtitle:
+                      unread > 0 ? '$unread new' : "You're all caught up",
+                  onBack: () => context.pop(),
+                  trailing: unread > 0
+                      ? TextButton(
+                          onPressed: () =>
+                              actions.markAllRead(ref.read(currentUserIdProvider)),
+                          child: const Text('Mark all read'),
+                        )
+                      : null,
                 ),
-              )
-            else
-              for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) AppSpacing.gapSm,
-                Dismissible(
-                  key: ValueKey(items[i].id),
-                  onDismissed: (_) => notifier.dismiss(items[i].id),
-                  background: const _DismissBackground(
-                    alignment: Alignment.centerLeft,
-                  ),
-                  secondaryBackground: const _DismissBackground(
-                    alignment: Alignment.centerRight,
-                  ),
-                  child: _NotificationCard(item: items[i])
-                      .animate(delay: Duration(milliseconds: 40 * i))
-                      .fadeIn(duration: AppMotion.medium)
-                      .slideY(
-                        begin: 0.06,
-                        end: 0,
-                        duration: AppMotion.medium,
-                        curve: AppMotion.standard,
+                AppSpacing.gapLg,
+                if (items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.xxl),
+                    child: AtlasEmptyState(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'All clear',
+                      message: 'Nothing needs your attention right now.',
+                    ),
+                  )
+                else
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) AppSpacing.gapSm,
+                    Dismissible(
+                      key: ValueKey(items[i].id),
+                      onDismissed: (_) => actions.dismiss(items[i].id),
+                      background: const _DismissBackground(
+                        alignment: Alignment.centerLeft,
                       ),
-                ),
+                      secondaryBackground: const _DismissBackground(
+                        alignment: Alignment.centerRight,
+                      ),
+                      child: _NotificationCard(item: items[i])
+                          .animate(delay: Duration(milliseconds: 40 * i))
+                          .fadeIn(duration: AppMotion.medium)
+                          .slideY(
+                            begin: 0.06,
+                            end: 0,
+                            duration: AppMotion.medium,
+                            curve: AppMotion.standard,
+                          ),
+                    ),
+                  ],
               ],
-          ],
+            );
+          },
         ),
       ),
     );
   }
 }
+
+/// Map a Drift notification row to the feed view model, deriving the icon and
+/// colour from its type and a relative "time ago" label from createdAt.
+SampleNotification _toView(Notification row) {
+  return SampleNotification(
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    timeLabel: _timeAgo(row.createdAt),
+    icon: _iconFor(row.type),
+    color: _colorFor(row.type),
+    read: row.isRead,
+  );
+}
+
+String _timeAgo(DateTime t) {
+  final diff = DateTime.now().difference(t);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays == 1) return 'Yesterday';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  return '${(diff.inDays / 7).floor()}w ago';
+}
+
+IconData _iconFor(String type) => switch (type) {
+      'achievementUnlocked' => Icons.emoji_events_rounded,
+      'levelUp' => Icons.auto_awesome_rounded,
+      'streakAlert' => Icons.local_fire_department_rounded,
+      'habitReminder' => Icons.self_improvement_rounded,
+      'taskReminder' => Icons.check_circle_rounded,
+      'goalDeadline' => Icons.flag_rounded,
+      'dailySummary' => Icons.today_rounded,
+      _ => Icons.notifications_rounded,
+    };
+
+Color _colorFor(String type) => switch (type) {
+      'achievementUnlocked' => AppColors.badgeRare,
+      'levelUp' => AppColors.xpPrimary,
+      'streakAlert' => AppColors.streakFlame,
+      'habitReminder' => AppColors.categoryMindfulness,
+      'taskReminder' => AppColors.categoryWork,
+      'goalDeadline' => AppColors.tertiary,
+      'dailySummary' => AppColors.info,
+      _ => AppColors.secondary,
+    };
 
 class _DismissBackground extends StatelessWidget {
   const _DismissBackground({required this.alignment});

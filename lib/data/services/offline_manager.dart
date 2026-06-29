@@ -15,6 +15,7 @@ import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -33,6 +34,7 @@ class OfflineManager {
   final WorldDao _worldDao;
   final AchievementDao _achievementDao;
   final ProgressDao _progressDao;
+  final NotificationDao _notificationDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -100,6 +102,7 @@ class OfflineManager {
     required WorldDao worldDao,
     required AchievementDao achievementDao,
     required ProgressDao progressDao,
+    required NotificationDao notificationDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
@@ -110,6 +113,7 @@ class OfflineManager {
         _worldDao = worldDao,
         _achievementDao = achievementDao,
         _progressDao = progressDao,
+        _notificationDao = notificationDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -184,6 +188,7 @@ class OfflineManager {
       await _pushWorldTiles();
       await _pushAchievements();
       await _pushProgress();
+      await _pushNotifications();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -405,6 +410,8 @@ class OfflineManager {
           await _applyRemoteAchievement(userId, remote);
         case 'progress_entry':
           await _applyRemoteProgress(userId, remote);
+        case 'notification':
+          await _applyRemoteNotification(userId, remote);
       }
     }
   }
@@ -1097,6 +1104,108 @@ class OfflineManager {
       streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
       levelAtTime: Value((r['level_at_time'] as num?)?.toInt() ?? 1),
       additionalMetrics: Value(enc(r['additional_metrics'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Notification sync (offline-first, server-push) ─
+
+  Future<void> _pushNotifications() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _notificationDao.getDirtyNotifications(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final n in dirty)
+        {
+          'operation_type': n.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'notification',
+          'entity_id': n.id,
+          'data': jsonEncode(_notificationWire(n)),
+          'timestamp': n.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _notificationDao
+        .markSynced([for (final n in dirty) n.id], DateTime.now());
+    await _notificationDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} notification rows');
+  }
+
+  /// Notifications are unique server-pushed events, so the id is the key.
+  Future<void> _applyRemoteNotification(
+      String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await _notificationDao.getNotificationById(id);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _notificationDao.hardDeleteNotification(id);
+      return;
+    }
+    await _notificationDao.upsertNotification(
+      _companionFromRemoteNotification(userId, r, remoteUpdated),
+    );
+  }
+
+  Map<String, dynamic> _notificationWire(Notification n) => {
+        'id': n.id,
+        'user_id': n.userId,
+        'title': n.title,
+        'body': n.body,
+        'type': n.type,
+        'data': n.data,
+        'is_read': n.isRead,
+        'read_at': n.readAt?.toUtc().toIso8601String(),
+        'entity_type': n.entityType,
+        'entity_id': n.entityId,
+        'is_deleted': n.isDeleted,
+        'updated_at': n.updatedAt.toUtc().toIso8601String(),
+      };
+
+  NotificationsCompanion _companionFromRemoteNotification(
+      String userId, Map<String, dynamic> r, DateTime? updated) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    // Backend lowercases enum names; restore the camelCase notification types.
+    String type(String t) => switch (t.toLowerCase()) {
+          'dailysummary' => 'dailySummary',
+          'taskreminder' => 'taskReminder',
+          'goaldeadline' => 'goalDeadline',
+          'streakalert' => 'streakAlert',
+          'achievementunlocked' => 'achievementUnlocked',
+          'levelup' => 'levelUp',
+          'habitreminder' => 'habitReminder',
+          'systemmessage' => 'systemMessage',
+          _ => t,
+        };
+    return NotificationsCompanion(
+      id: Value(r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      title: Value((r['title'] ?? '').toString()),
+      body: Value((r['body'] ?? '').toString()),
+      type: Value(type((r['type'] ?? 'systemMessage').toString())),
+      data: Value(r['data']?.toString()),
+      isRead: Value(r['is_read'] == true),
+      readAt: Value(parse(r['read_at'])),
+      entityType: Value(r['entity_type']?.toString()),
+      entityId: Value(r['entity_id']?.toString()),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
       isDirty: const Value(false),
