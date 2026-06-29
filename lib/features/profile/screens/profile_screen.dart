@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/core/sample/sample_data.dart';
 import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -27,7 +28,16 @@ class ProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final user = sampleUser();
-    final attributes = ref.watch(attributesProvider);
+    // Attributes come from the local-first avatar (Drift), not sample data.
+    final avatar = ref.watch(avatarStreamProvider).value;
+    final attributes = <AttributeStat>[
+      AttributeStat('Strength', avatar?.strength ?? 0,
+          Icons.fitness_center_rounded, AppColors.categoryFitness),
+      AttributeStat('Wisdom', avatar?.wisdom ?? 0, Icons.auto_stories_rounded,
+          AppColors.categoryLearning),
+      AttributeStat('Intelligence', avatar?.intelligence ?? 0,
+          Icons.psychology_rounded, AppColors.categoryMindfulness),
+    ];
 
     return Scaffold(
       body: SafeArea(

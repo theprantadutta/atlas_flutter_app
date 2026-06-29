@@ -4,6 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
+    show currentUserIdProvider;
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
@@ -22,8 +26,20 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
   int _skin = 1;
   int _hair = 0;
   int _outfit = 0;
+  bool _initialized = false;
 
   static const _segments = ['Skin', 'Hair', 'Outfit'];
+
+  /// Seed the editor from the stored appearance the first time it loads, so
+  /// in-progress edits aren't clobbered by later stream emissions.
+  void _maybeInit(Avatar? avatar) {
+    if (_initialized || avatar == null) return;
+    final idx = avatarIndicesFromJson(avatar.appearanceData);
+    _skin = idx.skin.clamp(0, AvatarOptions.skin.length - 1);
+    _hair = idx.hair.clamp(0, AvatarOptions.hair.length - 1);
+    _outfit = idx.outfit.clamp(0, AvatarOptions.outfit.length - 1);
+    _initialized = true;
+  }
 
   List<Color> get _activePalette => switch (_segment) {
         0 => AvatarOptions.skin,
@@ -50,7 +66,15 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
+    final userId = ref.read(currentUserIdProvider);
+    await ref.read(avatarActionsProvider).saveAppearance(
+          userId,
+          skin: _skin,
+          hair: _hair,
+          outfit: _outfit,
+        );
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Looking good!'),
@@ -62,19 +86,26 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final avatarAsync = ref.watch(avatarStreamProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
-          children: [
-            AtlasHeader(title: 'Your Avatar', onBack: () => context.pop()),
+        child: avatarAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) =>
+              const Center(child: Text('Could not load your avatar')),
+          data: (avatar) {
+            _maybeInit(avatar);
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.md,
+                AppSpacing.gutter,
+                AppSpacing.bottomNavSpace,
+              ),
+              children: [
+                AtlasHeader(title: 'Your Avatar', onBack: () => context.pop()),
             AppSpacing.gapLg,
             _AvatarPreview(
               skin: AvatarOptions.skin[_skin],
@@ -122,7 +153,9 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
                 ),
               ),
             ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

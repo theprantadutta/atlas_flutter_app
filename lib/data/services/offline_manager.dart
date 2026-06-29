@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -25,6 +26,7 @@ class OfflineManager {
   final TaskDao _taskDao;
   final HabitDao _habitDao;
   final GoalDao _goalDao;
+  final AvatarDao _avatarDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -88,12 +90,14 @@ class OfflineManager {
     required TaskDao taskDao,
     required HabitDao habitDao,
     required GoalDao goalDao,
+    required AvatarDao avatarDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
         _taskDao = taskDao,
         _habitDao = habitDao,
         _goalDao = goalDao,
+        _avatarDao = avatarDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -164,6 +168,7 @@ class OfflineManager {
       await _pushTasks();
       await _pushHabits();
       await _pushGoals();
+      await _pushAvatar();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -377,6 +382,8 @@ class OfflineManager {
           await _applyRemoteHabit(userId, remote);
         case 'goal':
           await _applyRemoteGoal(userId, remote);
+        case 'avatar':
+          await _applyRemoteAvatar(userId, remote);
       }
     }
   }
@@ -632,6 +639,125 @@ class OfflineManager {
       isDirty: const Value(false),
       isDeleted: Value(r['is_deleted'] == true),
       deletedAt: Value(parse(r['deleted_at'])),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Avatar sync (offline-first, 1:1 per user) ────
+
+  Future<void> _pushAvatar() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _avatarDao.getDirtyAvatars(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final a in dirty)
+        {
+          'operation_type': a.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'avatar',
+          'entity_id': a.id,
+          'data': jsonEncode(_avatarWire(a)),
+          'timestamp': a.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _avatarDao.markSynced([for (final a in dirty) a.id], DateTime.now());
+    await _avatarDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} avatar rows');
+  }
+
+  /// Avatar is 1:1 per user, so the local and remote ids may differ (the
+  /// server created its avatar at registration). Match on userId and keep the
+  /// existing local row id to avoid creating a duplicate.
+  Future<void> _applyRemoteAvatar(String userId, Map<String, dynamic> r) async {
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final local = await _avatarDao.getAvatarByUserId(userId);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    // Avatars are never deleted in practice; ignore remote tombstones.
+    if (r['is_deleted'] == true) return;
+
+    await _avatarDao.upsertAvatar(
+      _companionFromRemoteAvatar(userId, r, remoteUpdated, local?.id),
+    );
+  }
+
+  Map<String, dynamic> _avatarWire(Avatar a) {
+    Map<String, dynamic>? appearance;
+    if (a.appearanceData != null && a.appearanceData!.isNotEmpty) {
+      try {
+        appearance = jsonDecode(a.appearanceData!) as Map<String, dynamic>;
+      } catch (_) {
+        // Malformed appearance — omit it.
+      }
+    }
+    List<dynamic>? unlocked;
+    if (a.unlockedItems != null && a.unlockedItems!.isNotEmpty) {
+      try {
+        unlocked = jsonDecode(a.unlockedItems!) as List<dynamic>;
+      } catch (_) {
+        // Malformed list — omit it.
+      }
+    }
+    return {
+      'id': a.id,
+      'user_id': a.userId,
+      'name': a.name,
+      'level': a.level,
+      'current_xp': a.currentXp,
+      'strength': a.strength,
+      'wisdom': a.wisdom,
+      'intelligence': a.intelligence,
+      'appearance': appearance,
+      'unlocked_items': unlocked,
+      'is_deleted': a.isDeleted,
+      'updated_at': a.updatedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  AvatarsCompanion _companionFromRemoteAvatar(
+      String userId, Map<String, dynamic> r, DateTime? updated, String? existingId) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    String? appearanceJson;
+    final ap = r['appearance'];
+    if (ap is Map) {
+      appearanceJson = jsonEncode(ap);
+    } else if (ap is String && ap.isNotEmpty) {
+      appearanceJson = ap;
+    }
+    String? unlockedJson;
+    final ul = r['unlocked_items'];
+    if (ul is List) {
+      unlockedJson = jsonEncode(ul);
+    } else if (ul is String && ul.isNotEmpty) {
+      unlockedJson = ul;
+    }
+    return AvatarsCompanion(
+      id: Value(existingId ?? r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      name: Value((r['name'] ?? 'Adventurer').toString()),
+      level: Value((r['level'] as num?)?.toInt() ?? 1),
+      currentXp: Value((r['current_xp'] as num?)?.toInt() ?? 0),
+      strength: Value((r['strength'] as num?)?.toInt() ?? 0),
+      wisdom: Value((r['wisdom'] as num?)?.toInt() ?? 0),
+      intelligence: Value((r['intelligence'] as num?)?.toInt() ?? 0),
+      appearanceData: Value(appearanceJson),
+      unlockedItems: Value(unlockedJson),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
       lastSyncedAt: Value(DateTime.now()),
     );
   }
