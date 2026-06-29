@@ -1,16 +1,11 @@
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
-import 'package:logger/logger.dart';
 
-import 'package:atlas_flutter_app/core/utils/lru_cache.dart';
-import 'package:atlas_flutter_app/data/database/atlas_database.dart' show WorldTilesCompanion;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/models/world_tile.dart';
 import 'package:atlas_flutter_app/data/repositories/base_repository.dart';
 
-final _log = Logger(printer: PrettyPrinter(methodCount: 2));
-
+/// Local-first World repository: Drift is the source of truth.
 class WorldRepository extends BaseRepository {
   final WorldDao _worldDao;
 
@@ -20,176 +15,53 @@ class WorldRepository extends BaseRepository {
     this._worldDao,
   );
 
-  // ─── Caches ──────────────────────────────────────────────────
+  // ─── READ ─────────────────────────────────────────────────────
 
-  final LRUCache<String, List<WorldTile>> _collectionCache =
-      LRUCache(maxSize: 50, ttl: Duration(minutes: 10));
-  final LRUCache<String, WorldTile> _entityCache =
-      LRUCache(maxSize: 100, ttl: Duration(minutes: 10));
-  final LRUCache<String, Map<String, dynamic>> _statsCache =
-      LRUCache(maxSize: 20, ttl: Duration(minutes: 10));
-
-  // ─── READ operations ─────────────────────────────────────────
-
-  /// Get all world tiles.
   Future<List<WorldTile>> getWorldTiles() async {
-    const cacheKey = 'world_tiles:all';
-
-    // 1. Check LRU cache
-    final cached = _collectionCache.get(cacheKey);
-    if (cached != null) return cached;
-
-    // 2. If online, try API
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/world/tiles');
-        final tiles = parseList(response.data, WorldTile.fromJson);
-
-        // Persist to local DB
-        await _persistTilesToDb(tiles);
-
-        _collectionCache.put(cacheKey, tiles);
-        for (final tile in tiles) {
-          _entityCache.put(tile.id, tile);
-        }
-        return tiles;
-      } catch (e) {
-        // Log the error so we can debug parsing failures
-        _log.e('[WorldRepo] getWorldTiles API/parse failed', error: e);
-      }
-    }
-
-    // 3. Offline fallback: read from local DAO
-    try {
-      final localTiles = await _worldDao.getAllTiles(currentUserId);
-      final tiles = localTiles
-          .map((t) => WorldTile.fromJson(_driftTileToJson(t)))
-          .toList();
-      _collectionCache.put(cacheKey, tiles);
-      return tiles;
-    } catch (_) {
-      return [];
-    }
+    final rows = await _worldDao.getAllTiles(currentUserId);
+    return rows.map(_toModel).toList();
   }
 
-  // ─── WRITE operations ────────────────────────────────────────
-
-  /// Seed the world map for the current user.
-  Future<void> seedWorld() async {
-    if (isOnline) {
-      await apiService.post('/world/seed');
-      _collectionCache.clear();
-      _statsCache.clear();
-    }
+  Future<WorldTile?> getTileById(String id) async {
+    final row = await _worldDao.getTileById(id);
+    return row == null ? null : _toModel(row);
   }
 
-  /// Unlock a specific world tile.
-  Future<Map<String, dynamic>> unlockTile(String id) async {
-    if (isOnline) {
-      try {
-        final response =
-            await apiService.post('/world/tiles/$id/unlock');
-        _entityCache.remove(id);
-        _collectionCache.clear();
-        _statsCache.clear();
-        return response.data as Map<String, dynamic>;
-      } catch (_) {
-        // Fall through to queue
-      }
-    }
+  // ─── WRITE (local-first) ──────────────────────────────────────
 
-    await offlineManager.queueOperation(
-      operationType: 'unlock',
-      entityType: 'world_tile',
-      entityId: id,
-    );
-    _entityCache.remove(id);
-    _collectionCache.clear();
-    _statsCache.clear();
-
-    return {'id': id, 'is_unlocked': true};
-  }
-
-  // ─── STATS operations ───────────────────────────────────────
-
-  /// Get world exploration statistics.
-  Future<Map<String, dynamic>> getWorldStats() async {
-    final cached = _statsCache.get('world_stats');
-    if (cached != null) return cached;
-
-    if (isOnline) {
-      try {
-        final response = await apiService.get('/world/stats');
-        final stats = response.data as Map<String, dynamic>;
-        _statsCache.put('world_stats', stats);
-        return stats;
-      } catch (_) {
-        // Fall through
-      }
-    }
-
-    return {};
-  }
-
-  // ─── DB Persistence Helpers ────────────────────────────────
-
-  Future<void> _persistTilesToDb(List<WorldTile> tiles) async {
-    for (final tile in tiles) {
-      await _persistTileToDb(tile);
-    }
-  }
-
-  Future<void> _persistTileToDb(WorldTile tile) async {
-    try {
-      await _worldDao.upsertTile(_toCompanion(tile));
-    } catch (_) {
-      // Ignore DB write errors
-    }
-  }
-
-  WorldTilesCompanion _toCompanion(WorldTile tile) {
-    return WorldTilesCompanion(
-      id: Value(tile.id),
-      userId: Value(tile.userId),
-      name: Value(tile.name),
-      description: Value(tile.description),
-      imagePath: Value(tile.imagePath),
-      tileType: Value(tile.tileType.name),
-      isUnlocked: Value(tile.isUnlocked),
-      unlockRequirement: Value(tile.unlockRequirement),
-      unlockCategory: Value(tile.unlockCategory),
-      positionX: Value(tile.positionX),
-      positionY: Value(tile.positionY),
-      unlockedAt: Value(tile.unlockedAt),
-      customProperties: Value(
-        tile.customProperties != null
-            ? jsonEncode(tile.customProperties)
-            : null,
+  /// Light a dormant tile to life. Writes Drift first and marks it dirty.
+  Future<void> unlockTile(String id) async {
+    final now = DateTime.now();
+    await _worldDao.updateFields(
+      id,
+      db.WorldTilesCompanion(
+        isUnlocked: const Value(true),
+        unlockedAt: Value(now),
+        updatedAt: Value(now),
+        isDirty: const Value(true),
       ),
-      createdAt: Value(tile.createdAt),
-      updatedAt: Value(tile.updatedAt),
     );
   }
 
-  // ─── Helpers ─────────────────────────────────────────────────
+  // ─── Mapping ──────────────────────────────────────────────────
 
-  Map<String, dynamic> _driftTileToJson(dynamic driftTile) {
-    return {
-      'id': driftTile.id,
-      'user_id': driftTile.userId,
-      'name': driftTile.name,
-      'description': driftTile.description,
-      'image_path': driftTile.imagePath,
-      'tile_type': driftTile.tileType,
-      'is_unlocked': driftTile.isUnlocked,
-      'unlock_requirement': driftTile.unlockRequirement,
-      'unlock_category': driftTile.unlockCategory,
-      'position_x': driftTile.positionX,
-      'position_y': driftTile.positionY,
-      'unlocked_at': driftTile.unlockedAt?.toIso8601String(),
-      'custom_properties': driftTile.customProperties,
-      'created_at': driftTile.createdAt.toIso8601String(),
-      'updated_at': driftTile.updatedAt.toIso8601String(),
-    };
-  }
+  WorldTile _toModel(db.WorldTile row) => WorldTile.fromJson(_rowToJson(row));
+
+  Map<String, dynamic> _rowToJson(db.WorldTile row) => {
+        'id': row.id,
+        'user_id': row.userId,
+        'name': row.name,
+        'description': row.description,
+        'image_path': row.imagePath,
+        'tile_type': row.tileType,
+        'is_unlocked': row.isUnlocked,
+        'unlock_requirement': row.unlockRequirement,
+        'unlock_category': row.unlockCategory,
+        'position_x': row.positionX,
+        'position_y': row.positionY,
+        'unlocked_at': row.unlockedAt?.toIso8601String(),
+        'custom_properties': row.customProperties,
+        'created_at': row.createdAt.toIso8601String(),
+        'updated_at': row.updatedAt.toIso8601String(),
+      };
 }

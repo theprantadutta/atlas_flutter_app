@@ -3,7 +3,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_world.dart';
+import 'package:atlas_flutter_app/core/sample/sample_world.dart'
+    show TileType, TileVisuals, WorldTileInfo;
+import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/world/providers/world_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -17,37 +20,48 @@ class WorldScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tiles = ref.watch(worldProvider);
-    final unlockedCount = tiles.where((t) => t.unlocked).length;
-    final total = tiles.length;
+    final tilesAsync = ref.watch(worldTilesStreamProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
-          children: [
-            AtlasHeader(
-              title: 'Your World',
-              subtitle: 'Tend yourself, watch it grow',
-              trailing: CircleActionButton(
-                icon: Icons.emoji_events_outlined,
-                onTap: () => context.push('/world/achievements'),
+        child: tilesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) =>
+              const Center(child: Text('Could not load your world')),
+          data: (rows) {
+            final unlockedCount = rows.where((t) => t.isUnlocked).length;
+            final total = rows.length;
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.gutter,
+                AppSpacing.md,
+                AppSpacing.gutter,
+                AppSpacing.bottomNavSpace,
               ),
-            ),
-            AppSpacing.gapLg,
-            _HeroBanner(unlockedCount: unlockedCount, total: total),
-            AppSpacing.gapLg,
-            _WorldGrid(tiles: tiles),
-            AppSpacing.gapXl,
-            const SectionHeader(title: 'Legend'),
-            const _Legend(),
-          ],
+              children: [
+                AtlasHeader(
+                  title: 'Your World',
+                  subtitle: 'Tend yourself, watch it grow',
+                  trailing: CircleActionButton(
+                    icon: Icons.emoji_events_outlined,
+                    onTap: () => context.push('/world/achievements'),
+                  ),
+                ),
+                AppSpacing.gapLg,
+                _HeroBanner(unlockedCount: unlockedCount, total: total),
+                AppSpacing.gapLg,
+                _WorldGrid(
+                  rows: rows,
+                  onUnlock: (id) =>
+                      ref.read(worldActionsProvider).unlock(id),
+                ),
+                AppSpacing.gapXl,
+                const SectionHeader(title: 'Legend'),
+                const _Legend(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -114,41 +128,54 @@ class _HeroBanner extends StatelessWidget {
   }
 }
 
-class _WorldGrid extends ConsumerWidget {
-  const _WorldGrid({required this.tiles});
+class _WorldGrid extends StatelessWidget {
+  const _WorldGrid({required this.rows, required this.onUnlock});
 
-  final List<WorldTileInfo> tiles;
+  final List<WorldTile> rows;
+  final void Function(String id) onUnlock;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // The first dormant tile glows — it's the next one ready to bloom.
+    final firstLocked = rows.indexWhere((t) => !t.isUnlocked);
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: tiles.length,
+      itemCount: rows.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 5,
         mainAxisSpacing: AppSpacing.xs,
         crossAxisSpacing: AppSpacing.xs,
       ),
-      itemBuilder: (context, index) => _WorldTile(
-        tile: tiles[index],
-        onTap: () => _onTap(context, ref, index, tiles[index]),
-      ),
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        final info = WorldTileInfo(
+          type: _tileTypeFromString(row.tileType),
+          unlocked: row.isUnlocked,
+          glowing: index == firstLocked,
+          cost: row.unlockRequirement,
+        );
+        return _WorldTile(
+          tile: info,
+          onTap: () {
+            if (info.glowing) {
+              onUnlock(row.id);
+            } else {
+              _showTileSheet(context, info);
+            }
+          },
+        );
+      },
     );
   }
+}
 
-  void _onTap(
-    BuildContext context,
-    WidgetRef ref,
-    int index,
-    WorldTileInfo tile,
-  ) {
-    if (tile.glowing) {
-      ref.read(worldProvider.notifier).unlock(index);
-      return;
-    }
-    _showTileSheet(context, tile);
+TileType _tileTypeFromString(String s) {
+  for (final t in TileType.values) {
+    if (t.name == s) return t;
   }
+  return TileType.grass;
 }
 
 class _WorldTile extends StatelessWidget {

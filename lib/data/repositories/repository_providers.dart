@@ -81,6 +81,7 @@ final offlineManagerProvider = Provider<OfflineManager>((ref) {
     habitDao: ref.read(habitDaoProvider),
     goalDao: ref.read(goalDaoProvider),
     avatarDao: ref.read(avatarDaoProvider),
+    worldDao: ref.read(worldDaoProvider),
     syncRepository: ref.read(syncRepositoryProvider),
     conflictResolution: ref.read(conflictResolutionServiceProvider),
   );

@@ -12,6 +12,7 @@ import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -27,6 +28,7 @@ class OfflineManager {
   final HabitDao _habitDao;
   final GoalDao _goalDao;
   final AvatarDao _avatarDao;
+  final WorldDao _worldDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
@@ -91,6 +93,7 @@ class OfflineManager {
     required HabitDao habitDao,
     required GoalDao goalDao,
     required AvatarDao avatarDao,
+    required WorldDao worldDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _syncDao = syncDao,
@@ -98,6 +101,7 @@ class OfflineManager {
         _habitDao = habitDao,
         _goalDao = goalDao,
         _avatarDao = avatarDao,
+        _worldDao = worldDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -169,6 +173,7 @@ class OfflineManager {
       await _pushHabits();
       await _pushGoals();
       await _pushAvatar();
+      await _pushWorldTiles();
       await _pushChanges();
       await _pullRows();
       await _pullChanges();
@@ -384,6 +389,8 @@ class OfflineManager {
           await _applyRemoteGoal(userId, remote);
         case 'avatar':
           await _applyRemoteAvatar(userId, remote);
+        case 'world_tile':
+          await _applyRemoteWorldTile(userId, remote);
       }
     }
   }
@@ -753,6 +760,101 @@ class OfflineManager {
       intelligence: Value((r['intelligence'] as num?)?.toInt() ?? 0),
       appearanceData: Value(appearanceJson),
       unlockedItems: Value(unlockedJson),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based World tile sync (offline-first) ──────────────
+
+  Future<void> _pushWorldTiles() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _worldDao.getDirtyTiles(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final w in dirty)
+        {
+          'operation_type': w.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'world_tile',
+          'entity_id': w.id,
+          'data': jsonEncode(_worldTileWire(w)),
+          'timestamp': w.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    await _syncRepository.pushSync(ops);
+    await _worldDao.markSynced([for (final w in dirty) w.id], DateTime.now());
+    await _worldDao.purgeSyncedTombstones();
+    _log.d('OfflineManager: Pushed ${ops.length} world tile rows');
+  }
+
+  /// World tiles are seeded independently on each device, so the grid position
+  /// is the natural key — match on it to avoid duplicating tiles.
+  Future<void> _applyRemoteWorldTile(
+      String userId, Map<String, dynamic> r) async {
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final posX = (r['position_x'] as num?)?.toInt() ?? 0;
+    final posY = (r['position_y'] as num?)?.toInt() ?? 0;
+    final local = await _worldDao.getTileByPosition(userId, posX, posY);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await _worldDao.hardDeleteTile(local.id);
+      return;
+    }
+    await _worldDao.upsertTile(
+      _companionFromRemoteWorldTile(userId, r, remoteUpdated, local?.id),
+    );
+  }
+
+  Map<String, dynamic> _worldTileWire(WorldTile w) => {
+        'id': w.id,
+        'user_id': w.userId,
+        'name': w.name,
+        'description': w.description,
+        'image_path': w.imagePath,
+        'tile_type': w.tileType,
+        'is_unlocked': w.isUnlocked,
+        'unlock_requirement': w.unlockRequirement,
+        'unlock_category': w.unlockCategory,
+        'position_x': w.positionX,
+        'position_y': w.positionY,
+        'unlocked_at': w.unlockedAt?.toUtc().toIso8601String(),
+        'is_deleted': w.isDeleted,
+        'updated_at': w.updatedAt.toUtc().toIso8601String(),
+      };
+
+  WorldTilesCompanion _companionFromRemoteWorldTile(
+      String userId, Map<String, dynamic> r, DateTime? updated, String? existingId) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    return WorldTilesCompanion(
+      id: Value(existingId ?? r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      name: Value((r['name'] ?? 'Tile').toString()),
+      description: Value(r['description']?.toString()),
+      imagePath: Value(r['image_path']?.toString()),
+      tileType: Value((r['tile_type'] ?? 'grass').toString()),
+      isUnlocked: Value(r['is_unlocked'] == true),
+      unlockRequirement: Value((r['unlock_requirement'] as num?)?.toInt() ?? 0),
+      unlockCategory: Value(r['unlock_category']?.toString()),
+      positionX: Value((r['position_x'] as num?)?.toInt() ?? 0),
+      positionY: Value((r['position_y'] as num?)?.toInt() ?? 0),
+      unlockedAt: Value(parse(r['unlocked_at'])),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
       isDirty: const Value(false),
