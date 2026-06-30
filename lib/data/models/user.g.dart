@@ -21,6 +21,16 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   lastActiveDate: json['last_active_date'] == null
       ? null
       : DateTime.parse(json['last_active_date'] as String),
+  isPremium: json['is_premium'] as bool? ?? false,
+  premiumUntil: json['premium_until'] == null
+      ? null
+      : DateTime.parse(json['premium_until'] as String),
+  isLifetime: json['is_lifetime'] as bool? ?? false,
+  ownedCosmetics:
+      (json['owned_cosmetics'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
 );
 
 Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
@@ -36,4 +46,8 @@ Map<String, dynamic> _$UserToJson(User instance) => <String, dynamic>{
   'auth_provider': instance.authProvider,
   'created_at': instance.createdAt.toIso8601String(),
   'last_active_date': instance.lastActiveDate?.toIso8601String(),
+  'is_premium': instance.isPremium,
+  'premium_until': instance.premiumUntil?.toIso8601String(),
+  'is_lifetime': instance.isLifetime,
+  'owned_cosmetics': instance.ownedCosmetics,
 };

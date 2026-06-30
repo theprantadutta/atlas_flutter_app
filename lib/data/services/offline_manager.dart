@@ -46,6 +46,7 @@ class OfflineManager {
   bool _isOnline = true;
   bool _isSyncing = false;
   bool _isAuthenticated = false;
+  bool _isEntitled = false;
   String? _currentUserId;
   Timer? _periodicSyncTimer;
   DateTime? _lastSyncTime;
@@ -83,6 +84,20 @@ class OfflineManager {
     }
     if (!authenticated) {
       _currentUserId = null;
+      _cancelPeriodicSync();
+    }
+  }
+
+  /// Cloud sync is a premium feature. Driven by the user's entitlement (see the
+  /// `entitlementProvider` listener in `AtlasApp`). When the user isn't premium
+  /// the sync engine stays dormant and the app is purely local.
+  void setEntitled(bool entitled) {
+    if (_isEntitled == entitled) return;
+    _isEntitled = entitled;
+    if (entitled && _isAuthenticated && _isOnline) {
+      syncNow();
+    }
+    if (!entitled) {
       _cancelPeriodicSync();
     }
   }
@@ -171,9 +186,10 @@ class OfflineManager {
 
   /// Push pending local changes then pull remote changes.
   Future<void> syncNow() async {
-    // Sync is a premium feature — gated off until enabled. The app is fully
-    // local-first regardless; nothing here runs while disabled.
-    if (!SyncConfig.enabled) return;
+    // Sync is a premium feature. [SyncConfig.enabled] is the global rollout
+    // kill-switch; [_isEntitled] is the per-user premium gate. The app is fully
+    // local-first regardless; nothing here runs while either is off.
+    if (!SyncConfig.enabled || !_isEntitled) return;
     if (!_isOnline || _isSyncing || !_isAuthenticated) return;
 
     _isSyncing = true;

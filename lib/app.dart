@@ -52,6 +52,9 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     ref.listenManual<AuthState>(authProvider, (prev, next) {
       if (AppConfig.demoMode) return;
       offlineManager.setAuthenticated(next.isAuthenticated, userId: next.user?.id);
+      // Cloud sync is premium — drive the engine's per-user gate from the
+      // backend-issued entitlement on the user profile.
+      offlineManager.setEntitled(next.user?.isPremium ?? false);
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         _connectSignalR();
         _initializeFcm();

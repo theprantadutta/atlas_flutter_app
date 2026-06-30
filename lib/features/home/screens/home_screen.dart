@@ -64,6 +64,11 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            AppSpacing.gapMd,
+            _AuroraEntry(onTap: () => context.push('/aurora'))
+                .animate()
+                .fadeIn(duration: AppMotion.medium, delay: 200.ms)
+                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
             AppSpacing.gapXl,
             _TodayHeader(done: home.doneCount, total: home.today.length),
             AppSpacing.gapMd,
@@ -548,6 +553,65 @@ class _HomeLink extends StatelessWidget {
               const Spacer(),
               Icon(Icons.chevron_right_rounded,
                   size: 20, color: theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Aurora entry ───────────────────────────────────────────────────
+
+class _AuroraEntry extends StatelessWidget {
+  const _AuroraEntry({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            gradient: AppColors.auroraGradient,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.22),
+                ),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    color: Color(0xFF10243B), size: 24),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Aurora',
+                        style: theme.textTheme.titleLarge
+                            ?.copyWith(color: const Color(0xFF10243B))),
+                    Text('Reflect on your week · talk it through',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF10243B)
+                                .withValues(alpha: 0.8))),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: Color(0xFF10243B)),
             ],
           ),
         ),

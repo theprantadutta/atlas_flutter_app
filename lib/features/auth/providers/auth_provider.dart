@@ -119,6 +119,20 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Re-fetch the current user's profile from the backend and update state,
+  /// without touching [AuthState.isInitializing] (so the router doesn't bounce
+  /// to the splash). Used after a purchase to pick up new premium entitlement.
+  Future<void> refreshUser() async {
+    if (AppConfig.demoMode || !state.isAuthenticated) return;
+    try {
+      final user = await _authService.getCurrentUser();
+      await _cacheUser(user);
+      state = state.copyWith(user: user);
+    } catch (_) {
+      // Best-effort: keep the existing cached user on failure.
+    }
+  }
+
   /// Demo sign-in — no backend, lands on the sample-data home.
   Future<void> _demoSignIn() async {
     state = state.copyWith(isLoading: true, clearError: true);

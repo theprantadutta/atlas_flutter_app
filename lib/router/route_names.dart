@@ -18,4 +18,6 @@ class RouteNames {
   static const notifications = 'notifications';
   static const notificationCenter = 'notificationCenter';
   static const syncManagement = 'syncManagement';
+  static const aurora = 'aurora';
+  static const paywall = 'paywall';
 }

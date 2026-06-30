@@ -14,6 +14,7 @@ class AppConfig {
   static const int receiveTimeout = 30000;
 
   /// Demo mode drives the app entirely from local sample data (no backend).
-  /// Used during the UI redesign; set to false once the backend is wired.
-  static const bool demoMode = true;
+  /// Now off: the app authenticates against the real backend (required for
+  /// Aurora AI + premium entitlement).
+  static const bool demoMode = false;
 }

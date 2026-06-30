@@ -9239,6 +9239,472 @@ class NotificationsCompanion extends UpdateCompanion<Notification> {
   }
 }
 
+class $AuroraReflectionsTable extends AuroraReflections
+    with TableInfo<$AuroraReflectionsTable, AuroraReflection> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuroraReflectionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodStartMeta = const VerificationMeta(
+    'periodStart',
+  );
+  @override
+  late final GeneratedColumn<DateTime> periodStart = GeneratedColumn<DateTime>(
+    'period_start',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodEndMeta = const VerificationMeta(
+    'periodEnd',
+  );
+  @override
+  late final GeneratedColumn<DateTime> periodEnd = GeneratedColumn<DateTime>(
+    'period_end',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modelTierMeta = const VerificationMeta(
+    'modelTier',
+  );
+  @override
+  late final GeneratedColumn<String> modelTier = GeneratedColumn<String>(
+    'model_tier',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('free'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    content,
+    periodStart,
+    periodEnd,
+    modelTier,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'aurora_reflections';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuroraReflection> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('period_start')) {
+      context.handle(
+        _periodStartMeta,
+        periodStart.isAcceptableOrUnknown(
+          data['period_start']!,
+          _periodStartMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_periodStartMeta);
+    }
+    if (data.containsKey('period_end')) {
+      context.handle(
+        _periodEndMeta,
+        periodEnd.isAcceptableOrUnknown(data['period_end']!, _periodEndMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_periodEndMeta);
+    }
+    if (data.containsKey('model_tier')) {
+      context.handle(
+        _modelTierMeta,
+        modelTier.isAcceptableOrUnknown(data['model_tier']!, _modelTierMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuroraReflection map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuroraReflection(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      periodStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}period_start'],
+      )!,
+      periodEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}period_end'],
+      )!,
+      modelTier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_tier'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AuroraReflectionsTable createAlias(String alias) {
+    return $AuroraReflectionsTable(attachedDatabase, alias);
+  }
+}
+
+class AuroraReflection extends DataClass
+    implements Insertable<AuroraReflection> {
+  final String id;
+  final String userId;
+  final String content;
+  final DateTime periodStart;
+  final DateTime periodEnd;
+  final String modelTier;
+  final DateTime createdAt;
+  const AuroraReflection({
+    required this.id,
+    required this.userId,
+    required this.content,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.modelTier,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['content'] = Variable<String>(content);
+    map['period_start'] = Variable<DateTime>(periodStart);
+    map['period_end'] = Variable<DateTime>(periodEnd);
+    map['model_tier'] = Variable<String>(modelTier);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AuroraReflectionsCompanion toCompanion(bool nullToAbsent) {
+    return AuroraReflectionsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      content: Value(content),
+      periodStart: Value(periodStart),
+      periodEnd: Value(periodEnd),
+      modelTier: Value(modelTier),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AuroraReflection.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuroraReflection(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      content: serializer.fromJson<String>(json['content']),
+      periodStart: serializer.fromJson<DateTime>(json['periodStart']),
+      periodEnd: serializer.fromJson<DateTime>(json['periodEnd']),
+      modelTier: serializer.fromJson<String>(json['modelTier']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'content': serializer.toJson<String>(content),
+      'periodStart': serializer.toJson<DateTime>(periodStart),
+      'periodEnd': serializer.toJson<DateTime>(periodEnd),
+      'modelTier': serializer.toJson<String>(modelTier),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AuroraReflection copyWith({
+    String? id,
+    String? userId,
+    String? content,
+    DateTime? periodStart,
+    DateTime? periodEnd,
+    String? modelTier,
+    DateTime? createdAt,
+  }) => AuroraReflection(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    content: content ?? this.content,
+    periodStart: periodStart ?? this.periodStart,
+    periodEnd: periodEnd ?? this.periodEnd,
+    modelTier: modelTier ?? this.modelTier,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AuroraReflection copyWithCompanion(AuroraReflectionsCompanion data) {
+    return AuroraReflection(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      content: data.content.present ? data.content.value : this.content,
+      periodStart: data.periodStart.present
+          ? data.periodStart.value
+          : this.periodStart,
+      periodEnd: data.periodEnd.present ? data.periodEnd.value : this.periodEnd,
+      modelTier: data.modelTier.present ? data.modelTier.value : this.modelTier,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraReflection(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('content: $content, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('periodEnd: $periodEnd, ')
+          ..write('modelTier: $modelTier, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    content,
+    periodStart,
+    periodEnd,
+    modelTier,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuroraReflection &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.content == this.content &&
+          other.periodStart == this.periodStart &&
+          other.periodEnd == this.periodEnd &&
+          other.modelTier == this.modelTier &&
+          other.createdAt == this.createdAt);
+}
+
+class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> content;
+  final Value<DateTime> periodStart;
+  final Value<DateTime> periodEnd;
+  final Value<String> modelTier;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AuroraReflectionsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.content = const Value.absent(),
+    this.periodStart = const Value.absent(),
+    this.periodEnd = const Value.absent(),
+    this.modelTier = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AuroraReflectionsCompanion.insert({
+    required String id,
+    required String userId,
+    required String content,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    this.modelTier = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       content = Value(content),
+       periodStart = Value(periodStart),
+       periodEnd = Value(periodEnd),
+       createdAt = Value(createdAt);
+  static Insertable<AuroraReflection> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? content,
+    Expression<DateTime>? periodStart,
+    Expression<DateTime>? periodEnd,
+    Expression<String>? modelTier,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (content != null) 'content': content,
+      if (periodStart != null) 'period_start': periodStart,
+      if (periodEnd != null) 'period_end': periodEnd,
+      if (modelTier != null) 'model_tier': modelTier,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AuroraReflectionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? content,
+    Value<DateTime>? periodStart,
+    Value<DateTime>? periodEnd,
+    Value<String>? modelTier,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AuroraReflectionsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      content: content ?? this.content,
+      periodStart: periodStart ?? this.periodStart,
+      periodEnd: periodEnd ?? this.periodEnd,
+      modelTier: modelTier ?? this.modelTier,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (periodStart.present) {
+      map['period_start'] = Variable<DateTime>(periodStart.value);
+    }
+    if (periodEnd.present) {
+      map['period_end'] = Variable<DateTime>(periodEnd.value);
+    }
+    if (modelTier.present) {
+      map['model_tier'] = Variable<String>(modelTier.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraReflectionsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('content: $content, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('periodEnd: $periodEnd, ')
+          ..write('modelTier: $modelTier, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AtlasDatabase extends GeneratedDatabase {
   _$AtlasDatabase(QueryExecutor e) : super(e);
   $AtlasDatabaseManager get managers => $AtlasDatabaseManager(this);
@@ -9254,6 +9720,8 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
   );
   late final $SyncOperationsTable syncOperations = $SyncOperationsTable(this);
   late final $NotificationsTable notifications = $NotificationsTable(this);
+  late final $AuroraReflectionsTable auroraReflections =
+      $AuroraReflectionsTable(this);
   late final TaskDao taskDao = TaskDao(this as AtlasDatabase);
   late final HabitDao habitDao = HabitDao(this as AtlasDatabase);
   late final GoalDao goalDao = GoalDao(this as AtlasDatabase);
@@ -9265,6 +9733,9 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
   late final ProgressDao progressDao = ProgressDao(this as AtlasDatabase);
   late final SyncDao syncDao = SyncDao(this as AtlasDatabase);
   late final NotificationDao notificationDao = NotificationDao(
+    this as AtlasDatabase,
+  );
+  late final AuroraReflectionDao auroraReflectionDao = AuroraReflectionDao(
     this as AtlasDatabase,
   );
   @override
@@ -9282,6 +9753,7 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
     progressEntries,
     syncOperations,
     notifications,
+    auroraReflections,
   ];
 }
 
@@ -13483,6 +13955,259 @@ typedef $$NotificationsTableProcessedTableManager =
       Notification,
       PrefetchHooks Function()
     >;
+typedef $$AuroraReflectionsTableCreateCompanionBuilder =
+    AuroraReflectionsCompanion Function({
+      required String id,
+      required String userId,
+      required String content,
+      required DateTime periodStart,
+      required DateTime periodEnd,
+      Value<String> modelTier,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$AuroraReflectionsTableUpdateCompanionBuilder =
+    AuroraReflectionsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> content,
+      Value<DateTime> periodStart,
+      Value<DateTime> periodEnd,
+      Value<String> modelTier,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$AuroraReflectionsTableFilterComposer
+    extends Composer<_$AtlasDatabase, $AuroraReflectionsTable> {
+  $$AuroraReflectionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get periodEnd => $composableBuilder(
+    column: $table.periodEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelTier => $composableBuilder(
+    column: $table.modelTier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AuroraReflectionsTableOrderingComposer
+    extends Composer<_$AtlasDatabase, $AuroraReflectionsTable> {
+  $$AuroraReflectionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get periodEnd => $composableBuilder(
+    column: $table.periodEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modelTier => $composableBuilder(
+    column: $table.modelTier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AuroraReflectionsTableAnnotationComposer
+    extends Composer<_$AtlasDatabase, $AuroraReflectionsTable> {
+  $$AuroraReflectionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get periodEnd =>
+      $composableBuilder(column: $table.periodEnd, builder: (column) => column);
+
+  GeneratedColumn<String> get modelTier =>
+      $composableBuilder(column: $table.modelTier, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$AuroraReflectionsTableTableManager
+    extends
+        RootTableManager<
+          _$AtlasDatabase,
+          $AuroraReflectionsTable,
+          AuroraReflection,
+          $$AuroraReflectionsTableFilterComposer,
+          $$AuroraReflectionsTableOrderingComposer,
+          $$AuroraReflectionsTableAnnotationComposer,
+          $$AuroraReflectionsTableCreateCompanionBuilder,
+          $$AuroraReflectionsTableUpdateCompanionBuilder,
+          (
+            AuroraReflection,
+            BaseReferences<
+              _$AtlasDatabase,
+              $AuroraReflectionsTable,
+              AuroraReflection
+            >,
+          ),
+          AuroraReflection,
+          PrefetchHooks Function()
+        > {
+  $$AuroraReflectionsTableTableManager(
+    _$AtlasDatabase db,
+    $AuroraReflectionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuroraReflectionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuroraReflectionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AuroraReflectionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<DateTime> periodStart = const Value.absent(),
+                Value<DateTime> periodEnd = const Value.absent(),
+                Value<String> modelTier = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraReflectionsCompanion(
+                id: id,
+                userId: userId,
+                content: content,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                modelTier: modelTier,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String content,
+                required DateTime periodStart,
+                required DateTime periodEnd,
+                Value<String> modelTier = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraReflectionsCompanion.insert(
+                id: id,
+                userId: userId,
+                content: content,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                modelTier: modelTier,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AuroraReflectionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtlasDatabase,
+      $AuroraReflectionsTable,
+      AuroraReflection,
+      $$AuroraReflectionsTableFilterComposer,
+      $$AuroraReflectionsTableOrderingComposer,
+      $$AuroraReflectionsTableAnnotationComposer,
+      $$AuroraReflectionsTableCreateCompanionBuilder,
+      $$AuroraReflectionsTableUpdateCompanionBuilder,
+      (
+        AuroraReflection,
+        BaseReferences<
+          _$AtlasDatabase,
+          $AuroraReflectionsTable,
+          AuroraReflection
+        >,
+      ),
+      AuroraReflection,
+      PrefetchHooks Function()
+    >;
 
 class $AtlasDatabaseManager {
   final _$AtlasDatabase _db;
@@ -13507,4 +14232,6 @@ class $AtlasDatabaseManager {
       $$SyncOperationsTableTableManager(_db, _db.syncOperations);
   $$NotificationsTableTableManager get notifications =>
       $$NotificationsTableTableManager(_db, _db.notifications);
+  $$AuroraReflectionsTableTableManager get auroraReflections =>
+      $$AuroraReflectionsTableTableManager(_db, _db.auroraReflections);
 }

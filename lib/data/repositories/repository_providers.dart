@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_reflection_dao.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
 import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 
@@ -24,6 +25,7 @@ import 'package:atlas_flutter_app/data/repositories/progress_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/analytics_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/notification_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
+import 'package:atlas_flutter_app/features/aurora/data/aurora_repository.dart';
 
 // ─── DAO Providers ─────────────────────────────────────────────
 
@@ -61,6 +63,10 @@ final syncDaoProvider = Provider<SyncDao>((ref) {
 
 final notificationDaoProvider = Provider<NotificationDao>((ref) {
   return NotificationDao(ref.read(databaseProvider));
+});
+
+final auroraReflectionDaoProvider = Provider<AuroraReflectionDao>((ref) {
+  return AuroraReflectionDao(ref.read(databaseProvider));
 });
 
 // ─── Sync Infrastructure ───────────────────────────────────────
@@ -160,5 +166,12 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
     ref.read(apiServiceProvider),
     ref.read(offlineManagerProvider),
     ref.read(notificationDaoProvider),
+  );
+});
+
+final auroraRepositoryProvider = Provider<AuroraRepository>((ref) {
+  return AuroraRepository(
+    ref.read(apiServiceProvider),
+    ref.read(auroraReflectionDaoProvider),
   );
 });

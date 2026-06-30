@@ -16,6 +16,7 @@ import 'package:atlas_flutter_app/data/database/tables/world_tiles_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/progress_entries_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/sync_operations_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/notifications_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/aurora_reflections_table.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
@@ -25,6 +26,7 @@ import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_reflection_dao.dart';
 
 part 'atlas_database.g.dart';
 
@@ -40,6 +42,7 @@ part 'atlas_database.g.dart';
     ProgressEntries,
     SyncOperations,
     Notifications,
+    AuroraReflections,
   ],
   daos: [
     TaskDao,
@@ -51,6 +54,7 @@ part 'atlas_database.g.dart';
     ProgressDao,
     SyncDao,
     NotificationDao,
+    AuroraReflectionDao,
   ],
 )
 class AtlasDatabase extends _$AtlasDatabase {
@@ -129,6 +133,10 @@ class AtlasDatabase extends _$AtlasDatabase {
           await m.addColumn(notifications, notifications.isDeleted);
           await m.addColumn(notifications, notifications.deletedAt);
           await m.addColumn(notifications, notifications.lastSyncedAt);
+        }
+        if (from < 11) {
+          // Aurora reflection local cache.
+          await m.createTable(auroraReflections);
         }
       },
       beforeOpen: (details) async {

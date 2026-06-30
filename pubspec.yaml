@@ -59,6 +59,8 @@ dependencies:
   shared_preferences: ^2.5.3
   equatable: ^2.0.0
   logger: ^2.5.0
+  in_app_purchase: ^3.3.0
+  gpt_markdown: ^1.1.7
 
 dev_dependencies:
   flutter_test:

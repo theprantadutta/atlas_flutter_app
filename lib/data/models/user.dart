@@ -17,6 +17,12 @@ class User {
   final DateTime createdAt;
   final DateTime? lastActiveDate;
 
+  // Premium entitlement (from /auth/me)
+  final bool isPremium;
+  final DateTime? premiumUntil;
+  final bool isLifetime;
+  final List<String> ownedCosmetics;
+
   const User({
     required this.id,
     required this.email,
@@ -30,6 +36,10 @@ class User {
     this.authProvider = 'email',
     required this.createdAt,
     this.lastActiveDate,
+    this.isPremium = false,
+    this.premiumUntil,
+    this.isLifetime = false,
+    this.ownedCosmetics = const [],
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
@@ -49,6 +59,10 @@ class User {
     String? authProvider,
     DateTime? createdAt,
     DateTime? lastActiveDate,
+    bool? isPremium,
+    DateTime? premiumUntil,
+    bool? isLifetime,
+    List<String>? ownedCosmetics,
   }) {
     return User(
       id: id ?? this.id,
@@ -63,6 +77,10 @@ class User {
       authProvider: authProvider ?? this.authProvider,
       createdAt: createdAt ?? this.createdAt,
       lastActiveDate: lastActiveDate ?? this.lastActiveDate,
+      isPremium: isPremium ?? this.isPremium,
+      premiumUntil: premiumUntil ?? this.premiumUntil,
+      isLifetime: isLifetime ?? this.isLifetime,
+      ownedCosmetics: ownedCosmetics ?? this.ownedCosmetics,
     );
   }
 }

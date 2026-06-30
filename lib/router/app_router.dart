@@ -8,7 +8,9 @@ import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
+import 'package:atlas_flutter_app/features/billing/screens/paywall_screen.dart';
 import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
@@ -166,6 +168,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+
+      // ─── Top-level overlays (above the nav shell) ───
+      GoRoute(
+        path: '/aurora',
+        name: RouteNames.aurora,
+        builder: (context, state) => const AuroraScreen(),
+      ),
+      GoRoute(
+        path: '/paywall',
+        name: RouteNames.paywall,
+        builder: (context, state) => const PaywallScreen(),
       ),
     ],
   );
