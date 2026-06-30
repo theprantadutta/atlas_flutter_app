@@ -454,17 +454,14 @@ class _TypingDotsState extends State<_TypingDots>
   );
 
   @override
-  void initState() {
-    super.initState();
-    if (!AppMotion.reduceMotion(context)) {
-      _c.repeat();
-    }
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceMotion(context) && _c.isAnimating) _c.stop();
+    // MediaQuery (reduce-motion) must be read here, not in initState.
+    if (AppMotion.reduceMotion(context)) {
+      if (_c.isAnimating) _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override

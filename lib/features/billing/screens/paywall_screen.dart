@@ -92,10 +92,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   Future<void> _purchase() async {
     setState(() => _purchasing = true);
     try {
-      await ref.read(entitlementControllerProvider).purchase(_selected);
+      final result =
+          await ref.read(entitlementControllerProvider).purchase(_selected);
       if (!mounted) return;
-      final premium = ref.read(isPremiumProvider);
-      if (premium) {
+      if (result.isPremium) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Welcome to Atlas premium ✨')),
         );

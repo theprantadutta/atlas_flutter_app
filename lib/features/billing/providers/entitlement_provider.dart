@@ -41,10 +41,14 @@ class EntitlementController {
   final Ref _ref;
 
   /// Buy a product, then refresh the user so [isPremiumProvider] reflects the
-  /// new entitlement. Throws on cancel/failure so the UI can surface it.
-  Future<void> purchase(String productId) async {
-    await _ref.read(entitlementServiceProvider).purchase(productId);
+  /// new entitlement. Returns the backend-verified entitlement (the caller
+  /// should trust this over [isPremiumProvider], which only updates on the next
+  /// frame). Throws on cancel/failure so the UI can surface it.
+  Future<EntitlementResult> purchase(String productId) async {
+    final result =
+        await _ref.read(entitlementServiceProvider).purchase(productId);
     await _ref.read(authProvider.notifier).refreshUser();
+    return result;
   }
 
   Future<void> restore() async {
