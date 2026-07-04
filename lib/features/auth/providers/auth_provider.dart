@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:atlas_flutter_app/core/config/app_config.dart';
-import 'package:atlas_flutter_app/core/sample/sample_data.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
@@ -80,18 +78,6 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// Check whether the user has valid tokens and, if so, load their profile.
   Future<void> checkAuthStatus() async {
-    // Demo mode: no backend. Remember the user across launches via the cache
-    // (so "log in once" works), otherwise show login.
-    if (AppConfig.demoMode) {
-      await Future<void>.delayed(const Duration(milliseconds: 1100));
-      final cached = await _loadCachedUser();
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: cached != null,
-        user: cached,
-      );
-      return;
-    }
     try {
       final hasTokens = await _authService.isAuthenticated();
       if (!hasTokens) {
@@ -123,7 +109,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// without touching [AuthState.isInitializing] (so the router doesn't bounce
   /// to the splash). Used after a purchase to pick up new premium entitlement.
   Future<void> refreshUser() async {
-    if (AppConfig.demoMode || !state.isAuthenticated) return;
+    if (!state.isAuthenticated) return;
     try {
       final user = await _authService.getCurrentUser();
       await _cacheUser(user);
@@ -133,22 +119,8 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Demo sign-in — no backend, lands on the sample-data home.
-  Future<void> _demoSignIn() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    final user = sampleUser();
-    await _cacheUser(user); // remember across launches (offline "log in once")
-    state = AuthState(
-      isInitializing: false,
-      isAuthenticated: true,
-      user: user,
-    );
-  }
-
   /// Log in with email & password.
   Future<void> login(String email, String password) async {
-    if (AppConfig.demoMode) return _demoSignIn();
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.login(
@@ -175,7 +147,6 @@ class AuthNotifier extends Notifier<AuthState> {
     String password,
     String fullName,
   ) async {
-    if (AppConfig.demoMode) return _demoSignIn();
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.register(
@@ -199,7 +170,6 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// Sign in with Google (via Firebase).
   Future<void> signInWithGoogle() async {
-    if (AppConfig.demoMode) return _demoSignIn();
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.signInWithGoogle();

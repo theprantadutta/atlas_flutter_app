@@ -4,10 +4,8 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/config/sync_config.dart';
-import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
@@ -26,7 +24,6 @@ enum SyncStatus { idle, syncing, error }
 /// Central sync orchestrator that queues offline operations, pushes them
 /// when connectivity is restored, and pulls remote changes periodically.
 class OfflineManager {
-  final SyncDao _syncDao;
   final TaskDao _taskDao;
   final HabitDao _habitDao;
   final GoalDao _goalDao;
@@ -38,10 +35,10 @@ class OfflineManager {
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = Logger();
-  final _uuid = const Uuid();
 
   static const _lastSyncKey = 'offline_manager_last_sync';
   static const _periodicSyncInterval = Duration(minutes: 5);
+  static const _syncDebounceDelay = Duration(seconds: 2);
 
   bool _isOnline = true;
   bool _isSyncing = false;
@@ -49,8 +46,10 @@ class OfflineManager {
   bool _isEntitled = false;
   String? _currentUserId;
   Timer? _periodicSyncTimer;
+  Timer? _syncDebounceTimer;
   DateTime? _lastSyncTime;
   StreamSubscription<bool>? _connectivitySubscription;
+  StreamSubscription<void>? _tableUpdatesSubscription;
 
   // ─── Streams ────────────────────────────────────────────────
 
@@ -62,11 +61,6 @@ class OfflineManager {
   Stream<SyncStatus> get syncStatus => _syncStatusController.stream;
   Stream<DateTime?> get lastSyncTimeStream =>
       _lastSyncTimeController.stream;
-
-  /// Pull handlers registered per entity type. Each handler receives the
-  /// list of remote entities and is responsible for upserting them locally.
-  final Map<String, Future<void> Function(List<Map<String, dynamic>>)>
-      _pullHandlers = {};
 
   // ─── Public Getters ─────────────────────────────────────────
 
@@ -81,6 +75,7 @@ class OfflineManager {
     _currentUserId = userId;
     if (authenticated && _isOnline) {
       syncNow();
+      _maybeStartPeriodicSync();
     }
     if (!authenticated) {
       _currentUserId = null;
@@ -96,6 +91,7 @@ class OfflineManager {
     _isEntitled = entitled;
     if (entitled && _isAuthenticated && _isOnline) {
       syncNow();
+      _maybeStartPeriodicSync();
     }
     if (!entitled) {
       _cancelPeriodicSync();
@@ -109,7 +105,6 @@ class OfflineManager {
   // ─── Constructor ────────────────────────────────────────────
 
   OfflineManager({
-    required SyncDao syncDao,
     required TaskDao taskDao,
     required HabitDao habitDao,
     required GoalDao goalDao,
@@ -120,8 +115,7 @@ class OfflineManager {
     required NotificationDao notificationDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
-  })  : _syncDao = syncDao,
-        _taskDao = taskDao,
+  })  : _taskDao = taskDao,
         _habitDao = habitDao,
         _goalDao = goalDao,
         _avatarDao = avatarDao,
@@ -153,33 +147,33 @@ class OfflineManager {
         syncNow();
       }
     });
+
+    // Trigger a debounced sync whenever any local Drift table changes (i.e. a
+    // repository wrote a dirty row). This keeps the network entirely out of the
+    // repositories' write path — they just write locally and mark rows dirty,
+    // and this listener schedules the push. All sync gates still apply, so this
+    // is a no-op while sync is disabled or the user isn't entitled.
+    _tableUpdatesSubscription =
+        _taskDao.attachedDatabase.tableUpdates().listen((_) {
+      scheduleSync();
+    });
+
+    // Start the periodic timer now if we're already authenticated + entitled
+    // (e.g. a warm start after login). It's a guarded no-op otherwise.
+    _maybeStartPeriodicSync();
   }
 
-  // ─── Queue ──────────────────────────────────────────────────
-
-  /// Enqueue a local change for eventual sync.
-  Future<void> queueOperation({
-    required String operationType,
-    required String entityType,
-    required String entityId,
-    Map<String, dynamic>? data,
-  }) async {
-    final entry = SyncOperationsCompanion.insert(
-      id: _uuid.v4(),
-      operationType: operationType,
-      entityType: entityType,
-      entityId: entityId,
-      data: data != null ? Value(jsonEncode(data)) : const Value.absent(),
-      timestamp: DateTime.now(),
-    );
-
-    await _syncDao.queueOperation(entry);
-    _log.d(
-        'OfflineManager: Queued $operationType for $entityType/$entityId');
-
-    if (_isOnline && !_isSyncing) {
-      syncNow();
-    }
+  /// Debounced local-write trigger. Coalesces bursts of Drift writes into a
+  /// single [syncNow] call. Respects every sync gate so it stays dormant while
+  /// sync is disabled, the user is unentitled, offline, unauthenticated, or a
+  /// sync is already running.
+  void scheduleSync() {
+    if (!SyncConfig.enabled || !_isEntitled) return;
+    if (!_isOnline || !_isAuthenticated || _isSyncing) return;
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = Timer(_syncDebounceDelay, () {
+      if (!_isSyncing) syncNow();
+    });
   }
 
   // ─── Sync ───────────────────────────────────────────────────
@@ -196,7 +190,7 @@ class OfflineManager {
     _syncStatusController.add(SyncStatus.syncing);
 
     try {
-      // Row-based sync for migrated entities (Tasks, Habits), then legacy outbox.
+      // Row-based, dirty-flag sync for all migrated entities.
       await _pushTasks();
       await _pushHabits();
       await _pushGoals();
@@ -205,9 +199,7 @@ class OfflineManager {
       await _pushAchievements();
       await _pushProgress();
       await _pushNotifications();
-      await _pushChanges();
       await _pullRows();
-      await _pullChanges();
 
       // Persist last sync time
       _lastSyncTime = DateTime.now();
@@ -226,146 +218,26 @@ class OfflineManager {
     }
   }
 
-  // ─── Push ───────────────────────────────────────────────────
+  // ─── Conflict handling ──────────────────────────────────────
 
-  Future<void> _pushChanges() async {
-    final pending = await _syncDao.getPendingOperations();
-    if (pending.isEmpty) return;
-
-    // Filter to only retry-eligible operations (exponential backoff)
-    final readyOps = pending.where((op) {
-      final retryDelay =
-          Duration(seconds: (1 << op.retryCount).clamp(1, 300));
-      return op.retryCount < op.maxRetries &&
-          DateTime.now().isAfter(op.timestamp.add(retryDelay));
-    }).toList();
-
-    if (readyOps.isEmpty) return;
-
-    for (final op in readyOps) {
-      try {
-        await _dispatchOperation(op);
-        await _syncDao.deleteOperation(op.id);
-        _log.d(
-            'OfflineManager: Synced ${op.operationType} ${op.entityType}/${op.entityId}');
-      } catch (e) {
-        if (op.retryCount + 1 >= op.maxRetries) {
-          await _syncDao.deleteOperation(op.id);
-          _log.w(
-              'OfflineManager: Max retries exceeded for ${op.id}, removing');
-        } else {
-          await _syncDao.incrementRetry(op.id);
-          _log.w(
-              'OfflineManager: Retry ${op.retryCount + 1} for ${op.operationType} ${op.entityType}/${op.entityId}',
-              error: e);
-        }
+  /// Extract the set of entity ids the server rejected as conflicts for
+  /// [entityType] from a `/sync/push` response. A conflict means the server's
+  /// copy was modified *strictly after* our operation's timestamp, so by
+  /// last-write-wins (local wins ties) the server wins that row. We therefore
+  /// must NOT mark those rows synced — they stay dirty and the following
+  /// [_pullRows] applies the server's strictly-newer copy via `_applyRemoteX`
+  /// (which itself enforces LWW with local winning ties).
+  Set<String> _conflictedIds(Map<String, dynamic> resp, String entityType) {
+    final raw = resp['conflicts'];
+    if (raw is! List) return const {};
+    final ids = <String>{};
+    for (final c in raw) {
+      if (c is Map && c['entity_type']?.toString() == entityType) {
+        final id = c['entity_id']?.toString();
+        if (id != null) ids.add(id);
       }
     }
-  }
-
-  /// Dispatch a single queued operation to the appropriate REST endpoint.
-  Future<void> _dispatchOperation(SyncOperation op) async {
-    final data = op.data != null
-        ? jsonDecode(op.data!) as Map<String, dynamic>
-        : null;
-    final api = _syncRepository.apiService;
-
-    switch ('${op.operationType}_${op.entityType}') {
-      // ─── Tasks ─────────────────────────────────────────
-      case 'create_task':
-        await api.post('/tasks', data: data);
-      case 'update_task':
-        await api.put('/tasks/${op.entityId}', data: data);
-      case 'delete_task':
-        await api.delete('/tasks/${op.entityId}');
-      case 'complete_task':
-        await api.post('/tasks/${op.entityId}/complete');
-
-      // ─── Habits ────────────────────────────────────────
-      case 'create_habit':
-        await api.post('/habits', data: data);
-      case 'update_habit':
-        await api.put('/habits/${op.entityId}', data: data);
-      case 'delete_habit':
-        await api.delete('/habits/${op.entityId}');
-      case 'complete_habit':
-        await api.post('/habits/${op.entityId}/complete');
-
-      // ─── Goals ─────────────────────────────────────────
-      case 'create_goal':
-        await api.post('/goals', data: data);
-      case 'update_goal':
-        await api.put('/goals/${op.entityId}', data: data);
-      case 'delete_goal':
-        await api.delete('/goals/${op.entityId}');
-      case 'update_progress_goal':
-        await api.post('/goals/${op.entityId}/progress', data: data);
-
-      // ─── Avatar ────────────────────────────────────────
-      case 'create_avatar':
-        await api.post('/avatar', data: data);
-      case 'update_appearance_avatar':
-        await api.put('/avatar/appearance', data: data);
-      case 'unlock_item_avatar':
-        await api.post('/avatar/unlock-item', data: data);
-
-      // ─── Achievements ──────────────────────────────────
-      case 'check_achievement':
-        await api.post('/achievements/check');
-
-      // ─── World Tiles ───────────────────────────────────
-      case 'unlock_world_tile':
-        await api.post('/world/tiles/${op.entityId}/unlock');
-
-      default:
-        _log.w(
-            'OfflineManager: Unknown operation ${op.operationType}_${op.entityType}');
-    }
-  }
-
-  // ─── Pull ───────────────────────────────────────────────────
-
-  Future<void> _pullChanges() async {
-    for (final entry in _pullHandlers.entries) {
-      try {
-        final entityType = entry.key;
-        final handler = entry.value;
-        final endpoint = _endpointForEntityType(entityType);
-        if (endpoint == null) continue;
-
-        final response = await _syncRepository.apiService.get(endpoint);
-
-        // Handle both List responses and single-object responses (e.g., avatar)
-        if (response.data is List) {
-          final items = (response.data as List)
-              .map((e) => e as Map<String, dynamic>)
-              .toList();
-          await handler(items);
-          _log.d(
-              'OfflineManager: Pulled ${items.length} $entityType entities');
-        } else if (response.data is Map<String, dynamic>) {
-          // Single entity (e.g., avatar) — wrap in a list for the handler
-          await handler([response.data as Map<String, dynamic>]);
-          _log.d('OfflineManager: Pulled 1 $entityType entity');
-        }
-      } catch (e) {
-        _log.w('OfflineManager: Pull failed for ${entry.key}', error: e);
-      }
-    }
-  }
-
-  /// Maps entity type names to their REST GET endpoints.
-  String? _endpointForEntityType(String entityType) {
-    return switch (entityType) {
-      'task' => '/tasks',
-      'habit' => '/habits',
-      'goal' => '/goals',
-      'avatar' => '/avatar',
-      'achievement' => '/achievements',
-      'world_tile' => '/world/tiles',
-      'progress' => '/progress',
-      _ => null,
-    };
+    return ids;
   }
 
   // ─── Row-based Task sync (offline-first) ────────────────────
@@ -389,10 +261,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _taskDao.markSynced([for (final t in dirty) t.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'task');
+    final synced = [for (final t in dirty) if (!conflicts.contains(t.id)) t.id];
+    await _taskDao.markSynced(synced, DateTime.now());
     await _taskDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} task rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} task rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// Pull deltas (incl. tombstones) since the cursor and apply each migrated
@@ -519,10 +394,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _habitDao.markSynced([for (final h in dirty) h.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'habit');
+    final synced = [for (final h in dirty) if (!conflicts.contains(h.id)) h.id];
+    await _habitDao.markSynced(synced, DateTime.now());
     await _habitDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} habit rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} habit rows (${conflicts.length} conflicts kept dirty)');
   }
 
   Future<void> _applyRemoteHabit(String userId, Map<String, dynamic> r) async {
@@ -611,10 +489,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _goalDao.markSynced([for (final g in dirty) g.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'goal');
+    final synced = [for (final g in dirty) if (!conflicts.contains(g.id)) g.id];
+    await _goalDao.markSynced(synced, DateTime.now());
     await _goalDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} goal rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} goal rows (${conflicts.length} conflicts kept dirty)');
   }
 
   Future<void> _applyRemoteGoal(String userId, Map<String, dynamic> r) async {
@@ -707,10 +588,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _avatarDao.markSynced([for (final a in dirty) a.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'avatar');
+    final synced = [for (final a in dirty) if (!conflicts.contains(a.id)) a.id];
+    await _avatarDao.markSynced(synced, DateTime.now());
     await _avatarDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} avatar rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} avatar rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// Avatar is 1:1 per user, so the local and remote ids may differ (the
@@ -826,10 +710,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _worldDao.markSynced([for (final w in dirty) w.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'world_tile');
+    final synced = [for (final w in dirty) if (!conflicts.contains(w.id)) w.id];
+    await _worldDao.markSynced(synced, DateTime.now());
     await _worldDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} world tile rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} world tile rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// World tiles are seeded independently on each device, so the grid position
@@ -921,11 +808,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _achievementDao
-        .markSynced([for (final a in dirty) a.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'achievement');
+    final synced = [for (final a in dirty) if (!conflicts.contains(a.id)) a.id];
+    await _achievementDao.markSynced(synced, DateTime.now());
     await _achievementDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} achievement rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} achievement rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// Achievements are seeded independently per device, so the title is the
@@ -1037,11 +926,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _progressDao
-        .markSynced([for (final p in dirty) p.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'progress_entry');
+    final synced = [for (final p in dirty) if (!conflicts.contains(p.id)) p.id];
+    await _progressDao.markSynced(synced, DateTime.now());
     await _progressDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} progress rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} progress rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// Daily entries are keyed by calendar day (one per day), seeded
@@ -1149,11 +1040,13 @@ class OfflineManager {
         }
     ];
 
-    await _syncRepository.pushSync(ops);
-    await _notificationDao
-        .markSynced([for (final n in dirty) n.id], DateTime.now());
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'notification');
+    final synced = [for (final n in dirty) if (!conflicts.contains(n.id)) n.id];
+    await _notificationDao.markSynced(synced, DateTime.now());
     await _notificationDao.purgeSyncedTombstones();
-    _log.d('OfflineManager: Pushed ${ops.length} notification rows');
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} notification rows (${conflicts.length} conflicts kept dirty)');
   }
 
   /// Notifications are unique server-pushed events, so the id is the key.
@@ -1231,17 +1124,6 @@ class OfflineManager {
     );
   }
 
-  // ─── Pull Handler Registration ──────────────────────────────
-
-  /// Register a handler invoked when entities of [entityType] are pulled
-  /// from the server.
-  void registerPullHandler(
-    String entityType,
-    Future<void> Function(List<Map<String, dynamic>>) handler,
-  ) {
-    _pullHandlers[entityType] = handler;
-  }
-
   // ─── App Lifecycle ──────────────────────────────────────────
 
   /// Call when the app resumes from background.
@@ -1259,6 +1141,14 @@ class OfflineManager {
 
   // ─── Periodic Timer ─────────────────────────────────────────
 
+  /// Starts the periodic timer only when sync is actually eligible to run
+  /// (enabled, entitled, authenticated). Used at init/login so the timer isn't
+  /// only started on app-resume.
+  void _maybeStartPeriodicSync() {
+    if (!SyncConfig.enabled || !_isEntitled || !_isAuthenticated) return;
+    _startPeriodicSync();
+  }
+
   void _startPeriodicSync() {
     _cancelPeriodicSync();
     _periodicSyncTimer = Timer.periodic(_periodicSyncInterval, (_) {
@@ -1275,7 +1165,10 @@ class OfflineManager {
 
   void dispose() {
     _cancelPeriodicSync();
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = null;
     _connectivitySubscription?.cancel();
+    _tableUpdatesSubscription?.cancel();
     _syncStatusController.close();
     _lastSyncTimeController.close();
   }

@@ -12,7 +12,6 @@ import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
 final habitsStreamProvider = StreamProvider.autoDispose<List<Habit>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
   final dao = ref.read(habitDaoProvider);
-  ref.read(habitActionsProvider).ensureSeeded(userId);
   return dao.watchHabits(userId);
 });
 
@@ -25,7 +24,14 @@ class HabitActions {
   HabitActions(this._dao);
   final HabitDao _dao;
   final _uuid = const Uuid();
-  final _seeded = <String>{};
+
+  /// Deterministic ids for opt-in starter content (removable later).
+  static const seedIds = [
+    'seed-habit-0',
+    'seed-habit-1',
+    'seed-habit-2',
+    'seed-habit-3',
+  ];
 
   Future<void> create({
     required String userId,
@@ -71,9 +77,8 @@ class HabitActions {
 
   Future<void> delete(String id) => _dao.softDeleteHabit(id, DateTime.now());
 
-  Future<void> ensureSeeded(String userId) async {
-    if (_seeded.contains(userId)) return;
-    _seeded.add(userId);
+  /// Opt-in starter content (only seeded when the user asks for example data).
+  Future<void> seedStarter(String userId) async {
     if (await _dao.countForUser(userId) > 0) return;
     final now = DateTime.now();
     // title, note, category, frequency, streak, doneToday
@@ -83,9 +88,10 @@ class HabitActions {
       ['Move your body', 'Any movement counts', 'fitness', 'daily', 3, false],
       ['Call a friend', 'Stay connected', 'social', 'weekly', 2, false],
     ];
-    for (final s in seeds) {
+    for (var i = 0; i < seeds.length; i++) {
+      final s = seeds[i];
       await _dao.insertHabit(HabitsCompanion(
-        id: Value(_uuid.v4()),
+        id: Value(seedIds[i]),
         userId: Value(userId),
         title: Value(s[0] as String),
         description: Value(s[1] as String),
@@ -98,6 +104,14 @@ class HabitActions {
         updatedAt: Value(now),
         isDirty: const Value(true),
       ));
+    }
+  }
+
+  /// Remove the opt-in starter content (soft-delete so it can sync).
+  Future<void> deleteStarter(String userId) async {
+    final now = DateTime.now();
+    for (final id in seedIds) {
+      await _dao.softDeleteHabit(id, now);
     }
   }
 }

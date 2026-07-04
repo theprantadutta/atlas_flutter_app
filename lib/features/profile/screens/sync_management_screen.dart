@@ -3,19 +3,21 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
-/// Sync & data — a calm, reassuring status page. Everything is safe; nothing to
-/// worry about.
+/// Sync & data — an honest, calm status page. Everything lives on this device;
+/// cloud backup arrives with premium. Also where example data can be removed.
 class SyncManagementScreen extends ConsumerWidget {
   const SyncManagementScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final itemCount = ref.watch(localItemCountProvider);
+    final starter = ref.watch(starterDataProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -30,56 +32,76 @@ class SyncManagementScreen extends ConsumerWidget {
           children: [
             AtlasHeader(title: 'Sync & data', onBack: () => context.pop()),
             AppSpacing.gapLg,
-            const _SyncStatusCard()
+            _LocalStatusCard(
+              itemCount: itemCount.value,
+            )
                 .animate()
                 .fadeIn(duration: AppMotion.medium)
                 .slideY(begin: 0.05, end: 0, curve: AppMotion.standard),
             AppSpacing.gapMd,
-            const _SyncStats()
+            const _CloudBackupCard()
                 .animate()
                 .fadeIn(duration: AppMotion.medium, delay: 80.ms),
-            AppSpacing.gapXl,
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () =>
-                    ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Everything is up to date'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                ),
-                icon: const Icon(Icons.sync_rounded),
-                label: const Text('Sync now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
-                  ),
-                  textStyle: theme.textTheme.titleMedium,
-                ),
-              ),
-            ),
-            AppSpacing.gapMd,
-            const _SafetyNote(),
+            if (starter.hasStarterData) ...[
+              AppSpacing.gapXl,
+              const SectionHeader(title: 'Example data'),
+              _DeleteStarterCard(
+                onDelete: () => _confirmDelete(context, ref),
+              ).animate().fadeIn(duration: AppMotion.medium, delay: 120.ms),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove example data?'),
+        content: const Text(
+          'This deletes the sample tasks, habits, goals, notifications and '
+          'history that were added to help you get started. Anything you '
+          'created yourself is kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.streakFlame,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(starterDataProvider.notifier).deleteStarterData();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Example data removed'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 }
 
-class _SyncStatusCard extends StatelessWidget {
-  const _SyncStatusCard();
+class _LocalStatusCard extends StatelessWidget {
+  const _LocalStatusCard({required this.itemCount});
+  final int? itemCount;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final subtitle = itemCount == null
+        ? 'Counting your items…'
+        : '$itemCount item${itemCount == 1 ? '' : 's'} stored on this device';
     return AtlasCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
@@ -93,7 +115,7 @@ class _SyncStatusCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.cloud_done_rounded,
+              Icons.phone_iphone_rounded,
               color: AppColors.success,
               size: 26,
             ),
@@ -103,23 +125,11 @@ class _SyncStatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: const BoxDecoration(
-                        color: AppColors.success,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text('All synced', style: theme.textTheme.titleMedium),
-                  ],
-                ),
+                Text('Saved on this device',
+                    style: theme.textTheme.titleMedium),
                 const SizedBox(height: 2),
                 Text(
-                  'Last synced just now',
+                  subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -133,46 +143,8 @@ class _SyncStatusCard extends StatelessWidget {
   }
 }
 
-class _SyncStats extends StatelessWidget {
-  const _SyncStats();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: const [
-        Expanded(
-          child: StatTile(
-            icon: Icons.inventory_2_rounded,
-            color: AppColors.secondary,
-            value: '342',
-            label: 'Synced',
-          ),
-        ),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: StatTile(
-            icon: Icons.pending_outlined,
-            color: AppColors.tertiary,
-            value: '0',
-            label: 'Pending',
-          ),
-        ),
-        SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: StatTile(
-            icon: Icons.devices_rounded,
-            color: AppColors.primary,
-            value: '2',
-            label: 'Devices',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SafetyNote extends StatelessWidget {
-  const _SafetyNote();
+class _CloudBackupCard extends StatelessWidget {
+  const _CloudBackupCard();
 
   @override
   Widget build(BuildContext context) {
@@ -183,22 +155,65 @@ class _SafetyNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.shield_outlined,
-            color: AppColors.secondary,
-            size: 22,
-          ),
+          const Icon(Icons.cloud_outlined,
+              color: AppColors.secondary, size: 22),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              'Your progress is encrypted and backed up automatically. Even '
-              'offline, everything is kept safe and syncs when you return.',
+              'Cloud sync and backup across your devices is a premium feature, '
+              'coming soon. Until then, everything you do is kept safely on '
+              'this device and works fully offline.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.5,
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeleteStarterCard extends StatelessWidget {
+  const _DeleteStarterCard({required this.onDelete});
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AtlasCard(
+      onTap: onDelete,
+      padding: const EdgeInsets.all(AppSpacing.sm + 2),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.streakFlame.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: const Icon(Icons.delete_sweep_rounded,
+                color: AppColors.streakFlame, size: 22),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Remove example data',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(color: AppColors.streakFlame)),
+                Text('Clear the sample content you started with',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurfaceVariant),
         ],
       ),
     );

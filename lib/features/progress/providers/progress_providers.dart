@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
@@ -14,8 +13,6 @@ final progressEntriesStreamProvider =
     StreamProvider.autoDispose<List<ProgressEntry>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
   final dao = ref.read(progressDaoProvider);
-  // Seed a week of history once so a fresh offline DB has a ledger to show.
-  ref.read(progressActionsProvider).ensureSeeded(userId);
   return dao.watchEntries(userId);
 });
 
@@ -28,12 +25,20 @@ final progressActionsProvider = Provider<ProgressActions>((ref) {
 class ProgressActions {
   ProgressActions(this._dao);
   final ProgressDao _dao;
-  final _uuid = const Uuid();
-  final _seeded = <String>{};
 
-  Future<void> ensureSeeded(String userId) async {
-    if (_seeded.contains(userId)) return;
-    _seeded.add(userId);
+  /// Deterministic ids for opt-in starter content (removable later).
+  static const seedIds = [
+    'seed-progress-0',
+    'seed-progress-1',
+    'seed-progress-2',
+    'seed-progress-3',
+    'seed-progress-4',
+    'seed-progress-5',
+    'seed-progress-6',
+  ];
+
+  /// Opt-in starter content (only seeded when the user asks for example data).
+  Future<void> seedStarter(String userId) async {
     if (await _dao.countForUser(userId) > 0) return;
 
     final now = DateTime.now();
@@ -45,7 +50,7 @@ class ProgressActions {
     for (var i = 0; i < xp.length; i++) {
       final date = today.subtract(Duration(days: i));
       await _dao.insertProgress(ProgressEntriesCompanion(
-        id: Value(_uuid.v4()),
+        id: Value(seedIds[i]),
         userId: Value(userId),
         date: Value(date),
         xpGained: Value(xp[i]),
@@ -56,6 +61,14 @@ class ProgressActions {
         updatedAt: Value(now),
         isDirty: const Value(true),
       ));
+    }
+  }
+
+  /// Remove the opt-in starter content (soft-delete so it can sync).
+  Future<void> deleteStarter(String userId) async {
+    final now = DateTime.now();
+    for (final id in seedIds) {
+      await _dao.softDeleteEntry(id, now);
     }
   }
 }

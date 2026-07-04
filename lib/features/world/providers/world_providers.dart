@@ -66,7 +66,9 @@ class WorldActions {
     final now = DateTime.now();
     const cols = 5;
     const total = 30;
-    const unlockedCount = 14; // first rows already flourishing
+    // A fresh world starts with just the origin tile alive; the rest unlock
+    // as the user makes real progress.
+    const unlockedCount = 1;
     for (var i = 0; i < total; i++) {
       final type = _tileTypes[i % _tileTypes.length];
       final unlocked = i < unlockedCount;

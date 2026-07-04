@@ -3,11 +3,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_data.dart';
-import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
+import 'package:atlas_flutter_app/core/sample/sample_extra.dart' show AttributeStat;
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -27,7 +28,15 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final user = sampleUser();
+    final user = ref.watch(authProvider).user;
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    // Live stats from the local-first Drift stores.
+    final tasks = ref.watch(tasksStreamProvider).value ?? const [];
+    final habits = ref.watch(habitsStreamProvider).value ?? const [];
+    final tasksDone = tasks.where((t) => t.isCompleted).length;
+    final habitCount = habits.length;
     // Attributes come from the local-first avatar (Drift), not sample data.
     final avatar = ref.watch(avatarStreamProvider).value;
     final attributes = <AttributeStat>[
@@ -65,9 +74,12 @@ class ProfileScreen extends ConsumerWidget {
                 .fadeIn(duration: AppMotion.medium)
                 .slideY(begin: 0.05, end: 0, curve: AppMotion.standard),
             AppSpacing.gapMd,
-            _StatStrip(user: user, formatXp: _formatXp)
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 80.ms),
+            _StatStrip(
+              user: user,
+              formatXp: _formatXp,
+              tasksDone: tasksDone,
+              habitCount: habitCount,
+            ).animate().fadeIn(duration: AppMotion.medium, delay: 80.ms),
             AppSpacing.gapXl,
             const SectionHeader(title: 'Attributes'),
             _AttributesCard(attributes: attributes)
@@ -222,23 +234,30 @@ class _LevelPill extends StatelessWidget {
 // ─── Stat strip ─────────────────────────────────────────────────────
 
 class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.user, required this.formatXp});
+  const _StatStrip({
+    required this.user,
+    required this.formatXp,
+    required this.tasksDone,
+    required this.habitCount,
+  });
   final User user;
   final String Function(int) formatXp;
+  final int tasksDone;
+  final int habitCount;
 
   @override
   Widget build(BuildContext context) {
     final tiles = [
-      const StatTile(
+      StatTile(
         icon: Icons.check_circle_rounded,
         color: AppColors.categoryWork,
-        value: '128',
+        value: '$tasksDone',
         label: 'Tasks done',
       ),
-      const StatTile(
+      StatTile(
         icon: Icons.loop_rounded,
         color: AppColors.xpPrimary,
-        value: '9',
+        value: '$habitCount',
         label: 'Habits',
       ),
       StatTile(

@@ -91,9 +91,9 @@ class AvatarActions {
       name: const Value('Adventurer'),
       level: const Value(1),
       currentXp: const Value(0),
-      strength: const Value(12),
-      wisdom: const Value(18),
-      intelligence: const Value(15),
+      strength: const Value(10),
+      wisdom: const Value(10),
+      intelligence: const Value(10),
       appearanceData:
           Value(avatarAppearanceJson(skin: 1, hair: 0, outfit: 0)),
       createdAt: Value(now),

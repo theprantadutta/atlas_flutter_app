@@ -3,7 +3,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_data.dart';
+import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/widgets/starter_data_gate.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -19,7 +21,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final home = ref.watch(homeSampleProvider);
+    final home = ref.watch(homeProvider);
 
     // Checking off today's rituals visibly greens your world.
     final worldProgress =
@@ -32,6 +34,7 @@ class HomeScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(
               AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
           children: [
+            const StarterDataGate(),
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()
                 .fadeIn(duration: AppMotion.medium),
@@ -72,6 +75,8 @@ class HomeScreen extends ConsumerWidget {
             AppSpacing.gapXl,
             _TodayHeader(done: home.doneCount, total: home.today.length),
             AppSpacing.gapMd,
+            if (home.today.isEmpty)
+              _TodayEmpty(onTap: () => context.go('/grow')),
             ...List.generate(home.today.length, (i) {
               final item = home.today[i];
               return Padding(
@@ -79,7 +84,7 @@ class HomeScreen extends ConsumerWidget {
                 child: _TodayTile(
                   item: item,
                   onTap: () =>
-                      ref.read(homeSampleProvider.notifier).toggle(item.id),
+                      ref.read(taskActionsProvider).toggleById(item.id),
                 )
                     .animate()
                     .fadeIn(
@@ -612,6 +617,63 @@ class _AuroraEntry extends StatelessWidget {
               ),
               const Icon(Icons.chevron_right_rounded,
                   color: Color(0xFF10243B)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Today empty state ──────────────────────────────────────────────
+
+class _TodayEmpty extends StatelessWidget {
+  const _TodayEmpty({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: const Icon(Icons.add_rounded,
+                    color: AppColors.secondary, size: 24),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Nothing to tend yet',
+                        style: theme.textTheme.titleMedium),
+                    Text('Add a task or habit in Grow to begin',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  color: theme.colorScheme.onSurfaceVariant),
             ],
           ),
         ),

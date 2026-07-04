@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
@@ -14,8 +13,6 @@ final notificationsStreamProvider =
     StreamProvider.autoDispose<List<Notification>>((ref) {
   final userId = ref.watch(currentUserIdProvider);
   final dao = ref.read(notificationDaoProvider);
-  // Seed a few notifications once so a fresh offline DB isn't empty.
-  ref.read(notificationActionsProvider).ensureSeeded(userId);
   return dao.watchNotifications(userId);
 });
 
@@ -35,8 +32,14 @@ final notificationActionsProvider = Provider<NotificationActions>((ref) {
 class NotificationActions {
   NotificationActions(this._dao);
   final NotificationDao _dao;
-  final _uuid = const Uuid();
-  final _seeded = <String>{};
+
+  /// Deterministic ids for opt-in starter content (removable later).
+  static const seedIds = [
+    'seed-notif-0',
+    'seed-notif-1',
+    'seed-notif-2',
+    'seed-notif-3',
+  ];
 
   Future<void> markAllRead(String userId) => _dao.markAllAsRead(userId);
 
@@ -45,9 +48,8 @@ class NotificationActions {
   Future<void> dismiss(String id) =>
       _dao.softDeleteNotification(id, DateTime.now());
 
-  Future<void> ensureSeeded(String userId) async {
-    if (_seeded.contains(userId)) return;
-    _seeded.add(userId);
+  /// Opt-in starter content (only seeded when the user asks for example data).
+  Future<void> seedStarter(String userId) async {
     if (await _dao.countForUser(userId) > 0) return;
 
     final now = DateTime.now();
@@ -82,11 +84,12 @@ class NotificationActions {
         true,
       ],
     ];
-    for (final s in seeds) {
+    for (var i = 0; i < seeds.length; i++) {
+      final s = seeds[i];
       final created = now.subtract(Duration(hours: s[3] as int));
       final read = s[4] as bool;
       await _dao.insertNotification(NotificationsCompanion(
-        id: Value(_uuid.v4()),
+        id: Value(seedIds[i]),
         userId: Value(userId),
         title: Value(s[0] as String),
         body: Value(s[1] as String),
@@ -97,6 +100,14 @@ class NotificationActions {
         updatedAt: Value(created),
         isDirty: const Value(true),
       ));
+    }
+  }
+
+  /// Remove the opt-in starter content (soft-delete so it can sync).
+  Future<void> deleteStarter(String userId) async {
+    final now = DateTime.now();
+    for (final id in seedIds) {
+      await _dao.softDeleteNotification(id, now);
     }
   }
 }

@@ -89,26 +89,22 @@ class AchievementActions {
     if (await _dao.countForUser(userId) > 0) return;
 
     final now = DateTime.now();
-    // title, desc, type, target, iconKey, unlocked, progress
+    // The achievement catalogue (what can be earned). A fresh account has
+    // earned none yet, so every badge starts locked with zero progress.
+    // title, desc, type, target, iconKey
     final seeds = <List<dynamic>>[
       ['First Light', 'Complete your first ritual', 'milestone', 1.0,
-          'wb_twilight', true, 1.0],
-      ['Tended Ten', 'Finish 10 tasks', 'total', 10.0, 'task_alt', true, 1.0],
+          'wb_twilight'],
+      ['Tended Ten', 'Finish 10 tasks', 'total', 10.0, 'task_alt'],
       ['Week of Calm', 'A 7-day meditation streak', 'streak', 7.0,
-          'self_improvement', true, 1.0],
-      ['Hydrated', 'Drink water 100 times', 'total', 100.0, 'water_drop',
-          true, 1.0],
-      ['Dawn to Dusk', 'Reach level 10', 'level', 10.0, 'auto_awesome', true,
-          1.0],
-      ['World Builder', 'Unlock 30 tiles', 'milestone', 30.0, 'public', false,
-          0.5],
-      ['Evergreen', 'Keep a 100-day streak', 'streak', 100.0, 'forest', false,
-          0.4],
-      ['Bookworm', 'Read 1000 pages', 'total', 1000.0, 'menu_book', false,
-          0.6],
+          'self_improvement'],
+      ['Hydrated', 'Drink water 100 times', 'total', 100.0, 'water_drop'],
+      ['Dawn to Dusk', 'Reach level 10', 'level', 10.0, 'auto_awesome'],
+      ['World Builder', 'Unlock 30 tiles', 'milestone', 30.0, 'public'],
+      ['Evergreen', 'Keep a 100-day streak', 'streak', 100.0, 'forest'],
+      ['Bookworm', 'Read 1000 pages', 'total', 1000.0, 'menu_book'],
     ];
     for (final s in seeds) {
-      final unlocked = s[5] as bool;
       await _dao.insertAchievement(AchievementsCompanion(
         id: Value(_uuid.v4()),
         userId: Value(userId),
@@ -117,9 +113,9 @@ class AchievementActions {
         iconPath: Value(s[4] as String),
         achievementType: Value(s[2] as String),
         criteria: Value(achievementCriteriaJson(s[3] as double)),
-        isUnlocked: Value(unlocked),
-        progress: Value(unlocked ? 1.0 : s[6] as double),
-        unlockedAt: unlocked ? Value(now) : const Value(null),
+        isUnlocked: const Value(false),
+        progress: const Value(0.0),
+        unlockedAt: const Value(null),
         createdAt: Value(now),
         updatedAt: Value(now),
         isDirty: const Value(true),
