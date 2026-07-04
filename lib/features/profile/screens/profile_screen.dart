@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/core/sample/sample_extra.dart' show AttributeS
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
@@ -353,8 +354,11 @@ class _AttributeRow extends StatelessWidget {
 class _SettingsMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isPremium = ref.watch(isPremiumProvider);
     return Column(
       children: [
+        _PremiumRow(isPremium: isPremium),
+        AppSpacing.gapSm,
         _SettingsRow(
           icon: Icons.face_retouching_natural_rounded,
           color: AppColors.primary,
@@ -388,6 +392,61 @@ class _SettingsMenu extends ConsumerWidget {
           onTap: () => ref.read(authProvider.notifier).logout(),
         ),
       ],
+    );
+  }
+}
+
+/// A branded settings entry for premium — an invitation when free, a calm
+/// "Premium active" status (still tappable, to manage) when subscribed.
+class _PremiumRow extends StatelessWidget {
+  const _PremiumRow({required this.isPremium});
+  final bool isPremium;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AtlasCard(
+      onTap: () => context.push('/paywall'),
+      padding: const EdgeInsets.all(AppSpacing.sm + 2),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: AppColors.auroraGradient,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: const Icon(Icons.auto_awesome_rounded,
+                color: Color(0xFF10243B), size: 22),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isPremium ? 'Atlas Aurora' : 'Go Premium',
+                  style: theme.textTheme.titleMedium,
+                ),
+                Text(
+                  isPremium
+                      ? 'Premium active — manage your plan'
+                      : 'Unlimited Aurora, cloud sync & deeper insights',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -61,6 +61,7 @@ dependencies:
   logger: ^2.5.0
   in_app_purchase: ^3.3.0
   gpt_markdown: ^1.1.7
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

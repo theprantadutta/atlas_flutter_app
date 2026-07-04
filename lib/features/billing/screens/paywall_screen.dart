@@ -43,8 +43,8 @@ const _plans = <_PlanOption>[
     title: 'Yearly',
     fallbackPrice: r'$39.99',
     cadence: 'per year',
-    badge: 'Best value',
-    subtitle: 'Two months free vs. monthly',
+    badge: 'Save 33%',
+    subtitle: 'Our best value, billed yearly',
   ),
   _PlanOption(
     productId: AtlasProducts.monthly,
@@ -55,7 +55,7 @@ const _plans = <_PlanOption>[
   _PlanOption(
     productId: AtlasProducts.lifetime,
     title: 'Founder',
-    fallbackPrice: r'$99.99',
+    fallbackPrice: r'$79.99',
     cadence: 'one time',
     badge: 'Lifetime',
     subtitle: 'Pay once, yours forever',
@@ -83,6 +83,11 @@ const _benefits = <(IconData, String, String)>[
     'Cloud sync & backup',
     'Your world, safe across every device.',
   ),
+  (
+    Icons.stacked_line_chart_rounded,
+    'Deep insights & export',
+    'Full history, trends and CSV / JSON export.',
+  ),
 ];
 
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
@@ -108,6 +113,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       }
     } on PurchaseCancelledException {
       // User backed out — no error needed.
+    } on StoreException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,6 +124,19 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       );
     } finally {
       if (mounted) setState(() => _purchasing = false);
+    }
+  }
+
+  Future<void> _manageSubscription() async {
+    try {
+      await ref
+          .read(entitlementControllerProvider)
+          .manageSubscription(productId: _selected);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t open subscription settings.')),
+      );
     }
   }
 
@@ -241,11 +263,23 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           ),
           AppSpacing.gapSm,
           Center(
-            child: TextButton(
-              onPressed: _purchasing ? null : _restore,
-              child: Text('Restore purchases',
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.xs,
+              children: [
+                TextButton(
+                  onPressed: _purchasing ? null : _restore,
+                  child: Text('Restore purchases',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant)),
+                ),
+                TextButton(
+                  onPressed: _purchasing ? null : _manageSubscription,
+                  child: Text('Manage subscription',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant)),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.xs),

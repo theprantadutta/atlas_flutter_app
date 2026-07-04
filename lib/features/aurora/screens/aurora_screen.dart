@@ -7,6 +7,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
+import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -110,6 +111,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
                 ],
               ),
             ),
+            const AuroraUsageMeter(),
             _Composer(
               controller: _input,
               sending: chat.sending,

@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -143,30 +145,50 @@ class _LocalStatusCard extends StatelessWidget {
   }
 }
 
-class _CloudBackupCard extends StatelessWidget {
+class _CloudBackupCard extends ConsumerWidget {
   const _CloudBackupCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final canSync = ref.watch(canSyncProvider);
+
+    if (!canSync) {
+      return const UpgradeCtaCard(
+        icon: Icons.cloud_done_rounded,
+        title: 'Upgrade to enable cloud sync',
+        subtitle:
+            'Back up your world and keep it in sync across every device.',
+        actionLabel: 'Upgrade',
+      );
+    }
+
+    // Premium: cloud sync is available. (The rollout kill-switch still governs
+    // whether the engine actually runs.)
     return AtlasCard(
       color: AppColors.secondary.withValues(alpha: 0.10),
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.cloud_outlined,
+          const Icon(Icons.cloud_done_rounded,
               color: AppColors.secondary, size: 22),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              'Cloud sync and backup across your devices is a premium feature, '
-              'coming soon. Until then, everything you do is kept safely on '
-              'this device and works fully offline.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cloud sync is on', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  'Your world is backed up and kept in sync across your '
+                  'devices.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

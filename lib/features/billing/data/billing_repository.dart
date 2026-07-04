@@ -1,4 +1,5 @@
 import 'package:atlas_flutter_app/data/services/api_service.dart';
+import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
 
 /// The entitlement the backend reports after verifying a purchase (or via
 /// `/auth/me`). Mirrors the backend `EntitlementDto` (snake_case on the wire).
@@ -46,5 +47,13 @@ class BillingRepository {
       },
     );
     return EntitlementResult.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Fetch the full entitlement snapshot (premium state + feature flags + Aurora
+  /// usage) from the server-authoritative `GET /entitlements`. The base path
+  /// already includes `/api/v1`.
+  Future<Entitlements> fetchEntitlements() async {
+    final res = await _api.get('/entitlements');
+    return Entitlements.fromJson(res.data as Map<String, dynamic>);
   }
 }

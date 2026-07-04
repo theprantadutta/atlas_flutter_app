@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
 
@@ -17,14 +19,19 @@ class AtlasProducts {
   static const Set<String> all = {monthly, yearly, lifetime};
 }
 
+/// Android application id — used to build the Play subscription-management URL.
+const _androidPackage = 'com.pranta.atlas';
+
 /// Wraps `in_app_purchase` and the backend verify flow.
 ///
 /// Real purchase path: query the store → buy → on a `purchased`/`restored`
-/// event take the server verification token → backend `/billing/verify`.
+/// event take the server verification token (JWS / purchase token) → backend
+/// `/billing/verify`, which validates it server-side.
 ///
 /// Dev path: when the store is unavailable or the product isn't configured yet
-/// (no store listing during development), fall back to a dev token. The backend
-/// honours it only when `BILLING_DEV_BYPASS` is on, so this is safe in prod.
+/// (no store listing during development), fall back to a dev token — but ONLY in
+/// debug builds. In release we surface the error instead of silently faking a
+/// purchase.
 class EntitlementService {
   EntitlementService(this._billing);
 
@@ -42,28 +49,37 @@ class EntitlementService {
   }
 
   /// Buy [productId] and verify it with the backend. Returns the resulting
-  /// entitlement. Throws if the user cancels or the store/verify fails.
+  /// entitlement. Throws [PurchaseCancelledException] if the user cancels, or a
+  /// [StoreException] if the store is unavailable / the product is missing (in
+  /// release; debug falls back to the dev token).
   Future<EntitlementResult> purchase(String productId) async {
-    var purchaseToken = 'dev-token';
-
-    try {
-      if (await _iap.isAvailable()) {
-        final response = await _iap.queryProductDetails({productId});
-        if (response.productDetails.isNotEmpty) {
-          purchaseToken = await _buyAndAwaitToken(response.productDetails.first);
-        }
-      }
-    } on PurchaseCancelledException {
-      rethrow;
-    } catch (_) {
-      // Store path unavailable (dev / no listing yet) — fall through to the
-      // backend verify with the dev token.
+    if (!await _iap.isAvailable()) {
+      if (kDebugMode) return _verifyDev(productId);
+      throw const StoreException('The store is unavailable right now.');
     }
 
+    final response = await _iap.queryProductDetails({productId});
+    if (response.productDetails.isEmpty) {
+      if (kDebugMode) return _verifyDev(productId);
+      throw const StoreException('That plan isn’t available right now.');
+    }
+
+    final token = await _buyAndAwaitToken(response.productDetails.first);
     return _billing.verify(
       platform: _platform,
       productId: productId,
-      purchaseToken: purchaseToken,
+      purchaseToken: token,
+    );
+  }
+
+  /// Debug-only fallback so the full flow is exercisable without a store
+  /// listing. The backend honours `dev-token` only when `BILLING_DEV_BYPASS` is
+  /// on, so this can never grant premium in production.
+  Future<EntitlementResult> _verifyDev(String productId) {
+    return _billing.verify(
+      platform: _platform,
+      productId: productId,
+      purchaseToken: 'dev-token',
     );
   }
 
@@ -71,6 +87,24 @@ class EntitlementService {
   Future<void> restore() async {
     if (!await _iap.isAvailable()) return;
     await _iap.restorePurchases();
+  }
+
+  /// Open the platform's subscription-management surface so the user can
+  /// upgrade / downgrade / cancel. Lifetime is non-renewing so this is mainly
+  /// for the monthly / yearly subscriptions.
+  Future<void> openManageSubscription({String? productId}) async {
+    final Uri uri;
+    if (Platform.isIOS) {
+      uri = Uri.parse('https://apps.apple.com/account/subscriptions');
+    } else {
+      uri = Uri.https('play.google.com', '/store/account/subscriptions', {
+        'sku': ?productId,
+        'package': _androidPackage,
+      });
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw const StoreException('Couldn’t open subscription settings.');
+    }
   }
 
   Future<String> _buyAndAwaitToken(ProductDetails product) async {
@@ -91,9 +125,13 @@ class EntitlementService {
             if (!completer.isCompleted) completer.complete(token);
             await sub.cancel();
           case PurchaseStatus.error:
+            if (purchase.pendingCompletePurchase) {
+              await _iap.completePurchase(purchase);
+            }
             if (!completer.isCompleted) {
               completer.completeError(
-                purchase.error ?? Exception('Purchase failed'),
+                purchase.error ??
+                    const StoreException('The purchase couldn’t complete.'),
               );
             }
             await sub.cancel();
@@ -103,6 +141,8 @@ class EntitlementService {
             }
             await sub.cancel();
           case PurchaseStatus.pending:
+            // Deferred / awaiting approval (e.g. Ask-to-Buy). Keep waiting; the
+            // stream delivers a terminal event when the state resolves.
             break;
         }
       }
@@ -119,4 +159,12 @@ class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
   @override
   String toString() => 'Purchase cancelled';
+}
+
+/// A recoverable store/billing problem worth surfacing to the user.
+class StoreException implements Exception {
+  const StoreException(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }

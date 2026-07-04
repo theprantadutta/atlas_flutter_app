@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/analytics/providers/analytics_view_provider.dart';
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -17,6 +19,7 @@ class AnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(analyticsProvider);
+    final canDeepInsights = ref.watch(canDeepInsightsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -66,6 +69,18 @@ class AnalyticsScreen extends ConsumerWidget {
                   duration: AppMotion.medium,
                   curve: AppMotion.standard,
                 ),
+            if (!canDeepInsights) ...[
+              AppSpacing.gapMd,
+              const UpgradeCtaCard(
+                icon: Icons.insights_rounded,
+                title: 'Unlock deeper insights & export',
+                subtitle:
+                    'Full history, long-term trends and CSV / JSON export.',
+                actionLabel: 'Upgrade',
+              ).animate(delay: AppMotion.slow).fadeIn(
+                    duration: AppMotion.medium,
+                  ),
+            ],
           ],
         ),
       ),

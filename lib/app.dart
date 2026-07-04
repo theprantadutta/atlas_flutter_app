@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
@@ -49,14 +50,20 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     // Listen to auth state changes and update OfflineManager accordingly.
     ref.listenManual<AuthState>(authProvider, (prev, next) {
       offlineManager.setAuthenticated(next.isAuthenticated, userId: next.user?.id);
-      // Cloud sync is premium — drive the engine's per-user gate from the
-      // backend-issued entitlement on the user profile.
-      offlineManager.setEntitled(next.user?.isPremium ?? false);
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         _connectSignalR();
         _initializeFcm();
       }
     });
+
+    // Cloud sync is premium — drive the engine's per-user gate from the
+    // expiry-aware entitlement snapshot (falls back to the cached user profile
+    // before the first `/entitlements` fetch resolves).
+    ref.listenManual<bool>(
+      isPremiumProvider,
+      (prev, next) => offlineManager.setEntitled(next),
+      fireImmediately: true,
+    );
   }
 
   @override
@@ -64,6 +71,9 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     switch (state) {
       case AppLifecycleState.resumed:
         ref.read(offlineManagerProvider).onAppResumed();
+        // Re-check entitlement on resume so renewals / lapses / expiry are
+        // picked up without a restart.
+        ref.read(entitlementsProvider.notifier).refresh();
         _connectSignalR();
         break;
       case AppLifecycleState.paused:

@@ -4,6 +4,7 @@ class TokenService {
   static const _accessTokenKey = 'atlas_access_token';
   static const _refreshTokenKey = 'atlas_refresh_token';
   static const _userKey = 'atlas_cached_user';
+  static const _entitlementsKey = 'atlas_cached_entitlements';
   final _storage = const FlutterSecureStorage();
 
   Future<void> saveTokens({
@@ -35,4 +36,13 @@ class TokenService {
   Future<String?> getUserJson() => _storage.read(key: _userKey);
 
   Future<void> clearUser() => _storage.delete(key: _userKey);
+
+  // ─── Cached entitlements (expiry-aware premium offline) ───
+  Future<void> saveEntitlementsJson(String json) =>
+      _storage.write(key: _entitlementsKey, value: json);
+
+  Future<String?> getEntitlementsJson() =>
+      _storage.read(key: _entitlementsKey);
+
+  Future<void> clearEntitlements() => _storage.delete(key: _entitlementsKey);
 }

@@ -4,6 +4,7 @@ import 'package:atlas_flutter_app/core/errors/app_exception.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 
 /// HTTP 402 from the backend means "free limit reached → show the paywall".
@@ -71,6 +72,9 @@ class ReflectionGenNotifier extends Notifier<ReflectionGenState> {
             generating: false, error: _friendly(e));
       }
       return false;
+    } finally {
+      // Usage changed (or the limit was hit) — refresh the meter.
+      ref.read(entitlementsProvider.notifier).refresh();
     }
   }
 
@@ -178,6 +182,9 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
       } else {
         state = state.copyWith(sending: false, error: _friendly(e));
       }
+    } finally {
+      // A chat turn consumes weekly quota — refresh the usage meter.
+      ref.read(entitlementsProvider.notifier).refresh();
     }
   }
 
