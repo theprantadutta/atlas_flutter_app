@@ -253,7 +253,7 @@ class _StatStrip extends StatelessWidget {
         icon: Icons.check_circle_rounded,
         color: AppColors.categoryWork,
         value: '$tasksDone',
-        label: 'Tasks done',
+        label: 'Done',
       ),
       StatTile(
         icon: Icons.loop_rounded,
