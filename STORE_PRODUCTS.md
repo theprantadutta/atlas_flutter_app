@@ -13,9 +13,9 @@ to create the products and provision the server credentials below.
 
 | Product ID | Type | Price (USD) | Notes |
 |---|---|---|---|
-| `atlas_aurora_monthly` | Auto-renewing subscription | **$4.99 / month** | In subscription group **Atlas Aurora**. No free trial / intro offer. |
-| `atlas_aurora_yearly` | Auto-renewing subscription | **$39.99 / year** | Same group. ~33% cheaper than monthly. No trial. Mark as the "best value". |
-| `atlas_founder_lifetime` | Non-consumable (one-time) | **$79.99** | Lifetime "Founder" — grants premium forever. |
+| `atlas_aurora_monthly` | Auto-renewing subscription | **$9.99 / month** | In subscription group **Atlas Aurora**. No free trial / intro offer. |
+| `atlas_aurora_yearly` | Auto-renewing subscription | **$99.99 / year** | Same group. ~17% cheaper than monthly. No trial. Mark as the "best value". |
+| `atlas_founder_lifetime` | Non-consumable (one-time) | **$199.99** | Lifetime "Founder" — grants premium forever. |
 
 All three unlock the **same** entitlement ("Atlas Aurora" premium): unlimited Aurora chat +
 natural-language quick-add + deeper (paid-model) weekly reflections, cloud sync/backup/multi-device,
@@ -31,13 +31,13 @@ cloud sync & backup across devices, and deep insights with export. Your caring c
 ## 2. Google Play Console
 
 1. **Play Console → Monetize → Products → Subscriptions**: create subscription **`atlas_aurora`** (or
-   one subscription with two base plans) exposing base plans `atlas_aurora_monthly` (P1M, $4.99) and
-   `atlas_aurora_yearly` (P1Y, $39.99). **No offers/free-trial phase.** Activate both base plans.
+   one subscription with two base plans) exposing base plans `atlas_aurora_monthly` (P1M, $9.99) and
+   `atlas_aurora_yearly` (P1Y, $99.99). **No offers/free-trial phase.** Activate both base plans.
    - ⚠️ The app queries product IDs `atlas_aurora_monthly` and `atlas_aurora_yearly` directly. If Play
      forces a single subscription ID with base-plan IDs, make the **base plan IDs** exactly these two
      strings, or adjust `AtlasProducts` in `lib/features/billing/services/entitlement_service.dart`.
 2. **Play Console → Monetize → Products → One-time products**: create `atlas_founder_lifetime`
-   (managed/non-consumable, $79.99), Active.
+   (managed/non-consumable, $199.99), Active.
 3. **Server validation credentials** (backend calls the Play Developer API to verify tokens):
    - Google Cloud project linked to Play → create a **service account**, grant it access in
      **Play Console → Users & permissions** (View financial data + Manage orders/subscriptions).
@@ -52,10 +52,10 @@ cloud sync & backup across devices, and deep insights with export. Your caring c
 ## 3. Apple App Store Connect
 
 1. **App Store Connect → your app → Subscriptions**: create subscription group **"Atlas Aurora"**
-   with `atlas_aurora_monthly` ($4.99, 1 month) and `atlas_aurora_yearly` ($39.99, 1 year).
+   with `atlas_aurora_monthly` ($9.99, 1 month) and `atlas_aurora_yearly` ($99.99, 1 year).
    **No introductory offer / free trial.** Add localized display name + description + a review
    screenshot.
-2. **In-App Purchases** (non-consumable): create `atlas_founder_lifetime` ($79.99).
+2. **In-App Purchases** (non-consumable): create `atlas_founder_lifetime` ($199.99).
 3. **App Store Server API** credentials (backend verifies StoreKit2 transactions):
    - **Users and Access → Integrations → In-App Purchase** → generate an **API key** (.p8), note the
      **Key ID** and **Issuer ID**.

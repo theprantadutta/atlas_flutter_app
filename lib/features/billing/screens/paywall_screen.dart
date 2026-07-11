@@ -41,21 +41,21 @@ const _plans = <_PlanOption>[
   _PlanOption(
     productId: AtlasProducts.yearly,
     title: 'Yearly',
-    fallbackPrice: r'$39.99',
+    fallbackPrice: r'$99.99',
     cadence: 'per year',
-    badge: 'Save 33%',
+    badge: 'Save 17%',
     subtitle: 'Our best value, billed yearly',
   ),
   _PlanOption(
     productId: AtlasProducts.monthly,
     title: 'Monthly',
-    fallbackPrice: r'$4.99',
+    fallbackPrice: r'$9.99',
     cadence: 'per month',
   ),
   _PlanOption(
     productId: AtlasProducts.lifetime,
     title: 'Founder',
-    fallbackPrice: r'$79.99',
+    fallbackPrice: r'$199.99',
     cadence: 'one time',
     badge: 'Lifetime',
     subtitle: 'Pay once, yours forever',
@@ -159,6 +159,12 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
+  String _shortCadence(String productId) => switch (productId) {
+        AtlasProducts.yearly => '/yr',
+        AtlasProducts.monthly => '/mo',
+        _ => '',
+      };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -166,130 +172,253 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final priceFor = <String, String>{
       for (final p in products) p.id: p.price,
     };
+    final selectedPrice = priceFor[_selected] ??
+        _plans.firstWhere((p) => p.productId == _selected).fallbackPrice;
 
     return Scaffold(
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.xxl),
+      body: Column(
         children: [
-          // ── Hero ──
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(AppSpacing.radiusXl)),
-                child: const LivingHorizon(
-                  height: 280,
-                  progress: 1,
-                  brightness: Brightness.dark,
-                  borderRadius: BorderRadius.zero,
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        AppColors.surfaceDark.withValues(alpha: 0.7),
-                      ],
-                      stops: const [0.4, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + AppSpacing.xs,
-                left: 0,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  onPressed: () => context.pop(),
-                ),
-              ),
-              Positioned(
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                bottom: AppSpacing.lg,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tend your world,\nwith Aurora by your side',
-                      style: theme.textTheme.displaySmall
-                          ?.copyWith(color: Colors.white),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Premium unlocks the full companion and keeps your world in sync.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.85)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          )
-              .animate()
-              .fadeIn(duration: AppMotion.medium)
-              .slideY(begin: 0.04, end: 0, curve: AppMotion.standard),
-          AppSpacing.gapXl,
-
-          // ── Benefits ──
-          ..._benefits.map((b) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _BenefitRow(icon: b.$1, title: b.$2, subtitle: b.$3),
-              )),
-          AppSpacing.gapMd,
-
-          // ── Plans ──
-          ..._plans.map((plan) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _PlanCard(
-                  plan: plan,
-                  price: priceFor[plan.productId] ?? plan.fallbackPrice,
-                  selected: _selected == plan.productId,
-                  onTap: () => setState(() => _selected = plan.productId),
-                ),
-              )),
-          AppSpacing.gapLg,
-
-          AppButton(
-            label: _purchasing ? 'Please wait…' : 'Continue',
-            icon: Icons.auto_awesome_rounded,
-            isLoading: _purchasing,
-            onPressed: _purchasing ? null : _purchase,
-          ),
-          AppSpacing.gapSm,
-          Center(
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: AppSpacing.xs,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                TextButton(
-                  onPressed: _purchasing ? null : _restore,
-                  child: Text('Restore purchases',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant)),
-                ),
-                TextButton(
-                  onPressed: _purchasing ? null : _manageSubscription,
-                  child: Text('Manage subscription',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant)),
+                _Hero(onClose: () => context.pop())
+                    .animate()
+                    .fadeIn(duration: AppMotion.medium),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Everything in Aurora',
+                          style: theme.textTheme.titleLarge),
+                      AppSpacing.gapMd,
+                      ..._benefits.map((b) => Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
+                            child: _BenefitRow(
+                                icon: b.$1, title: b.$2, subtitle: b.$3),
+                          )),
+                      AppSpacing.gapSm,
+                      Text('Choose your plan',
+                          style: theme.textTheme.titleLarge),
+                      AppSpacing.gapMd,
+                      ..._plans.map((plan) => Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: _PlanCard(
+                              plan: plan,
+                              price: priceFor[plan.productId] ??
+                                  plan.fallbackPrice,
+                              selected: _selected == plan.productId,
+                              onTap: () =>
+                                  setState(() => _selected = plan.productId),
+                            ),
+                          )),
+                      AppSpacing.gapSm,
+                      Text(
+                        'Cancel anytime. Atlas works fully offline on the free '
+                        'plan — premium adds Aurora’s depth and cloud sync.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      AppSpacing.gapMd,
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Cancel anytime. Atlas works fully offline on the free plan — premium adds Aurora’s depth and cloud sync.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          _StickyCta(
+            label: _purchasing
+                ? 'Please wait…'
+                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+            purchasing: _purchasing,
+            onContinue: _purchasing ? null : _purchase,
+            onRestore: _purchasing ? null : _restore,
+            onManage: _purchasing ? null : _manageSubscription,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Hero (full-bleed, atmospheric) ─────────────────────────────────
+
+class _Hero extends StatelessWidget {
+  const _Hero({required this.onClose});
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final topInset = MediaQuery.of(context).padding.top;
+    final height = topInset + 288;
+    final pageColor = theme.scaffoldBackgroundColor;
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const LivingHorizon(
+            height: double.infinity,
+            progress: 1,
+            brightness: Brightness.dark,
+            borderRadius: BorderRadius.zero,
+          ),
+          // Scrim for headline legibility + a soft melt into the page below.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.28),
+                  Colors.transparent,
+                  AppColors.surfaceDark.withValues(alpha: 0.55),
+                  pageColor,
+                ],
+                stops: const [0.0, 0.32, 0.82, 1.0],
+              ),
+            ),
+          ),
+          Positioned(
+            top: topInset + AppSpacing.xxs,
+            left: AppSpacing.xs,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.22),
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onClose,
+                child: const Padding(
+                  padding: EdgeInsets.all(AppSpacing.xs),
+                  child: Icon(Icons.close_rounded, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: AppSpacing.gutter,
+            right: AppSpacing.gutter,
+            bottom: AppSpacing.lg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded,
+                          size: 14, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Text('Atlas Aurora',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Tend your world,\nwith Aurora by your side',
+                  style: theme.textTheme.displaySmall
+                      ?.copyWith(color: Colors.white, height: 1.1),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Premium unlocks the full companion and keeps your world in sync.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.88)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Sticky bottom call-to-action ───────────────────────────────────
+
+class _StickyCta extends StatelessWidget {
+  const _StickyCta({
+    required this.label,
+    required this.purchasing,
+    required this.onContinue,
+    required this.onRestore,
+    required this.onManage,
+  });
+
+  final String label;
+  final bool purchasing;
+  final VoidCallback? onContinue;
+  final VoidCallback? onRestore;
+  final VoidCallback? onManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: theme.colorScheme.outline)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+                alpha: theme.brightness == Brightness.dark ? 0.3 : 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm,
+              AppSpacing.gutter, AppSpacing.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppButton(
+                label: label,
+                icon: Icons.auto_awesome_rounded,
+                isLoading: purchasing,
+                onPressed: onContinue,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: onRestore,
+                    child: Text('Restore',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                  ),
+                  Text('·',
+                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+                  TextButton(
+                    onPressed: onManage,
+                    child: Text('Manage subscription',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
