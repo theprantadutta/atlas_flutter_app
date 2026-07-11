@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/starter_data_gate.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
@@ -38,6 +40,7 @@ class HomeScreen extends ConsumerWidget {
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()
                 .fadeIn(duration: AppMotion.medium),
+            const AuroraNudgeCard(),
             AppSpacing.gapLg,
             _Hero(home: home, worldProgress: worldProgress)
                 .animate()
@@ -47,6 +50,11 @@ class HomeScreen extends ConsumerWidget {
             _StatStrip(home: home)
                 .animate()
                 .fadeIn(duration: AppMotion.medium, delay: 160.ms),
+            AppSpacing.gapMd,
+            _AuroraHomeHero(streak: home.streak)
+                .animate()
+                .fadeIn(duration: AppMotion.medium, delay: 200.ms)
+                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
             AppSpacing.gapMd,
             Row(
               children: [
@@ -67,11 +75,6 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            AppSpacing.gapMd,
-            _AuroraEntry(onTap: () => context.push('/aurora'))
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 200.ms)
-                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
             AppSpacing.gapXl,
             _TodayHeader(done: home.doneCount, total: home.today.length),
             AppSpacing.gapMd,
@@ -566,57 +569,167 @@ class _HomeLink extends StatelessWidget {
   }
 }
 
-// ─── Aurora entry ───────────────────────────────────────────────────
+// ─── Aurora home hero (living AI presence) ──────────────────────────
 
-class _AuroraEntry extends StatelessWidget {
-  const _AuroraEntry({required this.onTap});
-  final VoidCallback onTap;
+/// A living Aurora moment on Home: a gentle check-in and, when it exists, a
+/// snippet of this week's reflection. Sourced from real cached data. The card
+/// opens the Aurora tab; the inline "Chat" opens the conversation.
+class _AuroraHomeHero extends ConsumerWidget {
+  const _AuroraHomeHero({required this.streak});
+  final int streak;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final reflection = ref.watch(latestReflectionProvider).value;
+    const ink = Color(0xFF10243B);
+
+    final hasReflection = reflection != null;
+    final snippet = hasReflection ? _plainSnippet(reflection.content) : null;
+
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: () => context.go('/aurora'),
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             gradient: AppColors.auroraGradient,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.22),
-                ),
-                child: const Icon(Icons.auto_awesome_rounded,
-                    color: Color(0xFF10243B), size: 24),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded,
+                        color: ink, size: 20),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text('Aurora',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                            color: ink, fontWeight: FontWeight.w700)),
+                  ),
+                  if (hasReflection)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs + 2, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
+                      ),
+                      child: Text('This week',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                              color: ink, fontWeight: FontWeight.w700)),
+                    ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Aurora',
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(color: const Color(0xFF10243B))),
-                    Text('Reflect on your week · talk it through',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF10243B)
-                                .withValues(alpha: 0.8))),
-                  ],
-                ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                snippet ?? _checkIn(streak),
+                maxLines: snippet != null ? 3 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: ink, height: 1.45),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: Color(0xFF10243B)),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.spa_rounded,
+                      label: hasReflection ? 'Read reflection' : 'Reflect',
+                      filled: true,
+                      onTap: () => context.go('/aurora'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.forum_rounded,
+                      label: 'Chat',
+                      filled: false,
+                      onTap: () => context.push('/aurora-chat'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _checkIn(int streak) {
+    if (streak >= 3) {
+      return 'You’re on a $streak-day streak — a lovely moment to pause and '
+          'reflect on how it’s going.';
+    }
+    return 'How are you feeling today? I can reflect on your week or just '
+        'talk it through.';
+  }
+
+  /// Turn markdown into a short, clean plain-text snippet for the card.
+  static String _plainSnippet(String md) {
+    final plain = md
+        .replaceAll(RegExp(r'[#>*_`~\-]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return plain.length > 150 ? '${plain.substring(0, 150).trim()}…' : plain;
+  }
+}
+
+class _HeroAction extends StatelessWidget {
+  const _HeroAction({
+    required this.icon,
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final bool filled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const ink = Color(0xFF10243B);
+    return Material(
+      color: filled ? Colors.white.withValues(alpha: 0.9) : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            border: filled
+                ? null
+                : Border.all(color: ink.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: ink),
+              const SizedBox(width: AppSpacing.xs),
+              Text(label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: ink, fontWeight: FontWeight.w700)),
             ],
           ),
         ),

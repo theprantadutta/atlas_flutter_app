@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
 import 'package:atlas_flutter_app/features/billing/screens/paywall_screen.dart';
@@ -76,7 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignupScreen(),
       ),
 
-      // ─── Main shell: Home · Grow · World · You ───
+      // ─── Main shell: Home · Grow · Aurora · World · You ───
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppNavigationShell(navigationShell: navigationShell),
@@ -117,6 +118,17 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/grow',
                 name: RouteNames.grow,
                 builder: (context, state) => const GrowScreen(),
+              ),
+            ],
+          ),
+
+          // Aurora (center)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/aurora',
+                name: RouteNames.aurora,
+                builder: (context, state) => const AuroraScreen(),
               ),
             ],
           ),
@@ -172,9 +184,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // ─── Top-level overlays (above the nav shell) ───
       GoRoute(
-        path: '/aurora',
-        name: RouteNames.aurora,
-        builder: (context, state) => const AuroraScreen(),
+        path: '/aurora-chat',
+        name: RouteNames.auroraChat,
+        builder: (context, state) =>
+            AuroraChatScreen(initialPrompt: state.extra as String?),
       ),
       GoRoute(
         path: '/paywall',

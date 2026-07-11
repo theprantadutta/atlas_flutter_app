@@ -31,23 +31,40 @@ class AuroraReflectionData {
   }
 }
 
-/// An entity Aurora created from a natural-language chat message.
+/// A structured entity spec Aurora parsed from natural language. The backend
+/// only parses; the client creates the entity in the local Drift database
+/// (offline-first source of truth), so these carry the full spec.
 class AuroraCreatedEntity {
   const AuroraCreatedEntity({
     required this.type,
     required this.title,
-    required this.id,
+    this.description,
+    this.category,
+    this.frequency,
+    this.priority,
+    this.taskType,
+    this.difficulty,
   });
 
   final String type; // 'habit' | 'task' | 'goal'
   final String title;
-  final String id;
+  final String? description;
+  final String? category;
+  final String? frequency;
+  final String? priority;
+  final String? taskType;
+  final int? difficulty;
 
   factory AuroraCreatedEntity.fromJson(Map<String, dynamic> json) {
     return AuroraCreatedEntity(
       type: json['type'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      id: json['id'] as String? ?? '',
+      description: json['description'] as String?,
+      category: json['category'] as String?,
+      frequency: json['frequency'] as String?,
+      priority: json['priority'] as String?,
+      taskType: json['task_type'] as String?,
+      difficulty: json['difficulty'] as int?,
     );
   }
 }
@@ -72,6 +89,24 @@ class AuroraChatResult {
       reply: json['reply'] as String? ?? '',
       created: created,
       isPremium: json['is_premium'] == true,
+    );
+  }
+}
+
+/// The result of a natural-language quick-add: a short note + parsed specs.
+class AuroraQuickAddResult {
+  const AuroraQuickAddResult({required this.note, required this.created});
+
+  final String note;
+  final List<AuroraCreatedEntity> created;
+
+  factory AuroraQuickAddResult.fromJson(Map<String, dynamic> json) {
+    final created = (json['created'] as List<dynamic>? ?? [])
+        .map((e) => AuroraCreatedEntity.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return AuroraQuickAddResult(
+      note: json['note'] as String? ?? 'Done — added for you.',
+      created: created,
     );
   }
 }

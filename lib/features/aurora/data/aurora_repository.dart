@@ -52,4 +52,12 @@ class AuroraRepository {
     );
     return AuroraChatResult.fromJson(res.data as Map<String, dynamic>);
   }
+
+  /// Parse a natural-language note into habit/task/goal specs (premium). Throws
+  /// [AppException] with `statusCode == 402` when the user isn't premium
+  /// (paywall). The caller creates the returned specs in local Drift.
+  Future<AuroraQuickAddResult> quickAdd(String text) async {
+    final res = await _api.post('/aurora/quick-add', data: {'text': text});
+    return AuroraQuickAddResult.fromJson(res.data as Map<String, dynamic>);
+  }
 }
