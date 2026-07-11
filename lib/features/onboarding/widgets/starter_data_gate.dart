@@ -32,6 +32,7 @@ class _StarterDataGateState extends ConsumerState<StarterDataGate> {
     if (!mounted) return;
     final want = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isDismissible: false,
       enableDrag: false,
       isScrollControlled: true,
@@ -103,16 +104,45 @@ class _StarterSheet extends StatelessWidget {
                 onTap: () => Navigator.of(context).pop(true),
               ),
               AppSpacing.gapSm,
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(
-                  'Start fresh',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              _SecondaryButton(
+                label: 'No thanks, start fresh',
+                onTap: () => Navigator.of(context).pop(false),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryButton extends StatelessWidget {
+  const _SecondaryButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),
