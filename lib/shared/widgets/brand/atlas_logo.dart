@@ -1,12 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 
-/// The Atlas logo — a tiny "living world" inside a soft squircle: a twilight
-/// sky, an aurora glow, a rising orb, and a layered horizon. The mark *is* the
-/// product's metaphor, so it scales from a 24px app-bar glyph to a splash hero.
+/// The Atlas logo — the "Aurora A" mark: a bold aurora-gradient peak that reads
+/// as the letter A (Atlas) and a mountain (the living world), a thin horizon gap
+/// as the crossbar, and a warm gold sun rising behind it on a twilight sky. The
+/// mark *is* the product's metaphor, so it scales from a 24px glyph to a splash
+/// hero and matches the app launcher icon.
 ///
 /// Use [AtlasLogo] for the symbol, or [AtlasLogo.wordmark] for symbol + name.
 class AtlasLogo extends StatelessWidget {
@@ -70,6 +74,17 @@ class AtlasLogo extends StatelessWidget {
 }
 
 class _AtlasMarkPainter extends CustomPainter {
+  // Brand palette (kept exact so the glyph matches the launcher icon).
+  static const _skyTop = Color(0xFF10162B);
+  static const _skyMid = Color(0xFF1C2748);
+  static const _skyBottom = Color(0xFF2A3A66);
+  static const _horizon = Color(0xFF17203F);
+  static const _auroraTeal = Color(0xFF5EEAD4);
+  static const _auroraLilac = Color(0xFF8B9CF7);
+  static const _auroraRose = Color(0xFFF5A9C0);
+  static const _gold = Color(0xFFF4C77B);
+  static const _goldCore = Color(0xFFFFF4CE);
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
@@ -87,67 +102,68 @@ class _AtlasMarkPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF141A33), Color(0xFF24305C), Color(0xFF35617E)],
+          colors: [_skyTop, _skyMid, _skyBottom],
         ).createShader(rect),
     );
 
-    // Aurora glow band.
-    final auroraRect = Rect.fromLTWH(0, h * 0.12, w, h * 0.42);
-    canvas.drawRect(
-      auroraRect,
+    // Faint aurora glow high in the sky.
+    canvas.drawCircle(
+      Offset(w * 0.5, h * 0.30),
+      w * 0.34,
       Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Color(0x005EEAD4),
-            Color(0x665EEAD4),
-            Color(0x668B9CF7),
-            Color(0x33F5A9C0),
-          ],
-          stops: [0.0, 0.35, 0.65, 1.0],
-        ).createShader(auroraRect)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.04),
+        ..color = _auroraLilac.withValues(alpha: 0.22)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.10),
     );
 
-    // Rising orb (with soft glow).
-    final orbCenter = Offset(w * 0.66, h * 0.40);
-    final orbR = w * 0.13;
+    // A couple of quiet stars.
+    final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    canvas.drawCircle(Offset(w * 0.26, h * 0.24), w * 0.012, starPaint);
+    canvas.drawCircle(Offset(w * 0.36, h * 0.15), w * 0.008, starPaint);
+    canvas.drawCircle(Offset(w * 0.78, h * 0.16), w * 0.009, starPaint);
+
+    // Gold sun rising behind the upper-right slope (drawn before the peak).
+    final sunCenter = Offset(w * 0.66, h * 0.33);
+    final sunR = w * 0.105;
     canvas.drawCircle(
-      orbCenter,
-      orbR * 1.9,
+      sunCenter,
+      sunR * 1.7,
       Paint()
-        ..color = AppColors.tertiaryLight.withValues(alpha: 0.30)
+        ..color = _gold.withValues(alpha: 0.28)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.05),
     );
+    canvas.drawCircle(sunCenter, sunR, Paint()..color = _gold);
     canvas.drawCircle(
-      orbCenter,
-      orbR,
-      Paint()..color = const Color(0xFFFBE3B0),
+        sunCenter, sunR * 0.6, Paint()..color = _goldCore.withValues(alpha: 0.95));
+
+    // The peak — a rounded triangle filled with the aurora gradient.
+    final apex = Offset(w * 0.5, h * 0.19);
+    final baseL = Offset(w * 0.15, h * 0.85);
+    final baseR = Offset(w * 0.85, h * 0.85);
+    final peak = _roundedTriangle([apex, baseR, baseL], w * 0.055);
+    final peakRect = Rect.fromLTRB(w * 0.15, h * 0.19, w * 0.85, h * 0.85);
+    canvas.drawPath(
+      peak,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight,
+          colors: [_auroraTeal, _auroraLilac, _auroraRose],
+        ).createShader(peakRect),
     );
 
-    // Layered horizon hills.
-    void hill(double baseY, double amp, Color color) {
-      final path = Path()..moveTo(0, h);
-      path.lineTo(0, baseY);
-      path.cubicTo(
-        w * 0.28, baseY - amp,
-        w * 0.52, baseY + amp * 0.6,
-        w * 0.74, baseY - amp * 0.5,
-      );
-      path.cubicTo(
-        w * 0.88, baseY - amp * 0.9,
-        w * 0.96, baseY - amp * 0.2,
-        w, baseY - amp * 0.4,
-      );
-      path.lineTo(w, h);
-      path.close();
-      canvas.drawPath(path, Paint()..color = color);
-    }
-
-    hill(h * 0.66, h * 0.08, const Color(0xFF2C4A6E));
-    hill(h * 0.78, h * 0.07, const Color(0xFF1F6E66));
-    hill(h * 0.90, h * 0.05, const Color(0xFF15463F));
+    // Horizon crossbar — a thin twilight gap across the lower third (the "A" bar).
+    canvas.save();
+    canvas.clipPath(peak);
+    final barY = h * 0.635;
+    final barH = h * 0.055;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.10, barY - barH / 2, w * 0.90, barY + barH / 2),
+        Radius.circular(barH / 2),
+      ),
+      Paint()..color = _horizon,
+    );
+    canvas.restore();
 
     canvas.restore();
 
@@ -159,6 +175,35 @@ class _AtlasMarkPainter extends CustomPainter {
         ..strokeWidth = 1
         ..color = Colors.white.withValues(alpha: 0.08),
     );
+  }
+
+  /// A closed triangle path with rounded corners (radius [r]).
+  Path _roundedTriangle(List<Offset> pts, double r) {
+    final path = Path();
+    final n = pts.length;
+    for (var i = 0; i < n; i++) {
+      final curr = pts[i];
+      final prev = pts[(i - 1 + n) % n];
+      final next = pts[(i + 1) % n];
+
+      final toPrev = prev - curr;
+      final toNext = next - curr;
+      final lenPrev = toPrev.distance;
+      final lenNext = toNext.distance;
+      final rr = math.min(r, math.min(lenPrev, lenNext) / 2);
+
+      final p1 = curr + toPrev / lenPrev * rr;
+      final p2 = curr + toNext / lenNext * rr;
+
+      if (i == 0) {
+        path.moveTo(p1.dx, p1.dy);
+      } else {
+        path.lineTo(p1.dx, p1.dy);
+      }
+      path.quadraticBezierTo(curr.dx, curr.dy, p2.dx, p2.dy);
+    }
+    path.close();
+    return path;
   }
 
   @override

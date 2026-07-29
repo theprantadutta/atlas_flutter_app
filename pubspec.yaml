@@ -89,7 +89,7 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   image_path: "assets/brand/atlas_icon.png"
   min_sdk_android: 23
-  adaptive_icon_background: "#0E1326"
+  adaptive_icon_background: "assets/brand/atlas_icon_bg.png"
   adaptive_icon_foreground: "assets/brand/atlas_icon_fg.png"
 
 # ─── Native splash ───
