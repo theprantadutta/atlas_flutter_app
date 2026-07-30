@@ -11,8 +11,9 @@ android {
     namespace = "com.example.atlas_flutter_app"
     // compileSdk = flutter.compileSdkVersion
     compileSdk = 36
-    // ndkVersion = flutter.ndkVersion
-    ndkVersion = "29.0.14206865"
+    // Use Flutter's tested NDK rather than pinning a newer one — a pinned
+    // bleeding-edge NDK rebuilds the native (sqlite3) sources unnecessarily.
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
