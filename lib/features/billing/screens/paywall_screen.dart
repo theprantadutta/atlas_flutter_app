@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:atlas_flutter_app/core/config/legal_config.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -416,9 +418,65 @@ class _StickyCta extends StatelessWidget {
                   ),
                 ],
               ),
+              // Guideline 3.1.2 requires the renewal terms plus links to the
+              // terms/EULA and privacy policy on the purchase screen itself.
+              const _LegalFooter(),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Auto-renewal disclosure + the two legal links App Review looks for.
+class _LegalFooter extends StatelessWidget {
+  const _LegalFooter();
+
+  Future<void> _open(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontSize: 11,
+      height: 1.35,
+    );
+    final link = muted?.copyWith(
+      color: theme.colorScheme.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: theme.colorScheme.primary,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs, bottom: AppSpacing.xs),
+      child: Column(
+        children: [
+          Text(
+            LegalConfig.subscriptionDisclosure,
+            textAlign: TextAlign.center,
+            style: muted,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => _open(LegalConfig.termsOfUseUrl),
+                child: Text('Terms of Use', style: link),
+              ),
+              Text('   ·   ', style: muted),
+              GestureDetector(
+                onTap: () => _open(LegalConfig.privacyPolicyUrl),
+                child: Text('Privacy Policy', style: link),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

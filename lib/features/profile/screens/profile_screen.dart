@@ -383,9 +383,13 @@ class _SettingsMenu extends ConsumerWidget {
           onTap: () => context.push('/profile/sync'),
         ),
         AppSpacing.gapSm,
+        // These have to be reachable from inside the app, not just from the
+        // store listing (Guideline 5.1.1). The in-app viewer shows the exact
+        // documents this user accepted, and works offline; the hosted copies in
+        // LegalConfig are still linked from the paywall and the store listing.
         _SettingsRow(
           icon: Icons.shield_outlined,
-          color: AppColors.auroraLilac,
+          color: AppColors.info,
           title: 'Legal',
           subtitle: 'Privacy, terms and refunds',
           onTap: () => context.push('/profile/legal'),
@@ -399,9 +403,20 @@ class _SettingsMenu extends ConsumerWidget {
           destructive: true,
           onTap: () => ref.read(authProvider.notifier).logout(),
         ),
+        AppSpacing.gapSm,
+        // Required by App Store Guideline 5.1.1(v).
+        _SettingsRow(
+          icon: Icons.delete_outline_rounded,
+          color: AppColors.error,
+          title: 'Delete account',
+          subtitle: 'Permanently erase your world',
+          destructive: true,
+          onTap: () => context.push('/profile/delete-account'),
+        ),
       ],
     );
   }
+
 }
 
 /// A branded settings entry for premium — an invitation when free, a calm

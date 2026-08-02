@@ -68,5 +68,43 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+
+		<!-- Google Sign-In redirects back through the reversed OAuth client id
+		     from GoogleService-Info.plist. Keep the two in sync. -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>google-sign-in</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.961388030833-bgqld6rnagejaql37vkvl3d5gjfbpr37</string>
+				</array>
+			</dict>
+		</array>
+
+		<!-- url_launcher opens the privacy/terms pages and the App Store
+		     subscription-management sheet. -->
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>https</string>
+			<string>http</string>
+			<string>mailto</string>
+		</array>
+
+		<!-- FCM silent pushes + background delivery of reminders. -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+
+		<!-- Atlas uses only HTTPS/standard system crypto, which is exempt.
+		     Declaring this here skips the export-compliance questionnaire on
+		     every single TestFlight/App Store upload. -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 	</dict>
 </plist>

@@ -187,6 +187,56 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  /// Sign in with Apple (via Firebase).
+  Future<void> signInWithApple() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final user = await _authService.signInWithApple();
+      await _cacheUser(user);
+      state = AuthState(
+        isInitializing: false,
+        isAuthenticated: true,
+        user: user,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Permanently delete the account, then wipe every local trace of it.
+  ///
+  /// Throws on failure so the caller can keep the user on the confirmation
+  /// screen rather than silently pretending the account is gone.
+  Future<void> deleteAccount() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      // Stop background traffic before the account disappears underneath it.
+      try {
+        await ref.read(fcmServiceProvider).unregisterToken();
+      } catch (_) {/* best-effort */}
+
+      await _authService.deleteAccount();
+
+      ref.read(signalRServiceProvider).disconnect();
+      // Purge the local database — deletion must leave nothing behind, and the
+      // next account on this device must not inherit the old one's data.
+      // (syncDao.clearAll() only drains the pending-operation queue.)
+      await ref.read(databaseProvider).wipeAllLocalData();
+      await _tokenService.clearUser();
+
+      state = const AuthState(
+        isInitializing: false,
+        isAuthenticated: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
   /// Force the session to the logged-out state without calling the server.
   ///
   /// Used when a token refresh fails irrecoverably (e.g. the refresh token has

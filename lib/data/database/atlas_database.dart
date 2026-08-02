@@ -147,6 +147,23 @@ class AtlasDatabase extends _$AtlasDatabase {
       },
     );
   }
+
+  /// Deletes every row in every table, leaving an empty but valid schema.
+  ///
+  /// This is a *hard* wipe, not the soft-delete tombstoning the sync engine
+  /// uses: it is for when the data must genuinely stop existing on this device
+  /// — account deletion (App Store Guideline 5.1.1(v)) and switching accounts,
+  /// where the next user must never see the previous one's world.
+  ///
+  /// Iterates [allTables] so a newly added table is covered automatically
+  /// rather than silently surviving the wipe.
+  Future<void> wipeAllLocalData() async {
+    await transaction(() async {
+      for (final table in allTables) {
+        await delete(table).go();
+      }
+    });
+  }
 }
 
 LazyDatabase _openConnection() {
