@@ -81,6 +81,7 @@ flutter:
   assets:
     - .env
     - assets/brand/
+    - assets/legal/
 
 # ─── App icon (Living World / Aurora mark) ───
 flutter_launcher_icons:

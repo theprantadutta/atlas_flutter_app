@@ -19,6 +19,8 @@ class RouteNames {
   static const notificationCenter = 'notificationCenter';
   static const syncManagement = 'syncManagement';
   static const intro = 'intro';
+  static const legal = 'legal';
+  static const legalView = 'legalView';
   static const setup = 'setup';
   static const aurora = 'aurora';
   static const auroraChat = 'auroraChat';

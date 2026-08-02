@@ -15,6 +15,8 @@ import 'package:atlas_flutter_app/features/billing/screens/paywall_screen.dart';
 import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
+import 'package:atlas_flutter_app/features/legal/providers/legal_provider.dart';
+import 'package:atlas_flutter_app/features/legal/screens/legal_screen.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/screens/intro_screen.dart';
 import 'package:atlas_flutter_app/features/onboarding/screens/setup_screen.dart';
@@ -37,6 +39,10 @@ class _AuthRefreshNotifier extends ChangeNotifier {
     ref.listen<OnboardingState>(onboardingProvider, (prev, next) {
       notifyListeners();
     });
+    // So does accepting (or needing to re-accept) the legal documents.
+    ref.listen<LegalState>(legalProvider, (prev, next) {
+      notifyListeners();
+    });
   }
 }
 
@@ -52,10 +58,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final onboarding = ref.read(onboardingProvider);
+      final legal = ref.read(legalProvider);
       final location = state.matchedLocation;
       final isOnSplash = location == '/splash';
       final isOnAuthPage = location == '/login' || location == '/signup';
       final isOnIntro = location == '/intro';
+      final isOnLegal = location == '/legal';
       final isOnSetup = location == '/setup';
 
       if (authState.isInitializing) {
@@ -64,10 +72,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Hold on the splash until the stored first-run flags are read, so we
       // never flash a screen the user is about to be moved away from.
-      if (!onboarding.loaded) return isOnSplash ? null : '/splash';
+      if (!onboarding.loaded || !legal.loaded) {
+        return isOnSplash ? null : '/splash';
+      }
 
       // The pitch comes before we ask for an account.
       if (!onboarding.introSeen) return isOnIntro ? null : '/intro';
+
+      // Nobody uses Atlas — or creates an account — without accepting the
+      // current documents. A version bump re-gates everyone, signed in or not.
+      if (!legal.isAccepted) return isOnLegal ? null : '/legal';
 
       if (!authState.isAuthenticated) {
         return isOnAuthPage ? null : '/login';
@@ -76,7 +90,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Signed in — personalise once before Home.
       if (!onboarding.setupComplete) return isOnSetup ? null : '/setup';
 
-      if (isOnSetup || isOnIntro || isOnSplash || isOnAuthPage) return '/';
+      if (isOnSetup || isOnIntro || isOnLegal || isOnSplash || isOnAuthPage) {
+        return '/';
+      }
       return null;
     },
     routes: [
@@ -98,6 +114,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/intro',
         name: RouteNames.intro,
         builder: (context, state) => const IntroScreen(),
+      ),
+      GoRoute(
+        path: '/legal',
+        name: RouteNames.legal,
+        builder: (context, state) => const LegalScreen(),
       ),
       GoRoute(
         path: '/setup',
@@ -202,6 +223,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'sync',
                     name: RouteNames.syncManagement,
                     builder: (context, state) => const SyncManagementScreen(),
+                  ),
+                  GoRoute(
+                    path: 'legal',
+                    name: RouteNames.legalView,
+                    builder: (context, state) =>
+                        const LegalScreen(readOnly: true),
                   ),
                 ],
               ),

@@ -384,6 +384,14 @@ class _SettingsMenu extends ConsumerWidget {
         ),
         AppSpacing.gapSm,
         _SettingsRow(
+          icon: Icons.shield_outlined,
+          color: AppColors.auroraLilac,
+          title: 'Legal',
+          subtitle: 'Privacy, terms and refunds',
+          onTap: () => context.push('/profile/legal'),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
           icon: Icons.logout_rounded,
           color: AppColors.streakFlame,
           title: 'Log out',
