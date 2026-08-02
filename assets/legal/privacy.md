@@ -25,7 +25,7 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 **Companion (AI) interactions.** When you use Aurora — the in-app companion — the message you send, along with a short summary of your recent activity (for example your current streak, level and number of active habits), is sent to our servers and on to an AI processing provider so a reply can be generated.
 
-**Technical information.** Basic diagnostic data such as error reports, app version and device type, used to keep the app working.
+**Technical information.** When your device contacts our servers, standard request logs are recorded so we can keep the service running and investigate faults. Atlas does not include crash-reporting or analytics software.
 
 **Notification token.** If you enable notifications, we store a device token so reminders can reach you.
 
