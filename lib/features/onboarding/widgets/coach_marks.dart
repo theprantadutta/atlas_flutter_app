@@ -113,7 +113,7 @@ class _CoachMarksState extends ConsumerState<CoachMarks> {
     final onboarding = ref.watch(onboardingProvider);
     if (!widget.enabled ||
         !onboarding.loaded ||
-        !onboarding.complete ||
+        !onboarding.setupComplete ||
         onboarding.coachMarksSeen ||
         !_ready) {
       return const SizedBox.shrink();

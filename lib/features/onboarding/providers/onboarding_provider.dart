@@ -6,7 +6,12 @@ import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 
-const _kOnboardingComplete = 'atlas_onboarding_complete';
+/// Device-level: the value-proposition intro shown *before* sign-in. Kept per
+/// device (not per account) because it is what earns the sign-up.
+const _kIntroSeen = 'atlas_intro_seen';
+
+/// Account-level: the personalisation step shown after sign-in.
+const _kSetupComplete = 'atlas_setup_complete';
 const _kCoachMarksSeen = 'atlas_coach_marks_seen';
 
 /// A gentle starting intention the user can pick during onboarding. Each area
@@ -108,27 +113,31 @@ const kFocusAreas = <FocusArea>[
   ),
 ];
 
-/// Whether the first-run intro has been completed, and whether the Home coach
-/// marks have been shown.
+/// Tracks the three first-run stages: the pre-auth intro, the post-auth
+/// personalisation, and the Home walkthrough.
 class OnboardingState {
   const OnboardingState({
     this.loaded = false,
-    this.complete = false,
+    this.introSeen = false,
+    this.setupComplete = false,
     this.coachMarksSeen = false,
   });
 
   final bool loaded;
-  final bool complete;
+  final bool introSeen;
+  final bool setupComplete;
   final bool coachMarksSeen;
 
   OnboardingState copyWith({
     bool? loaded,
-    bool? complete,
+    bool? introSeen,
+    bool? setupComplete,
     bool? coachMarksSeen,
   }) {
     return OnboardingState(
       loaded: loaded ?? this.loaded,
-      complete: complete ?? this.complete,
+      introSeen: introSeen ?? this.introSeen,
+      setupComplete: setupComplete ?? this.setupComplete,
       coachMarksSeen: coachMarksSeen ?? this.coachMarksSeen,
     );
   }
@@ -145,15 +154,24 @@ class OnboardingController extends Notifier<OnboardingState> {
     final prefs = await SharedPreferences.getInstance();
     state = OnboardingState(
       loaded: true,
-      complete: prefs.getBool(_kOnboardingComplete) ?? false,
+      introSeen: prefs.getBool(_kIntroSeen) ?? false,
+      setupComplete: prefs.getBool(_kSetupComplete) ?? false,
       coachMarksSeen: prefs.getBool(_kCoachMarksSeen) ?? false,
     );
   }
 
-  /// Finish onboarding, seeding a habit for each chosen focus area. Everything
-  /// is written to Drift first (offline-first) and marked dirty for later sync.
+  /// The pre-auth pitch has been read; the sign-in screens can take over.
+  Future<void> markIntroSeen() async {
+    if (state.introSeen) return;
+    state = state.copyWith(introSeen: true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kIntroSeen, true);
+  }
+
+  /// Finish setup, seeding habits for each chosen focus area. Everything is
+  /// written to Drift first (offline-first) and marked dirty for later sync.
   /// Passing an empty set simply starts with a clean slate.
-  Future<void> complete({Set<String> focusIds = const {}}) async {
+  Future<void> completeSetup({Set<String> focusIds = const {}}) async {
     if (focusIds.isNotEmpty) {
       final userId = ref.read(currentUserIdProvider);
       final habits = ref.read(habitActionsProvider);
@@ -169,8 +187,8 @@ class OnboardingController extends Notifier<OnboardingState> {
       }
     }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kOnboardingComplete, true);
-    state = state.copyWith(loaded: true, complete: true);
+    await prefs.setBool(_kSetupComplete, true);
+    state = state.copyWith(loaded: true, setupComplete: true);
   }
 
   /// Remember that the Home coach marks have been shown.
@@ -181,12 +199,18 @@ class OnboardingController extends Notifier<OnboardingState> {
     await prefs.setBool(_kCoachMarksSeen, true);
   }
 
-  /// Replay the intro and coach marks (offered in Settings).
+  /// Replay the whole first run — intro, personalisation and walkthrough
+  /// (offered in Settings).
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kOnboardingComplete, false);
+    await prefs.setBool(_kIntroSeen, false);
+    await prefs.setBool(_kSetupComplete, false);
     await prefs.setBool(_kCoachMarksSeen, false);
-    state = state.copyWith(complete: false, coachMarksSeen: false);
+    state = state.copyWith(
+      introSeen: false,
+      setupComplete: false,
+      coachMarksSeen: false,
+    );
   }
 }
 

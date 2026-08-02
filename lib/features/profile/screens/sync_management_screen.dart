@@ -90,7 +90,7 @@ class SyncManagementScreen extends ConsumerWidget {
   Future<void> _replayIntro(BuildContext context, WidgetRef ref) async {
     await ref.read(onboardingProvider.notifier).reset();
     if (!context.mounted) return;
-    context.go('/onboarding');
+    context.go('/intro');
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {

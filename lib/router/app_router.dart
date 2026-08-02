@@ -16,7 +16,8 @@ import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
-import 'package:atlas_flutter_app/features/onboarding/screens/onboarding_screen.dart';
+import 'package:atlas_flutter_app/features/onboarding/screens/intro_screen.dart';
+import 'package:atlas_flutter_app/features/onboarding/screens/setup_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
@@ -54,22 +55,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       final isOnSplash = location == '/splash';
       final isOnAuthPage = location == '/login' || location == '/signup';
+      final isOnIntro = location == '/intro';
+      final isOnSetup = location == '/setup';
 
       if (authState.isInitializing) {
         return isOnSplash ? null : '/splash';
       }
 
+      // Hold on the splash until the stored first-run flags are read, so we
+      // never flash a screen the user is about to be moved away from.
+      if (!onboarding.loaded) return isOnSplash ? null : '/splash';
+
+      // The pitch comes before we ask for an account.
+      if (!onboarding.introSeen) return isOnIntro ? null : '/intro';
+
       if (!authState.isAuthenticated) {
         return isOnAuthPage ? null : '/login';
       }
 
-      // Signed in — hold on the splash until the stored first-run flag is read,
-      // so we never flash Home before the intro.
-      if (!onboarding.loaded) return isOnSplash ? null : '/splash';
+      // Signed in — personalise once before Home.
+      if (!onboarding.setupComplete) return isOnSetup ? null : '/setup';
 
-      final isOnOnboarding = location == '/onboarding';
-      if (!onboarding.complete) return isOnOnboarding ? null : '/onboarding';
-      if (isOnOnboarding || isOnSplash || isOnAuthPage) return '/';
+      if (isOnSetup || isOnIntro || isOnSplash || isOnAuthPage) return '/';
       return null;
     },
     routes: [
@@ -88,9 +95,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignupScreen(),
       ),
       GoRoute(
-        path: '/onboarding',
-        name: RouteNames.onboarding,
-        builder: (context, state) => const OnboardingScreen(),
+        path: '/intro',
+        name: RouteNames.intro,
+        builder: (context, state) => const IntroScreen(),
+      ),
+      GoRoute(
+        path: '/setup',
+        name: RouteNames.setup,
+        builder: (context, state) => const SetupScreen(),
       ),
 
       // ─── Main shell: Home · Grow · Aurora · World · You ───
