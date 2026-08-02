@@ -15,6 +15,8 @@ import 'package:atlas_flutter_app/features/billing/screens/paywall_screen.dart';
 import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/screens/notification_center_screen.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/screens/onboarding_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
@@ -28,6 +30,10 @@ import 'package:atlas_flutter_app/shared/widgets/app_navigation_shell.dart';
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     ref.listen<AuthState>(authProvider, (prev, next) {
+      notifyListeners();
+    });
+    // The first-run intro also decides where the user lands.
+    ref.listen<OnboardingState>(onboardingProvider, (prev, next) {
       notifyListeners();
     });
   }
@@ -44,21 +50,26 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authRefresh,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
-      final isOnSplash = state.matchedLocation == '/splash';
+      final onboarding = ref.read(onboardingProvider);
+      final location = state.matchedLocation;
+      final isOnSplash = location == '/splash';
+      final isOnAuthPage = location == '/login' || location == '/signup';
 
       if (authState.isInitializing) {
         return isOnSplash ? null : '/splash';
       }
 
-      if (isOnSplash) {
-        return authState.isAuthenticated ? '/' : '/login';
+      if (!authState.isAuthenticated) {
+        return isOnAuthPage ? null : '/login';
       }
 
-      final isOnAuthPage = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/signup';
+      // Signed in — hold on the splash until the stored first-run flag is read,
+      // so we never flash Home before the intro.
+      if (!onboarding.loaded) return isOnSplash ? null : '/splash';
 
-      if (!authState.isAuthenticated && !isOnAuthPage) return '/login';
-      if (authState.isAuthenticated && isOnAuthPage) return '/';
+      final isOnOnboarding = location == '/onboarding';
+      if (!onboarding.complete) return isOnOnboarding ? null : '/onboarding';
+      if (isOnOnboarding || isOnSplash || isOnAuthPage) return '/';
       return null;
     },
     routes: [
@@ -75,6 +86,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/signup',
         name: RouteNames.signup,
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding',
+        name: RouteNames.onboarding,
+        builder: (context, state) => const OnboardingScreen(),
       ),
 
       // ─── Main shell: Home · Grow · Aurora · World · You ───

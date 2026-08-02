@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
-import 'package:atlas_flutter_app/features/onboarding/widgets/starter_data_gate.dart';
+import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -36,13 +36,16 @@ class HomeScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(
               AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
           children: [
-            const StarterDataGate(),
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()
                 .fadeIn(duration: AppMotion.medium),
             const AuroraNudgeCard(),
             AppSpacing.gapLg,
-            _Hero(home: home, worldProgress: worldProgress)
+            _Hero(
+              key: ref.watch(coachMarkKeysProvider).hero,
+              home: home,
+              worldProgress: worldProgress,
+            )
                 .animate()
                 .fadeIn(duration: AppMotion.medium, delay: 80.ms)
                 .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
@@ -200,7 +203,7 @@ class _CircleButton extends StatelessWidget {
 // ─── Hero: the living world + level/XP ──────────────────────────────
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.home, required this.worldProgress});
+  const _Hero({super.key, required this.home, required this.worldProgress});
   final HomeState home;
   final double worldProgress;
 

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -44,17 +45,52 @@ class SyncManagementScreen extends ConsumerWidget {
             const _CloudBackupCard()
                 .animate()
                 .fadeIn(duration: AppMotion.medium, delay: 80.ms),
-            if (starter.hasStarterData) ...[
-              AppSpacing.gapXl,
-              const SectionHeader(title: 'Example data'),
-              _DeleteStarterCard(
-                onDelete: () => _confirmDelete(context, ref),
+            AppSpacing.gapXl,
+            const SectionHeader(title: 'Example data'),
+            if (starter.hasStarterData)
+              _ActionCard(
+                icon: Icons.delete_sweep_rounded,
+                color: AppColors.streakFlame,
+                title: 'Remove example data',
+                subtitle: 'Clear the sample content you started with',
+                tinted: true,
+                onTap: () => _confirmDelete(context, ref),
+              ).animate().fadeIn(duration: AppMotion.medium, delay: 120.ms)
+            else
+              _ActionCard(
+                icon: Icons.auto_awesome_motion_rounded,
+                color: AppColors.secondary,
+                title: 'Add example data',
+                subtitle: 'Fill Atlas with sample content to explore',
+                onTap: () => _addExampleData(context, ref),
               ).animate().fadeIn(duration: AppMotion.medium, delay: 120.ms),
-            ],
+            AppSpacing.gapXl,
+            const SectionHeader(title: 'Getting started'),
+            _ActionCard(
+              icon: Icons.replay_rounded,
+              color: AppColors.auroraLilac,
+              title: 'Replay the intro',
+              subtitle: 'See the welcome tour and tips again',
+              onTap: () => _replayIntro(context, ref),
+            ).animate().fadeIn(duration: AppMotion.medium, delay: 160.ms),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _addExampleData(BuildContext context, WidgetRef ref) async {
+    await ref.read(starterDataProvider.notifier).choose(wantStarter: true);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Example data added')),
+    );
+  }
+
+  Future<void> _replayIntro(BuildContext context, WidgetRef ref) async {
+    await ref.read(onboardingProvider.notifier).reset();
+    if (!context.mounted) return;
+    context.go('/onboarding');
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -197,15 +233,31 @@ class _CloudBackupCard extends ConsumerWidget {
   }
 }
 
-class _DeleteStarterCard extends StatelessWidget {
-  const _DeleteStarterCard({required this.onDelete});
-  final VoidCallback onDelete;
+/// A tappable settings row: tinted icon, title, supporting line, chevron.
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.tinted = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  /// Colour the title too — used for destructive actions.
+  final bool tinted;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AtlasCard(
-      onTap: onDelete,
+      onTap: onTap,
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
       child: Row(
         children: [
@@ -214,21 +266,22 @@ class _DeleteStarterCard extends StatelessWidget {
             height: 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.streakFlame.withValues(alpha: 0.14),
+              color: color.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
-            child: const Icon(Icons.delete_sweep_rounded,
-                color: AppColors.streakFlame, size: 22),
+            child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Remove example data',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: AppColors.streakFlame)),
-                Text('Clear the sample content you started with',
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: tinted ? color : null),
+                ),
+                Text(subtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant)),
               ],

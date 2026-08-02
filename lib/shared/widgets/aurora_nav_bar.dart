@@ -13,10 +13,15 @@ class AuroraNavItem {
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    this.anchorKey,
   });
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+
+  /// Optional key attached to the rendered slot, so features like the
+  /// first-run coach marks can locate this destination on screen.
+  final GlobalKey? anchorKey;
 }
 
 /// Total height the nav bar occupies from the bottom (capsule + bottom margin),
@@ -161,6 +166,7 @@ class _NavSlot extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
+        key: item.anchorKey,
         duration: duration,
         curve: AppMotion.standard,
         padding: EdgeInsets.symmetric(
