@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_text_field.dart';
+import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -39,6 +40,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _onGoogleSignIn() => ref.read(authProvider.notifier).signInWithGoogle();
+
+  void _onAppleSignIn() => ref.read(authProvider.notifier).signInWithApple();
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +109,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         AppSpacing.gapLg,
         _OrDivider(theme: theme),
         AppSpacing.gapLg,
+        // Apple requires Sign in with Apple to appear at least as prominently
+        // as other third-party sign-in options (Guideline 4.8), so it leads.
+        if (AppleSignInButton.isSupported) ...[
+          AppleSignInButton(
+            onPressed: authState.isLoading ? null : _onAppleSignIn,
+          ),
+          AppSpacing.gapMd,
+        ],
         AppButton(
           label: 'Continue with Google',
           variant: AppButtonVariant.outline,

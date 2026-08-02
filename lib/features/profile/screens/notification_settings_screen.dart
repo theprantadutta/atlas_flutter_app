@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -65,6 +66,27 @@ class _NotificationSettingsScreenState
     ),
   ];
 
+  /// Turning a reminder on is the first moment the OS prompt has any context,
+  /// so that's where we ask — never at cold start. If the user declines at the
+  /// OS level the toggle springs back, since we couldn't honour it anyway.
+  Future<void> _onToggle(int index, bool value) async {
+    setState(() => _settings[index].value = value);
+    if (!value) return;
+
+    final granted =
+        await ref.read(localNotificationServiceProvider).requestPermissions();
+    if (!mounted || granted) return;
+
+    setState(() => _settings[index].value = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Notifications are off for Atlas. Turn them on in Settings to get reminders.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,7 +110,7 @@ class _NotificationSettingsScreenState
               if (i > 0) AppSpacing.gapSm,
               _NotifTile(
                 setting: _settings[i],
-                onChanged: (v) => setState(() => _settings[i].value = v),
+                onChanged: (v) => _onToggle(i, v),
               )
                   .animate()
                   .fadeIn(

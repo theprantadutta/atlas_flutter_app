@@ -17,6 +17,12 @@ class LocalNotificationService {
   Function(String?)? onNotificationTapped;
 
   /// Initialize the local notification plugin with platform-specific settings.
+  ///
+  /// This deliberately does **not** ask the OS for notification permission —
+  /// a cold-start permission prompt before the user has seen a single screen is
+  /// hostile, converts badly, and App Review flags it. Call
+  /// [requestPermissions] instead, at a moment where the ask has context (the
+  /// onboarding "stay on track" step, or the Notifications settings screen).
   Future<void> initialize() async {
     // Initialize timezone data for scheduled notifications
     if (!_tzInitialized) {
@@ -27,9 +33,9 @@ class LocalNotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     const initSettings = InitializationSettings(
@@ -62,26 +68,39 @@ class LocalNotificationService {
         importance: Importance.defaultImportance,
       );
       await androidPlugin.createNotificationChannel(reminderChannel);
-
-      // Request notification permission (Android 13+)
-      await androidPlugin.requestNotificationsPermission();
-
-      // Request exact alarm permission (Android 14+) for scheduled notifications
-      await androidPlugin.requestExactAlarmsPermission();
     }
 
-    // Request iOS permissions
+    _log.i('[LocalNotification] Initialized (permission not yet requested)');
+  }
+
+  /// Ask the OS for notification permission.
+  ///
+  /// Call this only from a context where the user has just expressed intent —
+  /// e.g. tapping "Turn on reminders". Returns `true` when notifications are
+  /// authorised. Safe to call repeatedly: once the user has answered, the OS
+  /// returns the existing decision without showing a prompt again.
+  Future<bool> requestPermissions() async {
     if (Platform.isIOS) {
       final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin>();
-      await iosPlugin?.requestPermissions(
+      final granted = await iosPlugin?.requestPermissions(
         alert: true,
         badge: true,
         sound: true,
       );
+      _log.i('[LocalNotification] iOS permission granted: $granted');
+      return granted ?? false;
     }
 
-    _log.i('[LocalNotification] Initialized with timezone + permission support');
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return false;
+
+    final granted = await androidPlugin.requestNotificationsPermission();
+    // Exact alarms (Android 14+) back the scheduled reminders.
+    await androidPlugin.requestExactAlarmsPermission();
+    _log.i('[LocalNotification] Android permission granted: $granted');
+    return granted ?? false;
   }
 
   /// Show an immediate local notification.

@@ -18,6 +18,7 @@ class RouteNames {
   static const notifications = 'notifications';
   static const notificationCenter = 'notificationCenter';
   static const syncManagement = 'syncManagement';
+  static const deleteAccount = 'deleteAccount';
   static const intro = 'intro';
   static const setup = 'setup';
   static const aurora = 'aurora';

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:atlas_flutter_app/core/config/legal_config.dart';
 import 'package:atlas_flutter_app/core/sample/sample_extra.dart' show AttributeStat;
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
@@ -383,6 +385,24 @@ class _SettingsMenu extends ConsumerWidget {
           onTap: () => context.push('/profile/sync'),
         ),
         AppSpacing.gapSm,
+        // The privacy policy has to be reachable from inside the app, not just
+        // from the App Store listing (Guideline 5.1.1).
+        _SettingsRow(
+          icon: Icons.shield_outlined,
+          color: AppColors.info,
+          title: 'Privacy policy',
+          subtitle: 'How your data is handled',
+          onTap: () => _openLegal(context, LegalConfig.privacyPolicyUrl),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
+          icon: Icons.description_outlined,
+          color: AppColors.secondary,
+          title: 'Terms of use',
+          subtitle: 'The agreement you signed up to',
+          onTap: () => _openLegal(context, LegalConfig.termsOfUseUrl),
+        ),
+        AppSpacing.gapSm,
         _SettingsRow(
           icon: Icons.logout_rounded,
           color: AppColors.streakFlame,
@@ -391,8 +411,32 @@ class _SettingsMenu extends ConsumerWidget {
           destructive: true,
           onTap: () => ref.read(authProvider.notifier).logout(),
         ),
+        AppSpacing.gapSm,
+        // Required by App Store Guideline 5.1.1(v).
+        _SettingsRow(
+          icon: Icons.delete_outline_rounded,
+          color: AppColors.error,
+          title: 'Delete account',
+          subtitle: 'Permanently erase your world',
+          destructive: true,
+          onTap: () => context.push('/profile/delete-account'),
+        ),
       ],
     );
+  }
+
+  Future<void> _openLegal(BuildContext context, String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    ).catchError((_) => false);
+
+    if (!opened) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text("Couldn't open that page right now.")),
+      );
+    }
   }
 }
 
