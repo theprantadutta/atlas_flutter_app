@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/features/updates/widgets/update_banner.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
@@ -39,6 +40,7 @@ class HomeScreen extends ConsumerWidget {
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()
                 .fadeIn(duration: AppMotion.medium),
+            const UpdateBanner(),
             const AuroraNudgeCard(),
             AppSpacing.gapLg,
             _Hero(

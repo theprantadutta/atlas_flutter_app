@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/updates/providers/app_update_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
@@ -29,6 +30,11 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     WidgetsBinding.instance.addObserver(this);
     _wireUnauthorizedHandler();
     _initializeOfflineServices();
+    // Look for a Play update once the first frame is up, so the check never
+    // competes with startup.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(appUpdateProvider.notifier).check(),
+    );
   }
 
   /// When a token refresh fails irrecoverably, drop the session so the router
@@ -74,6 +80,8 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
         // Re-check entitlement on resume so renewals / lapses / expiry are
         // picked up without a restart.
         ref.read(entitlementsProvider.notifier).refresh();
+        // Cheap no-op once an update has already been picked up this session.
+        ref.read(appUpdateProvider.notifier).check();
         _connectSignalR();
         break;
       case AppLifecycleState.paused:
