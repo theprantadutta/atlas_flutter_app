@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 
 import 'package:atlas_flutter_app/core/config/app_config.dart';
 
@@ -10,7 +10,7 @@ import 'package:atlas_flutter_app/core/errors/app_exception.dart';
 import 'package:atlas_flutter_app/core/errors/error_handler.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 
-final _log = Logger(printer: PrettyPrinter(methodCount: 0));
+final _log = AppLog('Api');
 
 class ApiService {
   final TokenService _tokenService;

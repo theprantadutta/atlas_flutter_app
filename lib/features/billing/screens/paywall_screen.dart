@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/legal_config.dart';
+import 'package:atlas_flutter_app/core/errors/error_messages.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -12,6 +14,8 @@ import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+
+final _log = AppLog('Billing');
 
 /// Atlas premium paywall — "Aurora & cloud sync". Calm, atmospheric, honest.
 class PaywallScreen extends ConsumerStatefulWidget {
@@ -119,10 +123,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (e) {
+    } catch (e, st) {
+      _log.e('Purchase failed', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Couldn’t complete that: $e')),
+        SnackBar(content: Text(AppErrors.message(e))),
       );
     } finally {
       if (mounted) setState(() => _purchasing = false);

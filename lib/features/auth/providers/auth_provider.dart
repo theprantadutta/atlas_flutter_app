@@ -2,11 +2,15 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/core/errors/error_messages.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+
+final _log = AppLog('Auth');
 
 // ─── Auth State ───────────────────────────────────────────────────
 
@@ -133,10 +137,11 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
-    } catch (e) {
+    } catch (e, s) {
+      _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: AppErrors.message(e),
       );
     }
   }
@@ -160,10 +165,11 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
-    } catch (e) {
+    } catch (e, s) {
+      _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: AppErrors.message(e),
       );
     }
   }
@@ -179,10 +185,11 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
-    } catch (e) {
+    } catch (e, s) {
+      _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: AppErrors.message(e),
       );
     }
   }
@@ -198,10 +205,11 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
-    } catch (e) {
+    } catch (e, s) {
+      _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: AppErrors.message(e),
       );
     }
   }
@@ -231,8 +239,9 @@ class AuthNotifier extends Notifier<AuthState> {
         isInitializing: false,
         isAuthenticated: false,
       );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+    } catch (e, s) {
+      _log.e('Logout failed', error: e, stackTrace: s);
+      state = state.copyWith(isLoading: false, error: AppErrors.message(e));
       rethrow;
     }
   }

@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:logger/logger.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
 
-final _log = Logger(printer: PrettyPrinter(methodCount: 0));
+final _log = AppLog('Notify');
 
 class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
-import 'package:logger/logger.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/config/sync_config.dart';
@@ -34,7 +34,7 @@ class OfflineManager {
   final NotificationDao _notificationDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
-  final _log = Logger();
+  final _log = AppLog('Sync');
 
   static const _lastSyncKey = 'offline_manager_last_sync';
   static const _periodicSyncInterval = Duration(minutes: 5);

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:logger/logger.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 import 'package:atlas_flutter_app/core/config/app_config.dart';
@@ -8,7 +8,7 @@ import 'package:atlas_flutter_app/data/services/token_service.dart';
 
 class SignalRService {
   final TokenService _tokenService;
-  final _log = Logger();
+  final _log = AppLog('Realtime');
 
   HubConnection? _hubConnection;
   bool _isConnected = false;

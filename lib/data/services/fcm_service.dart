@@ -1,12 +1,12 @@
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:logger/logger.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 
 import 'package:atlas_flutter_app/data/services/api_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 
-final _log = Logger(printer: PrettyPrinter(methodCount: 0));
+final _log = AppLog('Fcm');
 
 class FcmService {
   final ApiService _apiService;

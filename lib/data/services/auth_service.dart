@@ -4,16 +4,17 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:logger/logger.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'package:atlas_flutter_app/core/config/app_config.dart';
 import 'package:atlas_flutter_app/core/errors/app_exception.dart';
+import 'package:atlas_flutter_app/core/errors/error_messages.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/services/api_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 
-final _log = Logger(printer: PrettyPrinter(methodCount: 0));
+final _log = AppLog('Auth');
 
 class AuthService {
   final ApiService _apiService;
@@ -95,9 +96,14 @@ class AuthService {
     try {
       googleUser = await GoogleSignIn.instance.authenticate();
       _log.i('[Auth] Google Sign-In success: ${googleUser.email}');
-    } catch (e) {
-      _log.e('[Auth] Google Sign-In failed', error: e);
-      throw AuthException('Google sign-in failed: $e');
+    } catch (e, st) {
+      // The raw cause goes to the log; the user gets a sentence they can act
+      // on. Embedding `$e` here put class names on the login screen.
+      _log.e('Google sign-in failed', error: e, stackTrace: st);
+      if (AppErrors.isCancellation(e)) {
+        throw const AuthException('Sign-in was cancelled.');
+      }
+      throw AuthException(AppErrors.message(e));
     }
 
     // Step 2: Get Google ID token
@@ -182,11 +188,14 @@ class AuthService {
         _log.i('[Auth] Apple sign-in cancelled by user');
         throw const AuthException('Sign in with Apple was cancelled.');
       }
-      _log.e('[Auth] Apple sign-in failed', error: e);
-      throw AuthException('Sign in with Apple failed: ${e.message}');
-    } catch (e) {
-      _log.e('[Auth] Apple sign-in failed', error: e);
-      throw AuthException('Sign in with Apple failed: $e');
+      _log.e('Apple sign-in failed', error: e);
+      throw AuthException(AppErrors.message(e));
+    } catch (e, st) {
+      _log.e('Apple sign-in failed', error: e, stackTrace: st);
+      if (AppErrors.isCancellation(e)) {
+        throw const AuthException('Sign-in was cancelled.');
+      }
+      throw AuthException(AppErrors.message(e));
     }
 
     final identityToken = appleCredential.identityToken;
