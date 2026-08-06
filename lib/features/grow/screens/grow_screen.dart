@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 // ─── Task category → visuals (local-first tasks come from Drift) ───
 Color _taskColor(String category) => switch (category) {
@@ -89,8 +90,7 @@ class GrowScreen extends ConsumerStatefulWidget {
 class _GrowScreenState extends ConsumerState<GrowScreen> {
   int _segment = 0;
 
-  void _comingSoon(String what) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(what)));
+  void _comingSoon(String what) => AtlasToast.info(context, what);
 
   void _onAdd() {
     switch (_segment) {

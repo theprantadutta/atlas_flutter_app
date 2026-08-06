@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Sync & data — an honest, calm status page. Everything lives on this device;
 /// cloud backup arrives with premium. Also where example data can be removed.
@@ -82,9 +83,7 @@ class SyncManagementScreen extends ConsumerWidget {
   Future<void> _addExampleData(BuildContext context, WidgetRef ref) async {
     await ref.read(starterDataProvider.notifier).choose(wantStarter: true);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Example data added')),
-    );
+    AtlasToast.success(context, 'Example data added');
   }
 
   Future<void> _replayIntro(BuildContext context, WidgetRef ref) async {
@@ -121,12 +120,7 @@ class SyncManagementScreen extends ConsumerWidget {
     if (confirmed != true) return;
     await ref.read(starterDataProvider.notifier).deleteStarterData();
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Example data removed'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AtlasToast.success(context, 'Example data removed');
   }
 }
 

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Permanently delete the Atlas account.
 ///
@@ -54,13 +54,10 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _deleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "We couldn't delete your account just now. Check your connection and try again.",
-          ),
-          backgroundColor: AppColors.error,
-        ),
+      AtlasToast.error(
+        context,
+        "We couldn't delete your account just now. "
+        'Check your connection and try again.',
       );
     }
   }

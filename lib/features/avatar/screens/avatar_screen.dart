@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Your Avatar — a playful but tasteful colour studio. Compose skin, hair and
 /// outfit hues and watch the little soul update live.
@@ -75,12 +76,7 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
           outfit: _outfit,
         );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Looking good!'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AtlasToast.success(context, 'Looking good!');
   }
 
   @override

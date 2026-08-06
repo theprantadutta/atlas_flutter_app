@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// The immersive Aurora conversation. Pushed full-screen (above the nav shell)
 /// so the composer isn't crowded by the floating nav bar. Optionally opens with
@@ -80,8 +81,7 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
     });
     ref.listen(auroraChatProvider.select((s) => s.error), (_, err) {
       if (err != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(err)));
+        AtlasToast.error(context, err);
         ref.read(auroraChatProvider.notifier).clearError();
       }
     });

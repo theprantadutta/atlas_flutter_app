@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Notifications — gentle control over what reaches you. Calm nudges, never
 /// nagging.
@@ -78,12 +79,9 @@ class _NotificationSettingsScreenState
     if (!mounted || granted) return;
 
     setState(() => _settings[index].value = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Notifications are off for Atlas. Turn them on in Settings to get reminders.',
-        ),
-      ),
+    AtlasToast.warning(
+      context,
+      'Notifications are off for Atlas. Turn them on in Settings to get reminders.',
     );
   }
 

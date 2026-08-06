@@ -14,6 +14,7 @@ import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 final _log = AppLog('Billing');
 
@@ -107,28 +108,21 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           await ref.read(entitlementControllerProvider).purchase(_selected);
       if (!mounted) return;
       if (result.isPremium) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Welcome to Atlas premium ✨')),
-        );
+        AtlasToast.success(context, 'Welcome to Atlas premium ✨');
         context.pop();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Purchase recorded, but premium isn’t active yet.')),
-        );
+        AtlasToast.warning(
+            context, 'Purchase recorded, but premium isn’t active yet.');
       }
     } on PurchaseCancelledException {
       // User backed out — no error needed.
     } on StoreException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      AtlasToast.error(context, e.message);
     } catch (e, st) {
       _log.e('Purchase failed', error: e, stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppErrors.message(e))),
-      );
+      AtlasToast.error(context, AppErrors.message(e));
     } finally {
       if (mounted) setState(() => _purchasing = false);
     }
@@ -141,9 +135,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           .manageSubscription(productId: _selected);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Couldn’t open subscription settings.')),
-      );
+      AtlasToast.error(context, 'Couldn’t open subscription settings.');
     }
   }
 
@@ -152,17 +144,14 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       await ref.read(entitlementControllerProvider).restore();
       if (!mounted) return;
       if (ref.read(isPremiumProvider)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Premium restored ✨')));
+        AtlasToast.success(context, 'Premium restored ✨');
         context.pop();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No previous purchase found.')));
+        AtlasToast.info(context, 'No previous purchase found.');
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Couldn’t restore right now.')));
+      AtlasToast.error(context, 'Couldn’t restore right now.');
     }
   }
 

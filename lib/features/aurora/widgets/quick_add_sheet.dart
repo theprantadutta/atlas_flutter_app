@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Opens the quick-add sheet: natural-language capture with Aurora (premium)
 /// plus manual add for everyone. Everything is created in local Drift.
@@ -53,10 +54,8 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     }
     if (ok) {
       final n = state.result?.created.length ?? 0;
+      AtlasToast.success(context, n == 1 ? 'Added 1 item' : 'Added $n items');
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(n == 1 ? 'Added 1 item' : 'Added $n items')),
-      );
       ref.read(quickAddProvider.notifier).reset();
     }
   }
@@ -161,9 +160,8 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
             .create(userId: userId, title: title.trim());
     }
     if (!mounted) return;
+    AtlasToast.success(context, 'Added ${kind.label}');
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Added ${kind.label}')));
   }
 }
 
