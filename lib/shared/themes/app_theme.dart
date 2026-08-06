@@ -9,7 +9,7 @@ import 'app_typography.dart';
 ///
 /// Soft, organic radii; calm surfaces (twilight ink in dark, dawn paper in
 /// light); the aurora accent reserved for highlights. Component shadows are
-/// applied by the shared widgets (e.g. AppCard) for finer control, so the
+/// applied by the shared widgets (e.g. AtlasCard) for finer control, so the
 /// theme keeps surfaces clean.
 class AppTheme {
   AppTheme._();
