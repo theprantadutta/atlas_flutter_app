@@ -368,6 +368,14 @@ class _SettingsMenu extends ConsumerWidget {
         ),
         AppSpacing.gapSm,
         _SettingsRow(
+          icon: Icons.motion_photos_on_rounded,
+          color: AppColors.xpPrimary,
+          title: 'Display',
+          subtitle: 'Smooth motion and refresh rate',
+          onTap: () => context.push('/profile/display'),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
           icon: Icons.notifications_none_rounded,
           color: AppColors.info,
           title: 'Notifications',

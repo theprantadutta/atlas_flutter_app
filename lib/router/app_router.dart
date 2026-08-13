@@ -21,6 +21,7 @@ import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provi
 import 'package:atlas_flutter_app/features/onboarding/screens/intro_screen.dart';
 import 'package:atlas_flutter_app/features/onboarding/screens/setup_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/delete_account_screen.dart';
+import 'package:atlas_flutter_app/features/profile/screens/display_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
@@ -224,6 +225,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'sync',
                     name: RouteNames.syncManagement,
                     builder: (context, state) => const SyncManagementScreen(),
+                  ),
+                  GoRoute(
+                    path: 'display',
+                    name: RouteNames.displaySettings,
+                    builder: (context, state) =>
+                        const DisplaySettingsScreen(),
                   ),
                   GoRoute(
                     path: 'legal',

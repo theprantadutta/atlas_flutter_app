@@ -1,7 +1,7 @@
 name: atlas_flutter_app
 description: Atlas - Gamified Self-Improvement
 publish_to: 'none'
-version: 1.0.6+7
+version: 1.0.7+8
 
 environment:
   sdk: ^3.11.3
@@ -63,6 +63,7 @@ dependencies:
   logger: ^2.5.0
   in_app_purchase: ^3.3.0
   in_app_update: ^5.0.0
+  refresh_rate: ^1.0.2
   gpt_markdown: ^1.1.7
   url_launcher: ^6.3.0
 
