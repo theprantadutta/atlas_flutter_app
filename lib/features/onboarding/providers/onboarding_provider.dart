@@ -199,8 +199,17 @@ class OnboardingController extends Notifier<OnboardingState> {
     await prefs.setBool(_kCoachMarksSeen, true);
   }
 
-  /// Replay the whole first run — intro, personalisation and walkthrough
-  /// (offered in Settings).
+  /// Arm the Home walkthrough again, without touching the intro or the
+  /// personalisation the user has already been through. This is what the
+  /// "Replay the tour" row in Settings calls.
+  Future<void> replayCoachMarks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCoachMarksSeen, false);
+    state = state.copyWith(coachMarksSeen: false);
+  }
+
+  /// Replay the whole first run: intro, personalisation and walkthrough. Used
+  /// when local data is erased, which puts the account back at day one.
   Future<void> reset() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kIntroSeen, false);

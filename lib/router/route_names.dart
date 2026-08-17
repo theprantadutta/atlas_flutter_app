@@ -23,8 +23,10 @@ class RouteNames {
   static const intro = 'intro';
   static const legal = 'legal';
   static const legalView = 'legalView';
+  static const about = 'about';
   static const setup = 'setup';
   static const aurora = 'aurora';
   static const auroraChat = 'auroraChat';
+  static const auroraSettings = 'auroraSettings';
   static const paywall = 'paywall';
 }

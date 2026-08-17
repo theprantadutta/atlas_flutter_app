@@ -21,8 +21,17 @@ class AuroraRepository {
   /// Generate a fresh weekly reflection on the backend and cache it locally.
   /// Throws [AppException] with `statusCode == 402` when the free weekly limit
   /// is hit (paywall).
-  Future<AuroraReflectionData> generateReflection(String userId) async {
-    final res = await _api.post('/aurora/reflect');
+  ///
+  /// [preferences] is the user's Aurora voice settings, which live on the
+  /// device and travel with the request rather than being stored server-side.
+  Future<AuroraReflectionData> generateReflection(
+    String userId, {
+    Map<String, dynamic>? preferences,
+  }) async {
+    final res = await _api.post(
+      '/aurora/reflect',
+      data: {'preferences': ?preferences},
+    );
     final data =
         AuroraReflectionData.fromJson(res.data as Map<String, dynamic>);
 
@@ -44,11 +53,16 @@ class AuroraRepository {
   /// `statusCode == 402` when the free weekly chat limit is hit (paywall).
   Future<AuroraChatResult> chat(
     String message,
-    List<Map<String, String>> history,
-  ) async {
+    List<Map<String, String>> history, {
+    Map<String, dynamic>? preferences,
+  }) async {
     final res = await _api.post(
       '/aurora/chat',
-      data: {'message': message, 'history': history},
+      data: {
+        'message': message,
+        'history': history,
+        'preferences': ?preferences,
+      },
     );
     return AuroraChatResult.fromJson(res.data as Map<String, dynamic>);
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
@@ -49,7 +50,11 @@ class DismissedNudges extends Notifier<Set<String>> {
 /// from the local database, so it works fully offline. Priority: celebrate a
 /// strong day → gently welcome back after a broken streak → check in on a
 /// neglected goal → encourage when the day is full.
+/// Returns null when the user has turned nudges off in Aurora's settings; the
+/// card is the one thing Aurora does unprompted, so it stays opt-out.
 final auroraNudgeProvider = Provider.autoDispose<AuroraNudge?>((ref) {
+  if (!ref.watch(auroraPreferencesProvider).nudgesEnabled) return null;
+
   final habits = ref.watch(habitsStreamProvider).value ?? const [];
   final goals = ref.watch(goalsStreamProvider).value ?? const [];
   final tasks = ref.watch(tasksStreamProvider).value ?? const [];
@@ -65,9 +70,9 @@ final auroraNudgeProvider = Provider.autoDispose<AuroraNudge?>((ref) {
       tone: NudgeTone.celebrate,
       icon: Icons.celebration_rounded,
       message:
-          'You’ve tended $tendedToday habits today — your world is glowing. '
+          'You’ve tended $tendedToday habits today, and your world is glowing. '
           'Lovely care.',
-      prompt: 'I had a good day today — celebrate with me?',
+      prompt: 'I had a good day today. Celebrate with me?',
     );
   }
 
@@ -81,7 +86,7 @@ final auroraNudgeProvider = Provider.autoDispose<AuroraNudge?>((ref) {
         tone: NudgeTone.gentle,
         icon: Icons.self_improvement_rounded,
         message:
-            'Your “${h.title}” streak paused — and that’s completely okay. '
+            'Your “${h.title}” streak paused, and that’s completely okay. '
             'Rest is part of it. Want to begin again, gently?',
         prompt: 'My “${h.title}” streak broke. Can you help me restart gently?',
       );
@@ -103,7 +108,7 @@ final auroraNudgeProvider = Provider.autoDispose<AuroraNudge?>((ref) {
         tone: NudgeTone.encourage,
         icon: Icons.flag_rounded,
         message:
-            '“${g.title}” has been quiet lately. No pressure — even a tiny step '
+            '“${g.title}” has been quiet lately. No pressure, even a tiny step '
             'counts. Shall we look at it together?',
         prompt: 'Help me take a small step on my goal “${g.title}”.',
       );
@@ -119,7 +124,7 @@ final auroraNudgeProvider = Provider.autoDispose<AuroraNudge?>((ref) {
         tone: NudgeTone.encourage,
         icon: Icons.spa_rounded,
         message:
-            'There’s a lot on today. You don’t have to do it all — just pick '
+            'There’s a lot on today. You don’t have to do it all. Just pick '
             'one small thing to begin with.',
         prompt: 'I feel a bit overwhelmed by today. Where should I start?',
       );

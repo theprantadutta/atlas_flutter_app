@@ -4,6 +4,7 @@ import 'package:atlas_flutter_app/core/errors/app_exception.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
@@ -136,7 +137,10 @@ class ReflectionGenNotifier extends Notifier<ReflectionGenState> {
         generating: true, clearError: true, clearPaywall: true);
     final userId = ref.read(currentUserIdProvider);
     try {
-      await ref.read(auroraRepositoryProvider).generateReflection(userId);
+      await ref.read(auroraRepositoryProvider).generateReflection(
+            userId,
+            preferences: ref.read(auroraPreferencesProvider).toWire(),
+          );
       state = state.copyWith(generating: false);
       return true;
     } catch (e) {
@@ -242,8 +246,11 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
     );
 
     try {
-      final result =
-          await ref.read(auroraRepositoryProvider).chat(message, trimmedHistory);
+      final result = await ref.read(auroraRepositoryProvider).chat(
+            message,
+            trimmedHistory,
+            preferences: ref.read(auroraPreferencesProvider).toWire(),
+          );
       // Create any parsed entities in local Drift (offline-first source of truth).
       await applyAuroraCreations(ref, result.created);
       _replacePending(ChatMessage(
