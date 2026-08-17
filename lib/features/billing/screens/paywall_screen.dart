@@ -215,7 +215,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       AppSpacing.gapSm,
                       Text(
                         'Cancel anytime. Atlas works fully offline on the free '
-                        'plan — premium adds Aurora’s depth and cloud sync.',
+                        'plan. Premium adds Aurora’s depth and cloud sync.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant),

@@ -57,7 +57,7 @@ class NotificationActions {
     final seeds = <List<dynamic>>[
       [
         'Achievement unlocked',
-        'You earned "Week of Calm" — a 7-day streak.',
+        'You earned "Week of Calm" for a 7-day streak.',
         'achievementUnlocked',
         2,
         false,

@@ -248,7 +248,7 @@ class _ReflectionCard extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'When you’re ready, Aurora can look back over your week and '
-                  'reflect with you — gently, never graded.',
+                  'reflect with you, gently and never graded.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant),
                 ),
@@ -323,7 +323,7 @@ class _ReflectionCard extends ConsumerWidget {
 
   String _periodLabel(AuroraReflection r) {
     String d(DateTime t) => '${t.month}/${t.day}';
-    return 'Week of ${d(r.periodStart)} – ${d(r.periodEnd)}';
+    return 'Week of ${d(r.periodStart)} to ${d(r.periodEnd)}';
   }
 }
 

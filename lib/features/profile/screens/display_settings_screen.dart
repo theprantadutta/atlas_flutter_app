@@ -77,7 +77,7 @@ class _DisplaySettingsScreenState
                 icon: Icons.thermostat_rounded,
                 color: AppColors.streakFlame,
                 text: 'Your device is warm. It may hold a lower rate for a '
-                    'while to cool down — that is normal.',
+                    'while to cool down, which is normal.',
               ),
             ],
             if (state.loaded && !state.deviceSupportsHighRate) ...[
@@ -127,7 +127,7 @@ class _RateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final info = state.info;
-    final current = info == null ? '—' : _fmt(info.currentRate);
+    final current = info == null ? '…' : _fmt(info.currentRate);
     final max = info == null ? null : _fmt(info.maxRate);
     final live = info != null && state.enabled && state.deviceSupportsHighRate;
 

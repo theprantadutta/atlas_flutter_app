@@ -113,7 +113,7 @@ class NotificationsNotifier extends Notifier<List<SampleNotification>> {
         SampleNotification(
             id: 'n1',
             title: 'Achievement unlocked',
-            body: 'You earned "Week of Calm" — a 7-day streak.',
+            body: 'You earned "Week of Calm" for a 7-day streak.',
             timeLabel: '2h ago',
             icon: Icons.emoji_events_rounded,
             color: AppColors.badgeRare),

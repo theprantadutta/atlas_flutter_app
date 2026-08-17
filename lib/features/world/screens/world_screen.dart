@@ -320,7 +320,7 @@ void _showTileSheet(BuildContext context, WorldTileInfo tile) {
                     'tending your habits. Keep going and your world grows '
                     'richer.'
                 : 'This ${tile.type.label.toLowerCase()} is still dormant. '
-                    'It needs ${tile.cost} XP to bloom — tend your habits to '
+                    'It needs ${tile.cost} XP to bloom, so tend your habits to '
                     'bring it to life.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,

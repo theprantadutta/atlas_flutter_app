@@ -1,5 +1,11 @@
 // API models for the Aurora endpoints. These mirror the backend Aurora DTOs
 // (snake_case on the wire).
+//
+// Every field the language model authored is passed through [stripLongDashes]
+// here, at the boundary, so no em or en dash reaches the UI or Drift no matter
+// what the model decides to write.
+
+import 'package:atlas_flutter_app/core/utils/prose.dart';
 
 /// A generated weekly reflection.
 class AuroraReflectionData {
@@ -22,7 +28,7 @@ class AuroraReflectionData {
   factory AuroraReflectionData.fromJson(Map<String, dynamic> json) {
     return AuroraReflectionData(
       id: json['id'] as String,
-      content: json['content'] as String,
+      content: stripLongDashes(json['content'] as String),
       periodStart: DateTime.parse(json['period_start'] as String),
       periodEnd: DateTime.parse(json['period_end'] as String),
       modelTier: json['model_tier'] as String? ?? 'free',
@@ -58,8 +64,11 @@ class AuroraCreatedEntity {
   factory AuroraCreatedEntity.fromJson(Map<String, dynamic> json) {
     return AuroraCreatedEntity(
       type: json['type'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String?,
+      title: stripLongDashes(json['title'] as String? ?? ''),
+      description: switch (json['description'] as String?) {
+        final d? => stripLongDashes(d),
+        null => null,
+      },
       category: json['category'] as String?,
       frequency: json['frequency'] as String?,
       priority: json['priority'] as String?,
@@ -86,7 +95,7 @@ class AuroraChatResult {
         .map((e) => AuroraCreatedEntity.fromJson(e as Map<String, dynamic>))
         .toList();
     return AuroraChatResult(
-      reply: json['reply'] as String? ?? '',
+      reply: stripLongDashes(json['reply'] as String? ?? ''),
       created: created,
       isPremium: json['is_premium'] == true,
     );
@@ -105,7 +114,7 @@ class AuroraQuickAddResult {
         .map((e) => AuroraCreatedEntity.fromJson(e as Map<String, dynamic>))
         .toList();
     return AuroraQuickAddResult(
-      note: json['note'] as String? ?? 'Done — added for you.',
+      note: stripLongDashes(json['note'] as String? ?? 'Done. Added for you.'),
       created: created,
     );
   }

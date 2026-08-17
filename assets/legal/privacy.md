@@ -23,7 +23,7 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 **Content you create.** Habits, tasks, goals, notes, progress entries and similar content. This is written to your device first. It is transmitted to our servers only when cloud sync is enabled.
 
-**Companion (AI) interactions.** When you use Aurora — the in-app companion — the message you send, along with a short summary of your recent activity (for example your current streak, level and number of active habits), is sent to our servers and on to an AI processing provider so a reply can be generated.
+**Companion (AI) interactions.** When you use Aurora, the in-app companion, the message you send, along with a short summary of your recent activity (for example your current streak, level and number of active habits), is sent to our servers and on to an AI processing provider so a reply can be generated.
 
 **Technical information.** When your device contacts our servers, standard request logs are recorded so we can keep the service running and investigate faults. Atlas does not include crash-reporting or analytics software.
 
@@ -54,11 +54,11 @@ Where data protection law requires a legal basis, we rely on: performance of our
 
 We share information only with service providers who help us run Atlas, and only to the extent needed:
 
-- **Identity and authentication provider** — verifies sign-in
-- **Cloud hosting and database provider** — stores synced content
-- **AI processing provider** — generates companion replies
-- **Notification delivery provider** — delivers reminders
-- **The distribution platform you obtained Atlas from** — processes payments and confirms purchase status
+- **Identity and authentication provider**: verifies sign-in
+- **Cloud hosting and database provider**: stores synced content
+- **AI processing provider**: generates companion replies
+- **Notification delivery provider**: delivers reminders
+- **The distribution platform you obtained Atlas from**: processes payments and confirms purchase status
 
 These providers are bound to use the information only to provide their service to us. We may also disclose information if required by law, or to protect the rights and safety of our users.
 
@@ -74,11 +74,11 @@ Content you create is kept until you delete it, or until you delete your account
 
 ## 8. Your choices and rights
 
-- **Access and export** — request a copy of your content
-- **Correction** — edit your content in the app at any time
-- **Deletion** — delete individual items, remove example content, or delete your entire account
-- **Withdraw consent** — turn off notifications or cloud sync at any time
-- **Object or restrict** — ask us to limit certain processing
+- **Access and export**: request a copy of your content
+- **Correction**: edit your content in the app at any time
+- **Deletion**: delete individual items, remove example content, or delete your entire account
+- **Withdraw consent**: turn off notifications or cloud sync at any time
+- **Object or restrict**: ask us to limit certain processing
 
 Depending on where you live you may also have the right to complain to your local data protection authority. To make a request, contact us using the details below. We will not treat you differently for exercising a right.
 

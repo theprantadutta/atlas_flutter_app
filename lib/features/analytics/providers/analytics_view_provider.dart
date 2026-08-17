@@ -7,6 +7,9 @@ import 'package:atlas_flutter_app/features/home/providers/home_provider.dart'
 import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 
+/// Shown in the "Best day" tile before any XP has been earned this week.
+const kNoBestDay = 'Not yet';
+
 /// A single category's share of earned XP, for the breakdown card.
 class CategorySlice {
   const CategorySlice(this.label, this.value, this.color);
@@ -38,7 +41,7 @@ class AnalyticsData {
     weekdayLabels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
     categories: [],
     completionRate: 0,
-    bestDay: '—',
+    bestDay: kNoBestDay,
     totalXpWeek: 0,
   );
 }
@@ -72,7 +75,7 @@ final analyticsProvider = Provider.autoDispose<AnalyticsData>((ref) {
   final weeklyXp = <double>[];
   final labels = <String>[];
   var bestXp = -1;
-  var bestName = '—';
+  var bestName = kNoBestDay;
   for (var i = 6; i >= 0; i--) {
     final day = today.subtract(Duration(days: i));
     final xp = progress
@@ -86,7 +89,7 @@ final analyticsProvider = Provider.autoDispose<AnalyticsData>((ref) {
     }
   }
   final totalXpWeek = weeklyXp.fold<double>(0, (s, v) => s + v).round();
-  if (bestXp <= 0) bestName = '—';
+  if (bestXp <= 0) bestName = kNoBestDay;
 
   // Completion + category mix from real tasks.
   final completed = tasks.where((t) => t.isCompleted).toList();

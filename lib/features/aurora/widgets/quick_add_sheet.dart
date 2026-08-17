@@ -302,7 +302,7 @@ class _PremiumNlTeaser extends StatelessWidget {
                     Text('Add with Aurora',
                         style: theme.textTheme.titleMedium
                             ?.copyWith(color: ink, fontWeight: FontWeight.w700)),
-                    Text('Describe it in words — a premium touch',
+                    Text('Describe it in words, a premium touch',
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: ink.withValues(alpha: 0.8))),
                   ],

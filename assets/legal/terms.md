@@ -42,7 +42,7 @@ We may suspend or terminate access if you breach these terms.
 
 ## 5. Your content
 
-Your content is yours. You keep all rights in the habits, tasks, goals, notes and other material you create. You grant us only the limited permission needed to operate the service for you — to store your content, sync it between your devices when you enable that, back it up, and transmit it to the providers described in the Privacy Policy so features you request can work. This permission ends when you delete the content or your account.
+Your content is yours. You keep all rights in the habits, tasks, goals, notes and other material you create. You grant us only the limited permission needed to operate the service for you: to store your content, sync it between your devices when you enable that, back it up, and transmit it to the providers described in the Privacy Policy so features you request can work. This permission ends when you delete the content or your account.
 
 You are responsible for your content and for having the right to use it.
 
@@ -62,7 +62,7 @@ We may change prices or the composition of paid features. If we do so in a way t
 
 We aim to keep Atlas available and working, but we do not guarantee uninterrupted service. We may add, change, suspend or remove features. If we discontinue the service entirely, we will give reasonable notice and a chance to export your content where practical.
 
-Atlas is designed to work offline. Features that require our servers — including sync and the companion — need connectivity.
+Atlas is designed to work offline. Features that require our servers, including sync and the companion, need connectivity.
 
 ## 9. Disclaimers
 
@@ -80,7 +80,7 @@ If you are a consumer, you may have rights under the law of your country that ca
 
 ## 12. Termination
 
-You may stop using Atlas and delete your account at any time. We may suspend or terminate your access if you materially breach these terms, if required by law, or if we discontinue the service. Sections that by their nature should survive termination — including content ownership, disclaimers, limitation of liability and dispute resolution — will survive.
+You may stop using Atlas and delete your account at any time. We may suspend or terminate your access if you materially breach these terms, if required by law, or if we discontinue the service. Sections that by their nature should survive termination, including content ownership, disclaimers, limitation of liability and dispute resolution, will survive.
 
 ## 13. Changes to these terms
 
@@ -88,7 +88,7 @@ If we make a material change, we will update the version number above and ask yo
 
 ## 14. Governing law
 
-These terms are governed by the laws of Bangladesh, without regard to conflict of law rules, and the courts of Bangladesh will have jurisdiction — except where the mandatory law of your country of residence gives you the right to bring proceedings, or requires a different governing law, in which case that applies.
+These terms are governed by the laws of Bangladesh, without regard to conflict of law rules, and the courts of Bangladesh will have jurisdiction, except where the mandatory law of your country of residence gives you the right to bring proceedings, or requires a different governing law, in which case that applies.
 
 ## 15. General
 

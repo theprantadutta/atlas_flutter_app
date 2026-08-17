@@ -143,7 +143,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                   Expanded(
                     child: Text(
                       'If you have an Atlas Aurora subscription, cancel it separately '
-                      'in your App Store account settings — deleting your account '
+                      'in your App Store account settings. Deleting your account '
                       'here does not stop billing.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,

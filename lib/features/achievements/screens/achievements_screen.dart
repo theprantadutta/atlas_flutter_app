@@ -202,7 +202,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  'Keep going — every ritual brings the next badge closer.',
+                  'Keep going. Every ritual brings the next badge closer.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     height: 1.4,

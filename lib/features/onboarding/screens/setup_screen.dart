@@ -111,7 +111,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                         AppSpacing.gapXs,
                         Text(
                           'We’ll add a few gentle habits to get you started. '
-                          'Change them anytime — nothing is locked in.',
+                          'Change them anytime. Nothing is locked in.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             height: 1.5,

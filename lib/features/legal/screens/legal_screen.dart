@@ -136,7 +136,7 @@ class _LegalScreenState extends ConsumerState<LegalScreen>
                         ),
                         AppSpacing.gapSm,
                         AppButton(
-                          label: 'I agree — continue',
+                          label: 'I agree, continue',
                           icon: Icons.check_rounded,
                           isLoading: _accepting,
                           onPressed: _accepting ? null : _accept,
