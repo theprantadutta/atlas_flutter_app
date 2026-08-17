@@ -32,9 +32,9 @@ dependencies:
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
   google_sign_in: ^7.2.0
-  sign_in_with_apple: ^7.0.1
+  sign_in_with_apple: ^8.1.0
   crypto: ^3.0.6
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^11.0.0
 
   # Charts
   fl_chart: ^1.2.0
@@ -59,10 +59,12 @@ dependencies:
   uuid: ^4.5.1
   json_annotation: ^4.9.0
   shared_preferences: ^2.5.3
+  package_info_plus: ^10.2.1
   equatable: ^2.0.0
   logger: ^2.5.0
   in_app_purchase: ^3.3.0
   in_app_update: ^5.0.0
+  in_app_review: ^2.0.10
   refresh_rate: ^1.0.2
   gpt_markdown: ^1.1.7
   url_launcher: ^6.3.0

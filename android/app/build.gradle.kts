@@ -20,8 +20,12 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.example.atlas_flutter_app"
-    // compileSdk = flutter.compileSdkVersion
-    compileSdk = 36
+    // Pinned ahead of flutter.compileSdkVersion because flutter_secure_storage
+    // v11 ships AAR metadata requiring callers to compile against 37+.
+    // compileSdk only governs which APIs are available at compile time; device
+    // reach (minSdk) and runtime behaviour (targetSdk) still follow Flutter's
+    // tested defaults below.
+    compileSdk = 37
     // Use Flutter's tested NDK rather than pinning a newer one — a pinned
     // bleeding-edge NDK rebuilds the native (sqlite3) sources unnecessarily.
     ndkVersion = flutter.ndkVersion

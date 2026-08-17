@@ -74,6 +74,10 @@ class ErrorHandler {
       case DioExceptionType.badCertificate:
         return const NetworkException('Invalid security certificate.');
 
+      // Not a network condition: the response arrived but decoding it stalled.
+      // Nothing the user can act on, so it reads the same as any other
+      // unexpected failure.
+      case DioExceptionType.transformTimeout:
       case DioExceptionType.unknown:
         return AppException(message, statusCode: error.response?.statusCode);
     }
