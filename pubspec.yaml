@@ -63,6 +63,13 @@ dependencies:
   equatable: ^2.0.0
   logger: ^2.5.0
   in_app_purchase: ^3.3.0
+  # Direct dep (not just transitive): the paywall reads Play's subscription
+  # offer/pricing phases to show the real recurring price and the trial the
+  # user is actually eligible for.
+  in_app_purchase_android: ^0.5.2
+  # Same reason on iOS: the paywall reads StoreKit2's introductory-offer
+  # info to show the free trial and the real recurring price.
+  in_app_purchase_storekit: ^0.4.11
   in_app_update: ^5.0.0
   in_app_review: ^2.0.10
   refresh_rate: ^1.0.2
@@ -77,6 +84,8 @@ dev_dependencies:
   json_serializable: ^6.9.5
   riverpod_generator: ^4.0.0+1
   flutter_lints: ^6.0.0
+  # Test-only: lets the billing tests swap in a fake store platform.
+  in_app_purchase_platform_interface: ^1.4.1
   # Branding asset generation
   image: ^4.3.0
   flutter_launcher_icons: ^0.14.4

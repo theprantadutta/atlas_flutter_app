@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
+import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
@@ -16,7 +17,32 @@ final billingRepositoryProvider = Provider<BillingRepository>((ref) {
 });
 
 final entitlementServiceProvider = Provider<EntitlementService>((ref) {
-  return EntitlementService(ref.read(billingRepositoryProvider));
+  final service = EntitlementService(ref.read(billingRepositoryProvider));
+
+  // Tag every purchase with the backend user id. On Android this becomes Play
+  // Billing's obfuscatedAccountId, which Google echoes back to our RTDN webhook —
+  // the only way to credit a deferred payment that clears while the app is closed.
+  service.setUserIdGetter(() => ref.read(authProvider).user?.id);
+
+  // One long-lived listener owns every store event, including restores and
+  // purchases that completed elsewhere.
+  unawaited(service.start());
+
+  // Any verification that lands WITHOUT a purchase() call awaiting it — a
+  // restore, a purchase made on another device, a deferred payment that cleared
+  // while the app was closed, a queued retry that finally went through — has to
+  // push the new entitlement into the app itself. Nothing else would, so premium
+  // would otherwise stay invisible until the next app resume.
+  final verified = service.onVerified.listen((_) async {
+    await ref.read(authProvider.notifier).refreshUser();
+    await ref.read(entitlementsProvider.notifier).refresh();
+  });
+
+  ref.onDispose(() {
+    verified.cancel();
+    service.dispose();
+  });
+  return service;
 });
 
 // ─── Entitlement state (server-authoritative, cached offline) ───────
@@ -147,10 +173,50 @@ final canDeepInsightsProvider = Provider<bool>((ref) {
   return ent.effectiveIsPremium && ent.deepInsights;
 });
 
-/// Available store products (for the paywall). Empty during development when
-/// no store listing exists yet.
-final productsProvider = FutureProvider<List<ProductDetails>>((ref) {
-  return ref.read(entitlementServiceProvider).loadProducts();
+/// Whether premium is currently running on a free trial.
+final isOnTrialProvider = Provider<bool>((ref) {
+  final ent = ref.watch(entitlementsProvider).entitlements;
+  return ent != null && ent.effectiveIsPremium && ent.isTrial;
+});
+
+/// Whole days left in the free trial, or null when not on one.
+final trialDaysRemainingProvider = Provider<int?>((ref) {
+  return ref.watch(entitlementsProvider).entitlements?.trialDaysRemaining;
+});
+
+/// Buyable plans, keyed by product id, with the trial each user is actually
+/// eligible for. Empty during development when no store listing exists yet.
+///
+/// Combines two sources because neither is sufficient alone: the store knows the
+/// trial's length and price, and on iOS only the server knows whether this user may
+/// still start one.
+final offersProvider = FutureProvider<Map<String, AtlasOffer>>((ref) async {
+  // Watch only the two fields that change the answer — watching the whole snapshot
+  // would re-query the store on every routine entitlement refresh.
+  final eligible = ref.watch(
+      entitlementsProvider.select((s) => s.entitlements?.trialEligible));
+  final confirmed = ref.watch(
+      entitlementsProvider.select((s) => s.entitlements?.trialEligibilityConfirmed ?? false));
+
+  final offers = await ref.read(entitlementServiceProvider).loadOffers();
+
+  return offers.map((id, offer) => MapEntry(
+        id,
+        offer.withServerEligibility(eligible: eligible, confirmed: confirmed),
+      ));
+});
+
+/// The longest free trial this user can still start, or 0 when they can't.
+///
+/// Reads the resolved offers rather than a constant on purpose: on Android Play
+/// omits offers a user has consumed, and on iOS the server's eligibility check has
+/// already been folded in — so a returning subscriber is never promised a second
+/// free trial. 0 while the store is still answering, so upsell copy defaults to the
+/// honest version.
+final availableTrialDaysProvider = Provider<int>((ref) {
+  final offers = ref.watch(offersProvider).value;
+  if (offers == null || offers.isEmpty) return 0;
+  return offers.values.fold(0, (best, o) => o.trialDays > best ? o.trialDays : best);
 });
 
 // ─── Purchase controller ────────────────────────────────────────────
@@ -162,22 +228,45 @@ class EntitlementController {
   EntitlementController(this._ref);
   final Ref _ref;
 
-  /// Buy a product, then refresh the user + entitlement snapshot so the derived
+  /// Buy a plan, then refresh the user + entitlement snapshot so the derived
   /// providers reflect the new access. Returns the backend-verified entitlement.
   /// Throws on cancel/failure so the UI can surface it.
-  Future<EntitlementResult> purchase(String productId) async {
-    final result =
-        await _ref.read(entitlementServiceProvider).purchase(productId);
+  ///
+  /// [offer] is null only when the store returned nothing for this product — in a
+  /// debug build that falls back to the dev token so the paywall is still
+  /// exercisable, and in release it's surfaced as a store error rather than
+  /// silently faking a purchase.
+  Future<EntitlementResult> purchase(String productId, {AtlasOffer? offer}) async {
+    final service = _ref.read(entitlementServiceProvider);
+
+    final EntitlementResult result;
+    if (offer != null) {
+      result = await service.purchase(offer);
+    } else if (EntitlementService.devFallbackAllowed) {
+      result = await service.purchaseDevFallback(productId);
+    } else {
+      throw const StoreException('That plan isn’t available right now.');
+    }
+
     await _ref.read(authProvider.notifier).refreshUser();
     await _ref.read(entitlementsProvider.notifier).refresh();
     return result;
   }
 
-  Future<void> restore() async {
-    await _ref.read(entitlementServiceProvider).restore();
+  /// Replay past purchases. Returns whether the store handed anything back, which
+  /// is NOT the same question as "is this user premium now" — a restored
+  /// subscription can be expired. The caller decides what to say about each.
+  Future<bool> restore() async {
+    final restored = await _ref.read(entitlementServiceProvider).restore();
     await _ref.read(authProvider.notifier).refreshUser();
     await _ref.read(entitlementsProvider.notifier).refresh();
+    return restored;
   }
+
+  /// Called on app resume: clears a stuck spinner when the Android billing sheet
+  /// closed without emitting an event, and retries any queued verification.
+  void onAppResumed() =>
+      _ref.read(entitlementServiceProvider).notifyAppResumed();
 
   /// Open the platform's subscription-management page (Play / App Store).
   Future<void> manageSubscription({String? productId}) {

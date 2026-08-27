@@ -470,13 +470,17 @@ class _SettingsMenu extends ConsumerWidget {
 
 /// A branded settings entry for premium — an invitation when free, a calm
 /// "Premium active" status (still tappable, to manage) when subscribed.
-class _PremiumRow extends StatelessWidget {
+class _PremiumRow extends ConsumerWidget {
   const _PremiumRow({required this.isPremium});
   final bool isPremium;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final onTrial = ref.watch(isOnTrialProvider);
+    final trialLeft = ref.watch(trialDaysRemainingProvider);
+    // Only advertise a trial the store says this user can still start.
+    final trialOffer = ref.watch(availableTrialDaysProvider);
     return AtlasCard(
       onTap: () => context.push('/paywall'),
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
@@ -503,9 +507,7 @@ class _PremiumRow extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  isPremium
-                      ? 'Premium active. Manage your plan'
-                      : 'Unlimited Aurora, cloud sync & deeper insights',
+                  _subtitle(onTrial, trialLeft, trialOffer),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -520,6 +522,18 @@ class _PremiumRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _subtitle(bool onTrial, int? trialLeft, int trialOffer) {
+    if (isPremium) {
+      if (!onTrial) return 'Premium active. Manage your plan';
+      return trialLeft == null
+          ? 'Free trial active. Manage your plan'
+          : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
+    }
+    return trialOffer > 0
+        ? 'Start with $trialOffer days free — unlimited Aurora & cloud sync'
+        : 'Unlimited Aurora, cloud sync & deeper insights';
   }
 }
 
