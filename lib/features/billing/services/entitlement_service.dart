@@ -1,11 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:atlas_flutter_app/core/errors/app_exception.dart';
+import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
+import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
+
+final _log = AppLog('Billing');
 
 /// Product identifiers — must match the IDs created in Play Console / App Store
 /// Connect *and* the backend's accepted product IDs.
@@ -17,6 +24,15 @@ class AtlasProducts {
   static const lifetime = 'atlas_founder_lifetime';
 
   static const Set<String> all = {monthly, yearly, lifetime};
+
+  /// Free-trial lengths as configured in the stores. These are only a FALLBACK
+  /// for copy shown before the store's own offer data arrives — the live
+  /// [AtlasOffer.trialDays] is authoritative, because it reflects whether this
+  /// particular user is still eligible. Never promise a trial from these alone.
+  static const declaredTrialDays = <String, int>{
+    monthly: 3,
+    yearly: 7,
+  };
 }
 
 /// Android application id — used to build the Play subscription-management URL.
@@ -24,58 +40,154 @@ const _androidPackage = 'com.pranta.atlas';
 
 /// Wraps `in_app_purchase` and the backend verify flow.
 ///
-/// Real purchase path: query the store → buy → on a `purchased`/`restored`
-/// event take the server verification token (JWS / purchase token) → backend
-/// `/billing/verify`, which validates it server-side.
+/// Everything funnels through ONE long-lived `purchaseStream` listener started at
+/// [start]. That matters more than it looks: the store delivers restored purchases,
+/// purchases completed on another device, and deferred payments that cleared while
+/// the app was closed — none of which are tied to a buy the user just tapped. A
+/// listener that only exists for the duration of a purchase call misses all of them,
+/// which is why "Restore" used to do nothing server-side.
 ///
-/// Dev path: when the store is unavailable or the product isn't configured yet
-/// (no store listing during development), fall back to a dev token — but ONLY in
-/// debug builds. In release we surface the error instead of silently faking a
-/// purchase.
+/// Dev path: when the store is unavailable or the product isn't configured yet, fall
+/// back to a dev token — but ONLY in debug builds, and the backend honours it only
+/// when `BILLING_DEV_BYPASS` is on.
 class EntitlementService {
   EntitlementService(this._billing);
 
   final BillingRepository _billing;
   final InAppPurchase _iap = InAppPurchase.instance;
 
-  String get _platform => Platform.isIOS ? 'ios' : 'android';
+  StreamSubscription<List<PurchaseDetails>>? _sub;
+  bool _started = false;
 
-  /// Available store products (empty when the store is unavailable or the
-  /// products aren't configured yet).
-  Future<List<ProductDetails>> loadProducts() async {
-    if (!await _iap.isAvailable()) return const [];
-    final response = await _iap.queryProductDetails(AtlasProducts.all);
-    return response.productDetails;
+  /// Fires whenever the store hands us a purchase this account owns. Carries the
+  /// backend result for a fresh verification, or null when we'd already verified
+  /// that transaction this session.
+  ///
+  /// This is the only way an out-of-band grant reaches the UI: a restore, a
+  /// purchase that completed on another device, a deferred payment that cleared
+  /// while the app was closed, or a queued retry that finally went through all
+  /// arrive with no `purchase()` call waiting on them.
+  final _owned = StreamController<EntitlementResult?>.broadcast();
+
+  /// Backend-verified entitlements, for listeners that want to re-fetch state.
+  Stream<EntitlementResult> get onVerified =>
+      _owned.stream.where((r) => r != null).cast<EntitlementResult>();
+
+  /// Resolves the signed-in backend user id. Tagged onto every purchase so the
+  /// Play RTDN webhook can map an orphaned token back to this account.
+  String? Function()? _userIdGetter;
+
+  /// Buys awaiting a terminal store event, keyed by product id.
+  final Map<String, Completer<EntitlementResult>> _pending = {};
+
+  /// Products whose billing sheet was launched but which have produced no store
+  /// event yet — see [notifyAppResumed].
+  final Set<String> _inFlight = {};
+  Timer? _cancelWatchdog;
+
+  /// Purchase ids already verified, so a restore replay doesn't re-hit the API.
+  final Set<String> _verifiedPurchaseIds = {};
+
+  /// A genuine `purchased` event often lands a beat after the app resumes from the
+  /// billing sheet, so wait this long before calling a silent return a cancel.
+  static const _resumeCancelGrace = Duration(seconds: 3);
+
+  /// How long "Restore" waits for the store to replay a purchase before
+  /// concluding there isn't one. Generous: it covers a store round-trip plus our
+  /// own backend verification, and the cost of being wrong is telling a paying
+  /// customer they never bought anything.
+  static const _restoreWindow = Duration(seconds: 12);
+
+  /// Purchases whose backend verification failed for a retryable reason.
+  static const _pendingVerificationsKey = 'billing_pending_verifications';
+
+  /// Must match the backend validator keys exactly. macOS is grouped with iOS
+  /// because both are validated as App Store transactions.
+  String get _platform => Platform.isIOS || Platform.isMacOS ? 'ios' : 'android';
+
+  /// Wire the backend user id getter. On Android [PurchaseParam.applicationUserName]
+  /// becomes Play Billing's `obfuscatedAccountId`, which Google echoes back to our
+  /// RTDN webhook as `obfuscatedExternalAccountId`. Without it, a deferred payment
+  /// (carrier billing, bank transfer) that clears while the app is closed produces
+  /// a notification for a purchase token no ledger row has ever seen — and the user
+  /// never gets the premium they paid for. On iOS it maps to `appAccountToken`.
+  void setUserIdGetter(String? Function() getUserId) {
+    _userIdGetter = getUserId;
   }
 
-  /// Buy [productId] and verify it with the backend. Returns the resulting
-  /// entitlement. Throws [PurchaseCancelledException] if the user cancels, or a
-  /// [StoreException] if the store is unavailable / the product is missing (in
-  /// release; debug falls back to the dev token).
-  Future<EntitlementResult> purchase(String productId) async {
+  /// Begin listening for store events. Idempotent.
+  Future<void> start() async {
+    if (_started) return;
+    _started = true;
+
     if (!await _iap.isAvailable()) {
-      if (kDebugMode) return _verifyDev(productId);
-      throw const StoreException('The store is unavailable right now.');
+      _log.i('Store unavailable; purchase listener not started.');
+      return;
     }
 
-    final response = await _iap.queryProductDetails({productId});
-    if (response.productDetails.isEmpty) {
-      if (kDebugMode) return _verifyDev(productId);
-      throw const StoreException('That plan isn’t available right now.');
-    }
-
-    final token = await _buyAndAwaitToken(response.productDetails.first);
-    return _billing.verify(
-      platform: _platform,
-      productId: productId,
-      purchaseToken: token,
+    _sub = _iap.purchaseStream.listen(
+      _onPurchases,
+      onDone: () => _sub?.cancel(),
+      onError: (Object e, StackTrace st) =>
+          _log.e('Purchase stream error', error: e, stackTrace: st),
     );
   }
 
-  /// Debug-only fallback so the full flow is exercisable without a store
-  /// listing. The backend honours `dev-token` only when `BILLING_DEV_BYPASS` is
-  /// on, so this can never grant premium in production.
-  Future<EntitlementResult> _verifyDev(String productId) {
+  void dispose() {
+    _cancelWatchdog?.cancel();
+    _sub?.cancel();
+    _owned.close();
+    _started = false;
+  }
+
+  /// Store offers for the paywall, collapsed to one per plan with the trial the
+  /// user is actually eligible for. Empty when the store is unavailable or the
+  /// products aren't configured yet.
+  Future<Map<String, AtlasOffer>> loadOffers() async {
+    if (!await _iap.isAvailable()) return const {};
+    final response = await _iap.queryProductDetails(AtlasProducts.all);
+    if (response.notFoundIDs.isNotEmpty) {
+      _log.w('Products missing from the store: ${response.notFoundIDs}');
+    }
+    return resolveOffers(response.productDetails);
+  }
+
+  /// Buy [offer] and verify it with the backend. Returns the resulting entitlement.
+  /// Throws [PurchaseCancelledException] if the user backs out, or [StoreException]
+  /// when the store itself refuses.
+  Future<EntitlementResult> purchase(AtlasOffer offer) async {
+    await start();
+
+    final productId = offer.productId;
+    final completer = Completer<EntitlementResult>();
+    _pending[productId] = completer;
+
+    try {
+      // Tag the purchase with our user id so the RTDN webhook can recover it. Null
+      // when unauthenticated — the buy still works, just without webhook recovery.
+      final param = PurchaseParam(
+        productDetails: offer.details,
+        applicationUserName: _userIdGetter?.call(),
+      );
+
+      // Every Atlas product is non-consumable: subscriptions and the lifetime
+      // unlock are both owned, never spent.
+      final launched = await _iap.buyNonConsumable(purchaseParam: param);
+      if (!launched) {
+        _pending.remove(productId);
+        throw const StoreException('The store couldn’t start that purchase.');
+      }
+
+      _inFlight.add(productId);
+      return await completer.future;
+    } finally {
+      _pending.remove(productId);
+      _inFlight.remove(productId);
+    }
+  }
+
+  /// Debug-only fallback so the full flow is exercisable without a store listing.
+  Future<EntitlementResult> purchaseDevFallback(String productId) {
     return _billing.verify(
       platform: _platform,
       productId: productId,
@@ -83,15 +195,39 @@ class EntitlementService {
     );
   }
 
-  /// Re-sync entitlement from past purchases. Used by the "Restore" action.
-  Future<void> restore() async {
-    if (!await _iap.isAvailable()) return;
-    await _iap.restorePurchases();
+  /// Whether a real store purchase is possible right now. The paywall uses this to
+  /// decide between a real buy and the debug fallback.
+  Future<bool> get isStoreAvailable => _iap.isAvailable();
+
+  /// Re-sync entitlement from past purchases. Returns whether the store actually
+  /// handed back something this account owns.
+  ///
+  /// `restorePurchases()` completes as soon as the platform call is *dispatched* —
+  /// the purchases themselves arrive later on `purchaseStream` and still have to
+  /// be verified with the backend. Checking entitlement the moment it returns
+  /// therefore always reads "not premium yet" and tells a paying user their
+  /// purchase doesn't exist. So we subscribe first, kick off the restore, then
+  /// wait for the first owned purchase to land.
+  Future<bool> restore() async {
+    await start();
+    if (!await _iap.isAvailable()) {
+      throw const StoreException('The store is unavailable right now.');
+    }
+
+    // Subscribe BEFORE dispatching, or a fast store can deliver before we listen.
+    final restored = _owned.stream.first
+        .then((_) => true)
+        .timeout(_restoreWindow, onTimeout: () => false);
+
+    // Restores must carry the same account tag as the original buy, or Play has
+    // nothing to echo back to the webhook for the replayed purchase.
+    await _iap.restorePurchases(applicationUserName: _userIdGetter?.call());
+
+    return restored;
   }
 
   /// Open the platform's subscription-management surface so the user can
-  /// upgrade / downgrade / cancel. Lifetime is non-renewing so this is mainly
-  /// for the monthly / yearly subscriptions.
+  /// upgrade / downgrade / cancel.
   Future<void> openManageSubscription({String? productId}) async {
     final Uri uri;
     if (Platform.isIOS) {
@@ -107,58 +243,254 @@ class EntitlementService {
     }
   }
 
-  Future<String> _buyAndAwaitToken(ProductDetails product) async {
-    final completer = Completer<String>();
-    late final StreamSubscription<List<PurchaseDetails>> sub;
+  // ─── Store events ─────────────────────────────────────────────────
 
-    sub = _iap.purchaseStream.listen((purchases) async {
-      for (final purchase in purchases) {
-        if (purchase.productID != product.id) continue;
+  Future<void> _onPurchases(List<PurchaseDetails> purchases) async {
+    for (final purchase in purchases) {
+      // Any event means the billing flow produced a signal, so this product is no
+      // longer a silent-cancel candidate.
+      _inFlight.remove(purchase.productID);
 
-        switch (purchase.status) {
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
-            final token = purchase.verificationData.serverVerificationData;
-            if (purchase.pendingCompletePurchase) {
-              await _iap.completePurchase(purchase);
-            }
-            if (!completer.isCompleted) completer.complete(token);
-            await sub.cancel();
-          case PurchaseStatus.error:
-            if (purchase.pendingCompletePurchase) {
-              await _iap.completePurchase(purchase);
-            }
-            if (!completer.isCompleted) {
-              completer.completeError(
-                purchase.error ??
-                    const StoreException('The purchase couldn’t complete.'),
-              );
-            }
-            await sub.cancel();
-          case PurchaseStatus.canceled:
-            if (!completer.isCompleted) {
-              completer.completeError(const PurchaseCancelledException());
-            }
-            await sub.cancel();
-          case PurchaseStatus.pending:
-            // Deferred / awaiting approval (e.g. Ask-to-Buy). Keep waiting; the
-            // stream delivers a terminal event when the state resolves.
-            break;
-        }
+      switch (purchase.status) {
+        case PurchaseStatus.pending:
+          // Deferred payment (carrier billing, bank transfer) or Ask-to-Buy.
+          // Nothing is owed yet and no terminal event may arrive for DAYS, so the
+          // caller has to be released — leaving it awaiting would pin the paywall
+          // on "Please wait…" until the app is force-quit. The purchase is not
+          // lost: when it clears, Play sends an RTDN and the backend grants
+          // premium even if the app is never reopened.
+          _log.i('Purchase pending for ${purchase.productID}');
+          _fail(purchase.productID, const PurchasePendingException());
+
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          await _handleOwned(purchase);
+
+        case PurchaseStatus.error:
+          _log.e('Store reported a purchase error', error: purchase.error);
+          await _complete(purchase);
+          _fail(
+            purchase.productID,
+            StoreException(purchase.error?.message ??
+                'The purchase couldn’t complete.'),
+          );
+
+        case PurchaseStatus.canceled:
+          await _complete(purchase);
+          _fail(purchase.productID, const PurchaseCancelledException());
+      }
+    }
+  }
+
+  Future<void> _handleOwned(PurchaseDetails purchase) async {
+    final id = purchase.purchaseID;
+    if (id != null && _verifiedPurchaseIds.contains(id)) {
+      // A restore replays everything the account owns on every call; verifying the
+      // same transaction again would just burn requests. Still announce it, so a
+      // second "Restore" tap doesn't report "no previous purchase found".
+      await _complete(purchase);
+      _emitOwned(null);
+      return;
+    }
+
+    final EntitlementResult result;
+    try {
+      result = await _verify(purchase);
+      if (id != null) _verifiedPurchaseIds.add(id);
+    } catch (e) {
+      // Acknowledge regardless of the outcome: leaving a purchase uncompleted
+      // makes Play auto-refund it after three days, which is far worse than a
+      // failed verification we can retry.
+      await _complete(purchase);
+
+      // Retry only what's worth retrying. A 402 means the store itself told the
+      // backend this purchase isn't valid — retrying forever won't change that.
+      if (_isRetryable(e)) {
+        await _queueForRetry(purchase);
+        _log.w('Verification failed for ${purchase.productID}; queued for retry.');
+        // The user's money HAS moved. Surfacing a raw server error here reads as
+        // "your payment failed", which is both wrong and alarming.
+        _fail(purchase.productID, const PurchaseNotYetVerifiedException());
+      } else {
+        _log.e('Verification rejected for ${purchase.productID}', error: e);
+        _fail(purchase.productID, e);
+      }
+      return;
+    }
+
+    await _complete(purchase);
+    _emitOwned(result);
+    _succeed(purchase.productID, result);
+  }
+
+  void _emitOwned(EntitlementResult? result) {
+    if (!_owned.isClosed) _owned.add(result);
+  }
+
+  Future<EntitlementResult> _verify(PurchaseDetails purchase) {
+    // On Android `serverVerificationData` IS the Play purchase token; on iOS it is
+    // the StoreKit JWS. The backend picks the validator from `platform`.
+    return _billing.verify(
+      platform: _platform,
+      productId: purchase.productID,
+      purchaseToken: purchase.verificationData.serverVerificationData,
+    );
+  }
+
+  /// Tell the store the purchase has been delivered. Mandatory on Android within
+  /// three days or Play reverses the charge.
+  Future<void> _complete(PurchaseDetails purchase) async {
+    if (!purchase.pendingCompletePurchase) return;
+    try {
+      await _iap.completePurchase(purchase);
+    } catch (e) {
+      _log.e('completePurchase failed for ${purchase.productID}', error: e);
+    }
+  }
+
+  void _succeed(String productId, EntitlementResult result) {
+    final completer = _pending.remove(productId);
+    if (completer != null && !completer.isCompleted) completer.complete(result);
+  }
+
+  void _fail(String productId, Object error) {
+    final completer = _pending.remove(productId);
+    if (completer != null && !completer.isCompleted) completer.completeError(error);
+  }
+
+  // ─── Silent-cancel detection ──────────────────────────────────────
+
+  /// Called when the app returns to the foreground.
+  ///
+  /// On Android, backing out of the Play billing sheet usually emits **no**
+  /// purchaseStream event at all. Without this, the paywall's "Please wait…" spinner
+  /// stays up forever and the user has to force-quit. After a short grace window —
+  /// so a real `purchased` event landing just after resume still wins — anything
+  /// still in flight is treated as cancelled. A late store event is still processed
+  /// normally, so nothing is lost.
+  void notifyAppResumed() {
+    unawaited(retryPendingVerifications());
+
+    if (_inFlight.isEmpty) return;
+    _cancelWatchdog?.cancel();
+    _cancelWatchdog = Timer(_resumeCancelGrace, () {
+      final abandoned = _inFlight.toList();
+      _inFlight.clear();
+      for (final productId in abandoned) {
+        _log.i('Billing sheet returned with no event for $productId — treating as cancelled');
+        _fail(productId, const PurchaseCancelledException());
       }
     });
-
-    await _iap.buyNonConsumable(
-      purchaseParam: PurchaseParam(productDetails: product),
-    );
-    return completer.future;
   }
+
+  // ─── Offline retry queue ──────────────────────────────────────────
+
+  static bool _isRetryable(Object error) {
+    // 402 = the store rejected it, 400/404 = malformed or unknown product. Only a
+    // transport/server problem is worth trying again.
+    if (error is AppException) {
+      final code = error.statusCode;
+      return code == null || code >= 500 || code == 408 || code == 429;
+    }
+    return true;
+  }
+
+  Future<void> _queueForRetry(PurchaseDetails purchase) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final queue = prefs.getStringList(_pendingVerificationsKey) ?? [];
+
+      final entry = jsonEncode({
+        'product_id': purchase.productID,
+        'purchase_token': purchase.verificationData.serverVerificationData,
+        'platform': _platform,
+        'queued_at': DateTime.now().toIso8601String(),
+      });
+
+      if (queue.contains(entry)) return;
+      queue.add(entry);
+      await prefs.setStringList(_pendingVerificationsKey, queue);
+    } catch (e) {
+      _log.e('Could not queue purchase for retry', error: e);
+    }
+  }
+
+  /// Retry queued verifications. Safe to call often — a no-op when the queue is
+  /// empty. Entries that succeed, or that the backend conclusively rejects, are
+  /// dropped; everything else stays for the next attempt.
+  Future<void> retryPendingVerifications() async {
+    List<String> queue;
+    SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+      queue = prefs.getStringList(_pendingVerificationsKey) ?? [];
+    } catch (_) {
+      return;
+    }
+    if (queue.isEmpty) return;
+
+    _log.i('Retrying ${queue.length} pending purchase verification(s)');
+    final remaining = <String>[];
+
+    for (final raw in queue) {
+      Map<String, dynamic> entry;
+      try {
+        entry = jsonDecode(raw) as Map<String, dynamic>;
+      } catch (_) {
+        continue; // Unparseable — drop it rather than retry forever.
+      }
+
+      try {
+        final result = await _billing.verify(
+          platform: entry['platform'] as String? ?? _platform,
+          productId: entry['product_id'] as String,
+          purchaseToken: entry['purchase_token'] as String,
+        );
+        // Announce it: this is a grant the user has been waiting on since the
+        // verification first failed, and nothing else would refresh their state.
+        _emitOwned(result);
+      } catch (e) {
+        if (_isRetryable(e)) remaining.add(raw);
+      }
+    }
+
+    try {
+      if (remaining.isEmpty) {
+        await prefs.remove(_pendingVerificationsKey);
+      } else {
+        await prefs.setStringList(_pendingVerificationsKey, remaining);
+      }
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Whether the debug store fallback may be used. Release builds must never fake
+  /// a purchase, so this is compile-time gated.
+  static bool get devFallbackAllowed => kDebugMode;
 }
 
 class PurchaseCancelledException implements Exception {
   const PurchaseCancelledException();
   @override
   String toString() => 'Purchase cancelled';
+}
+
+/// The store accepted the purchase but hasn't taken payment yet — a deferred
+/// method (carrier billing, bank transfer) or an Ask-to-Buy approval. Nothing is
+/// owed and nothing is granted; when it clears, Play's RTDN grants premium
+/// server-side even if the app never reopens.
+class PurchasePendingException implements Exception {
+  const PurchasePendingException();
+  @override
+  String toString() => 'Purchase pending approval';
+}
+
+/// Payment went through, but our backend couldn't confirm it right now. The
+/// purchase is queued and retried on resume — this is emphatically NOT a failed
+/// payment, and must never be shown to the user as one.
+class PurchaseNotYetVerifiedException implements Exception {
+  const PurchaseNotYetVerifiedException();
+  @override
+  String toString() => 'Purchase awaiting verification';
 }
 
 /// A recoverable store/billing problem worth surfacing to the user.

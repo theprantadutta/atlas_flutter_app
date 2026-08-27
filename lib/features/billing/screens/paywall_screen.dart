@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:atlas_flutter_app/core/config/legal_config.dart';
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -100,15 +102,28 @@ const _benefits = <(IconData, String, String)>[
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   String _selected = _plans.first.productId;
   bool _purchasing = false;
+  bool _restoring = false;
+
+  /// Store offers keyed by product id. Empty until the store answers (and in
+  /// development, when no listing exists yet) — every read falls back to the
+  /// hard-coded plan copy.
+  Map<String, AtlasOffer> get _offers =>
+      ref.read(offersProvider).value ?? const {};
 
   Future<void> _purchase() async {
     setState(() => _purchasing = true);
     try {
-      final result =
-          await ref.read(entitlementControllerProvider).purchase(_selected);
+      final result = await ref
+          .read(entitlementControllerProvider)
+          .purchase(_selected, offer: _offers[_selected]);
       if (!mounted) return;
       if (result.isPremium) {
-        AtlasToast.success(context, 'Welcome to Atlas premium ✨');
+        AtlasToast.success(
+          context,
+          result.isTrial
+              ? 'Your free trial has started ✨'
+              : 'Welcome to Atlas premium ✨',
+        );
         context.pop();
       } else {
         AtlasToast.warning(
@@ -116,6 +131,26 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       }
     } on PurchaseCancelledException {
       // User backed out — no error needed.
+    } on PurchasePendingException {
+      // Deferred payment or Ask-to-Buy: accepted, not yet charged. Say so and
+      // close, rather than leaving the button spinning until it clears (days,
+      // for carrier billing). The RTDN webhook grants premium when it does.
+      if (!mounted) return;
+      AtlasToast.info(
+        context,
+        'Your purchase is awaiting approval. Premium unlocks as soon as it '
+        'clears — no need to keep the app open.',
+      );
+      context.pop();
+    } on PurchaseNotYetVerifiedException {
+      // The money moved; we just couldn't confirm it. Never call this a failure.
+      if (!mounted) return;
+      AtlasToast.info(
+        context,
+        'Payment received. We’ll unlock premium as soon as we can reach the '
+        'server — this happens automatically.',
+      );
+      context.pop();
     } on StoreException catch (e) {
       if (!mounted) return;
       AtlasToast.error(context, e.message);
@@ -140,18 +175,30 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   }
 
   Future<void> _restore() async {
+    setState(() => _restoring = true);
     try {
-      await ref.read(entitlementControllerProvider).restore();
+      final restored = await ref.read(entitlementControllerProvider).restore();
       if (!mounted) return;
+
       if (ref.read(isPremiumProvider)) {
         AtlasToast.success(context, 'Premium restored ✨');
         context.pop();
+      } else if (restored) {
+        // The store DID return a purchase — it's just no longer active (an
+        // expired or refunded subscription). Saying "nothing found" here would
+        // send the user hunting for a bug that isn't one.
+        AtlasToast.info(
+          context,
+          'We found a past purchase, but it’s no longer active.',
+        );
       } else {
         AtlasToast.info(context, 'No previous purchase found.');
       }
     } catch (_) {
       if (!mounted) return;
       AtlasToast.error(context, 'Couldn’t restore right now.');
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
@@ -164,12 +211,20 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final products = ref.watch(productsProvider).value ?? const [];
-    final priceFor = <String, String>{
-      for (final p in products) p.id: p.price,
-    };
-    final selectedPrice = priceFor[_selected] ??
-        _plans.firstWhere((p) => p.productId == _selected).fallbackPrice;
+    final offersAsync = ref.watch(offersProvider);
+    final offers = offersAsync.value ?? const <String, AtlasOffer>{};
+    // In debug the paywall stays usable with no store listing (the dev-bypass
+    // token covers it); in release, tapping before the store answers is what we
+    // guard against.
+    final offersLoading = offersAsync.isLoading && !kDebugMode;
+    final busy = _purchasing || _restoring;
+
+    final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
+    final selectedOffer = offers[_selected];
+    // The store's price is the RECURRING one, never the trial's "$0.00" phase —
+    // see AtlasOffer. Fall back to the hard-coded anchor before the store answers.
+    final selectedPrice = selectedOffer?.displayPrice ?? selectedPlan.fallbackPrice;
+    final selectedTrialDays = selectedOffer?.trialDays ?? 0;
 
     return Scaffold(
       body: Column(
@@ -205,8 +260,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                                 const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: _PlanCard(
                               plan: plan,
-                              price: priceFor[plan.productId] ??
-                                  plan.fallbackPrice,
+                              offer: offers[plan.productId],
+                              cadenceSuffix: _shortCadence(plan.productId),
                               selected: _selected == plan.productId,
                               onTap: () =>
                                   setState(() => _selected = plan.productId),
@@ -214,8 +269,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                           )),
                       AppSpacing.gapSm,
                       Text(
-                        'Cancel anytime. Atlas works fully offline on the free '
-                        'plan. Premium adds Aurora’s depth and cloud sync.',
+                        selectedTrialDays > 0
+                            ? 'Free for $selectedTrialDays days, then '
+                                '$selectedPrice${_shortCadence(_selected)}. '
+                                'Cancel anytime before it ends and you won’t be '
+                                'charged.'
+                                '${selectedOffer?.trialEligibilityKnown == false ? ' Trial available to new subscribers.' : ''}'
+                            : 'Cancel anytime. Atlas works fully offline on the '
+                                'free plan. Premium adds Aurora’s depth and '
+                                'cloud sync.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant),
@@ -228,13 +290,20 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             ),
           ),
           _StickyCta(
-            label: _purchasing
+            label: busy
                 ? 'Please wait…'
-                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
-            purchasing: _purchasing,
-            onContinue: _purchasing ? null : _purchase,
-            onRestore: _purchasing ? null : _restore,
-            onManage: _purchasing ? null : _manageSubscription,
+                : selectedTrialDays > 0
+                    ? 'Start your $selectedTrialDays-day free trial'
+                    : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+            trialDays: selectedTrialDays,
+            trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
+            purchasing: busy,
+            // Buying before the store has answered would hand purchase() a null
+            // offer, which in release reads as "that plan isn't available" —
+            // a confusing error for a store that is merely slow.
+            onContinue: busy || offersLoading ? null : _purchase,
+            onRestore: busy ? null : _restore,
+            onManage: busy ? null : _manageSubscription,
           ),
         ],
       ),
@@ -351,6 +420,8 @@ class _Hero extends StatelessWidget {
 class _StickyCta extends StatelessWidget {
   const _StickyCta({
     required this.label,
+    required this.trialDays,
+    required this.trialEligibilityKnown,
     required this.purchasing,
     required this.onContinue,
     required this.onRestore,
@@ -358,6 +429,8 @@ class _StickyCta extends StatelessWidget {
   });
 
   final String label;
+  final int trialDays;
+  final bool trialEligibilityKnown;
   final bool purchasing;
   final VoidCallback? onContinue;
   final VoidCallback? onRestore;
@@ -414,7 +487,11 @@ class _StickyCta extends StatelessWidget {
               ),
               // Guideline 3.1.2 requires the renewal terms plus links to the
               // terms/EULA and privacy policy on the purchase screen itself.
-              const _LegalFooter(),
+              // With a free trial, the conversion terms have to be here too.
+              _LegalFooter(
+                trialDays: trialDays,
+                trialEligibilityKnown: trialEligibilityKnown,
+              ),
             ],
           ),
         ),
@@ -425,7 +502,13 @@ class _StickyCta extends StatelessWidget {
 
 /// Auto-renewal disclosure + the two legal links App Review looks for.
 class _LegalFooter extends StatelessWidget {
-  const _LegalFooter();
+  const _LegalFooter({
+    required this.trialDays,
+    required this.trialEligibilityKnown,
+  });
+
+  final int trialDays;
+  final bool trialEligibilityKnown;
 
   Future<void> _open(String url) async {
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -450,7 +533,10 @@ class _LegalFooter extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            LegalConfig.subscriptionDisclosure,
+            LegalConfig.subscriptionDisclosure(
+              trialDays: trialDays,
+              trialEligibilityKnown: trialEligibilityKnown,
+            ),
             textAlign: TextAlign.center,
             style: muted,
           ),
@@ -524,13 +610,20 @@ class _BenefitRow extends StatelessWidget {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
-    required this.price,
+    required this.offer,
+    required this.cadenceSuffix,
     required this.selected,
     required this.onTap,
   });
 
   final _PlanOption plan;
-  final String price;
+
+  /// The live store offer, or null before the store answers.
+  final AtlasOffer? offer;
+
+  /// Compact cadence for the trial line ("/mo", "/yr", "").
+  final String cadenceSuffix;
+
   final bool selected;
   final VoidCallback onTap;
 
@@ -538,6 +631,14 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
+
+    // Always the recurring price — the trial's free phase is never the headline.
+    final price = offer?.displayPrice ?? plan.fallbackPrice;
+
+    // Only the store knows whether THIS user still has a trial left; Play omits
+    // offers you're no longer eligible for. So an absent offer means no promise.
+    final trialDays = offer?.trialDays ?? 0;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -571,7 +672,15 @@ class _PlanCard extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (plan.subtitle != null)
+                  if (trialDays > 0)
+                    Text(
+                      '$trialDays days free, then $price$cadenceSuffix',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else if (plan.subtitle != null)
                     Text(plan.subtitle!,
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant)),

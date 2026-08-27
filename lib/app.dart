@@ -84,6 +84,10 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
         // Re-check entitlement on resume so renewals / lapses / expiry are
         // picked up without a restart.
         ref.read(entitlementsProvider.notifier).refresh();
+        // Returning from the Play billing sheet: clear a stuck purchase spinner
+        // when Android closed it without emitting an event, and retry any
+        // verification that failed while offline.
+        ref.read(entitlementControllerProvider).onAppResumed();
         // Cheap no-op once an update has already been picked up this session.
         ref.read(appUpdateProvider.notifier).check();
         // Android drops the window's preferred display mode when the app is

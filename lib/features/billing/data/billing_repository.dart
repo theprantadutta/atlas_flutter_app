@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:atlas_flutter_app/data/services/api_service.dart';
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
 
@@ -8,11 +10,16 @@ class EntitlementResult {
     required this.isPremium,
     this.premiumUntil,
     this.isLifetime = false,
+    this.isTrial = false,
   });
 
   final bool isPremium;
   final DateTime? premiumUntil;
   final bool isLifetime;
+
+  /// True when the purchase that just unlocked premium started on its free
+  /// trial, so the confirmation can say so instead of implying a charge.
+  final bool isTrial;
 
   factory EntitlementResult.fromJson(Map<String, dynamic> json) {
     final until = json['premium_until'] as String?;
@@ -20,6 +27,7 @@ class EntitlementResult {
       isPremium: json['is_premium'] == true,
       premiumUntil: until == null ? null : DateTime.tryParse(until),
       isLifetime: json['is_lifetime'] == true,
+      isTrial: json['is_trial'] == true,
     );
   }
 }
@@ -53,7 +61,14 @@ class BillingRepository {
   /// usage) from the server-authoritative `GET /entitlements`. The base path
   /// already includes `/api/v1`.
   Future<Entitlements> fetchEntitlements() async {
-    final res = await _api.get('/entitlements');
+    // The platform scopes trial eligibility to the store that would actually grant
+    // it — a prior Play subscription says nothing about an App Store trial.
+    final res = await _api.get(
+      '/entitlements',
+      queryParameters: {
+        'platform': Platform.isIOS || Platform.isMacOS ? 'ios' : 'android',
+      },
+    );
     return Entitlements.fromJson(res.data as Map<String, dynamic>);
   }
 }
