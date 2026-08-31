@@ -16,6 +16,7 @@ import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// You — the home for the person behind the world. A calm hero with avatar,
@@ -481,8 +482,19 @@ class _PremiumRow extends ConsumerWidget {
     final trialLeft = ref.watch(trialDaysRemainingProvider);
     // Only advertise a trial the store says this user can still start.
     final trialOffer = ref.watch(availableTrialDaysProvider);
+    // A Founder has nothing to manage: Play's subscriptions page would be empty
+    // for them, so they keep the paywall, which shows what they already own.
+    final isLifetime =
+        ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+    final manages = isPremium && !isLifetime;
+
     return AtlasCard(
-      onTap: () => context.push('/paywall'),
+      // "Manage your plan" has to actually manage the plan. Sending a subscriber
+      // to the paywall lands them on a purchase screen with nothing to manage,
+      // which is what this row did once Manage subscription left the paywall.
+      onTap: () => manages
+          ? _manage(context, ref)
+          : context.push('/paywall'),
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
       child: Row(
         children: [
@@ -507,7 +519,7 @@ class _PremiumRow extends ConsumerWidget {
                   style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  _subtitle(onTrial, trialLeft, trialOffer),
+                  _subtitle(onTrial, trialLeft, trialOffer, isLifetime),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -524,9 +536,25 @@ class _PremiumRow extends ConsumerWidget {
     );
   }
 
-  String _subtitle(bool onTrial, int? trialLeft, int trialOffer) {
+  /// Open the store's subscription settings, where a plan can actually be
+  /// changed or cancelled.
+  Future<void> _manage(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(entitlementControllerProvider).manageSubscription();
+    } catch (_) {
+      if (!context.mounted) return;
+      AtlasToast.error(context, 'Couldn’t open subscription settings.');
+    }
+  }
+
+  String _subtitle(
+      bool onTrial, int? trialLeft, int trialOffer, bool isLifetime) {
     if (isPremium) {
-      if (!onTrial) return 'Premium active. Manage your plan';
+      if (!onTrial) {
+        return isLifetime
+            ? 'Founder. Premium, yours forever'
+            : 'Premium active. Manage your plan';
+      }
       return trialLeft == null
           ? 'Free trial active. Manage your plan'
           : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
