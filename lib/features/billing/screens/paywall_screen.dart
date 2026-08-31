@@ -247,6 +247,22 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         ref.watch(currentSubscriptionProvider).value?.productID;
     final onSelectedPlan = currentProductId == _selected;
 
+    // A subscriber whose live plan we can name may move to the other one.
+    // Everyone else who is already premium (a Founder, or premium granted
+    // without a store purchase) has nothing to buy, so the plans and every
+    // price and trial line come off the screen entirely. Showing "start your
+    // 7-day free trial" to someone already paying is the exact incoherence
+    // this guards.
+    final canSwitchPlans =
+        isPremium && !isLifetime && currentProductId != null;
+    final showPlans = !isPremium || canSwitchPlans;
+
+    // Switching is between the two subscriptions. The lifetime unlock is a
+    // one-time product, and Play cannot replace a subscription with one.
+    final visiblePlans = canSwitchPlans
+        ? _plans.where((p) => p.productId != AtlasProducts.lifetime).toList()
+        : _plans;
+
     final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
     final selectedOffer = offers[_selected];
     // The store's price is the RECURRING one, never the trial's "$0.00" phase —
@@ -293,25 +309,35 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                             child: _BenefitRow(
                                 icon: b.$1, title: b.$2, subtitle: b.$3),
                           )),
-                      AppSpacing.gapSm,
-                      Text('Choose your plan',
-                          style: theme.textTheme.titleLarge),
-                      AppSpacing.gapMd,
-                      ..._plans.map((plan) => Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: _PlanCard(
-                              plan: plan,
-                              offer: offers[plan.productId],
-                              cadenceSuffix: _shortCadence(plan.productId),
-                              selected: _selected == plan.productId,
-                              onTap: () =>
-                                  setState(() => _selected = plan.productId),
-                            ),
-                          )),
+                      if (showPlans) ...[
+                        AppSpacing.gapSm,
+                        Text(
+                            canSwitchPlans
+                                ? 'Change your plan'
+                                : 'Choose your plan',
+                            style: theme.textTheme.titleLarge),
+                        AppSpacing.gapMd,
+                        ...visiblePlans.map((plan) => Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: _PlanCard(
+                                plan: plan,
+                                offer: offers[plan.productId],
+                                cadenceSuffix: _shortCadence(plan.productId),
+                                selected: _selected == plan.productId,
+                                // The plan they are on is a statement, not an
+                                // option to pick.
+                                isCurrent: plan.productId == currentProductId,
+                                onTap: () =>
+                                    setState(() => _selected = plan.productId),
+                              ),
+                            )),
+                      ],
                       AppSpacing.gapSm,
                       Text(
-                        selectedTrialDays > 0
+                        isPremium
+                            ? 'Manage or cancel any time in Google Play.'
+                            : selectedTrialDays > 0
                             ? 'Free for $selectedTrialDays days, then '
                                 '$selectedPrice${_shortCadence(_selected)}. '
                                 'Cancel anytime before it ends and you won’t be '
@@ -331,21 +357,23 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ],
             ),
           ),
-          _StickyCta(
+          // No bar at all when nothing can be bought: a disabled "Your current
+          // plan" button is still a button, and it invites a tap that does
+          // nothing.
+          if (showPlans)
+            _StickyCta(
             label: busy
                 ? 'Please wait…'
-                : isLifetime
-                    ? 'You own Atlas forever'
-                    : onSelectedPlan
+                : onSelectedPlan
                         ? 'Your current plan'
                         : currentProductId != null
                             ? (_selected == AtlasProducts.yearly
                                 ? 'Switch to yearly · $selectedPrice'
                                 : 'Switch to monthly · $selectedPrice')
-                            : selectedTrialDays > 0
+                            : selectedTrialDays > 0 && !isPremium
                                 ? 'Start your $selectedTrialDays-day free trial'
                                 : 'Continue · $selectedPrice${_shortCadence(_selected)}',
-            trialDays: selectedTrialDays,
+            trialDays: isPremium ? 0 : selectedTrialDays,
             trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
             purchasing: busy,
             // Buying before the store has answered would hand purchase() a null
@@ -770,7 +798,11 @@ class _PlanCard extends StatelessWidget {
     required this.cadenceSuffix,
     required this.selected,
     required this.onTap,
+    this.isCurrent = false,
   });
+
+  /// The plan this account is already on. Marked rather than offered.
+  final bool isCurrent;
 
   final _PlanOption plan;
 
@@ -822,7 +854,10 @@ class _PlanCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(plan.title, style: theme.textTheme.titleLarge),
-                      if (plan.badge != null) ...[
+                      if (isCurrent) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      const _Badge('Current', tone: AppColors.xpPrimary),
+                    ] else if (plan.badge != null) ...[
                         const SizedBox(width: AppSpacing.xs),
                         _Badge(plan.badge!),
                       ],
@@ -888,22 +923,31 @@ class _RadioDot extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.label);
+  const _Badge(this.label, {this.tone});
   final String label;
+
+  /// Gold by default, since these are sales labels. A flat [tone] marks a
+  /// statement of fact instead, like the plan the user is already on.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
+    final flat = tone != null;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xs, vertical: 2),
       decoration: BoxDecoration(
-        gradient: AppColors.goldGradient,
+        gradient: flat ? null : AppColors.goldGradient,
+        color: flat ? tone!.withValues(alpha: 0.18) : null,
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        border: flat
+            ? Border.all(color: tone!.withValues(alpha: 0.45))
+            : null,
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF3A2A00),
+              color: flat ? tone : const Color(0xFF3A2A00),
               fontWeight: FontWeight.w700,
             ),
       ),
