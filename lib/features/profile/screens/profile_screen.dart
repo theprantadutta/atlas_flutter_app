@@ -16,7 +16,6 @@ import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// You — the home for the person behind the world. A calm hero with avatar,
@@ -470,7 +469,8 @@ class _SettingsMenu extends ConsumerWidget {
 }
 
 /// A branded settings entry for premium — an invitation when free, a calm
-/// "Premium active" status (still tappable, to manage) when subscribed.
+/// "Premium active" status when subscribed, which is a statement rather than a
+/// button: someone who already pays has nothing to do here.
 class _PremiumRow extends ConsumerWidget {
   const _PremiumRow({required this.isPremium});
   final bool isPremium;
@@ -482,19 +482,20 @@ class _PremiumRow extends ConsumerWidget {
     final trialLeft = ref.watch(trialDaysRemainingProvider);
     // Only advertise a trial the store says this user can still start.
     final trialOffer = ref.watch(availableTrialDaysProvider);
-    // A Founder has nothing to manage: Play's subscriptions page would be empty
-    // for them, so they keep the paywall, which shows what they already own.
     final isLifetime =
         ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
-    final manages = isPremium && !isLifetime;
 
     return AtlasCard(
-      // "Manage your plan" has to actually manage the plan. Sending a subscriber
-      // to the paywall lands them on a purchase screen with nothing to manage,
-      // which is what this row did once Manage subscription left the paywall.
-      onTap: () => manages
-          ? _manage(context, ref)
-          : context.push('/paywall'),
+      // Inert once premium. This row is an invitation to buy, and there is
+      // nothing left to invite a subscriber to: the paywall is a purchase screen
+      // they have already been through, and sending them out to the store's
+      // subscription page is a jarring exit from the app for something they did
+      // not ask for. Cancelling lives in the store, and that is where people
+      // already look for it.
+      // Always the paywall, never the store. A subscriber goes there to see
+      // what they are on and to switch plans; being thrown out to Play's
+      // subscription page for that is a jarring exit from the app.
+      onTap: () => context.push('/paywall'),
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
       child: Row(
         children: [
@@ -527,24 +528,19 @@ class _PremiumRow extends ConsumerWidget {
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          // A chevron promises somewhere to go. Premium gets a quiet mark that
+          // the thing is on instead.
+          if (isPremium)
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.xpPrimary, size: 22)
+          else
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
     );
-  }
-
-  /// Open the store's subscription settings, where a plan can actually be
-  /// changed or cancelled.
-  Future<void> _manage(BuildContext context, WidgetRef ref) async {
-    try {
-      await ref.read(entitlementControllerProvider).manageSubscription();
-    } catch (_) {
-      if (!context.mounted) return;
-      AtlasToast.error(context, 'Couldn’t open subscription settings.');
-    }
   }
 
   String _subtitle(
@@ -553,10 +549,10 @@ class _PremiumRow extends ConsumerWidget {
       if (!onTrial) {
         return isLifetime
             ? 'Founder. Premium, yours forever'
-            : 'Premium active. Manage your plan';
+            : 'Premium active';
       }
       return trialLeft == null
-          ? 'Free trial active. Manage your plan'
+          ? 'Free trial active'
           : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
     }
     return trialOffer > 0

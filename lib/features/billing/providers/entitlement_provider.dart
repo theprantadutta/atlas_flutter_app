@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'dart:io' show Platform;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
@@ -180,6 +184,18 @@ final isOnTrialProvider = Provider<bool>((ref) {
 });
 
 /// Whole days left in the free trial, or null when not on one.
+/// The subscription this account currently holds at the store, or null.
+///
+/// Read from the store rather than from our entitlement snapshot, because a
+/// plan change needs the actual purchase object Play issued, and because the
+/// store is the only place that knows which base plan is live. Falls back to a
+/// restore on a cold start, so it can take a moment.
+final currentSubscriptionProvider =
+    FutureProvider<GooglePlayPurchaseDetails?>((ref) async {
+  if (!Platform.isAndroid) return null;
+  return ref.read(entitlementServiceProvider).currentSubscription();
+});
+
 final trialDaysRemainingProvider = Provider<int?>((ref) {
   return ref.watch(entitlementsProvider).entitlements?.trialDaysRemaining;
 });
@@ -236,12 +252,23 @@ class EntitlementController {
   /// debug build that falls back to the dev token so the paywall is still
   /// exercisable, and in release it's surfaced as a store error rather than
   /// silently faking a purchase.
-  Future<EntitlementResult> purchase(String productId, {AtlasOffer? offer}) async {
+  /// Pass [replacing] and [replacementMode] to switch an existing subscription
+  /// rather than start a new one.
+  Future<EntitlementResult> purchase(
+    String productId, {
+    AtlasOffer? offer,
+    GooglePlayPurchaseDetails? replacing,
+    ReplacementMode? replacementMode,
+  }) async {
     final service = _ref.read(entitlementServiceProvider);
 
     final EntitlementResult result;
     if (offer != null) {
-      result = await service.purchase(offer);
+      result = await service.purchase(
+        offer,
+        replacing: replacing,
+        replacementMode: replacementMode,
+      );
     } else if (EntitlementService.devFallbackAllowed) {
       result = await service.purchaseDevFallback(productId);
     } else {

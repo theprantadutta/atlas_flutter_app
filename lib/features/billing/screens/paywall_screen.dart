@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/legal_config.dart';
@@ -110,20 +111,49 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   Map<String, AtlasOffer> get _offers =>
       ref.read(offersProvider).value ?? const {};
 
+  /// How Play should bill a switch.
+  ///
+  /// Upgrading charges now and credits the unused time, so premium never lapses
+  /// and the user gets what they just paid for. Downgrading waits for the period
+  /// they already paid for to run out: charging now would mean refunding the
+  /// remainder of a year, and nobody expects a downgrade to move money.
+  ReplacementMode _replacementModeFor(String target) =>
+      target == AtlasProducts.yearly
+          ? ReplacementMode.chargeProratedPrice
+          : ReplacementMode.deferred;
+
   Future<void> _purchase() async {
     setState(() => _purchasing = true);
     try {
-      final result = await ref
-          .read(entitlementControllerProvider)
-          .purchase(_selected, offer: _offers[_selected]);
+      final current = ref.read(currentSubscriptionProvider).value;
+      // Switching from an existing subscription is a replacement, not a new
+      // purchase; Play rejects the latter as "already owned".
+      final replacing =
+          current != null && current.productID != _selected ? current : null;
+
+      final result = await ref.read(entitlementControllerProvider).purchase(
+            _selected,
+            offer: _offers[_selected],
+            replacing: replacing,
+            replacementMode:
+                replacing == null ? null : _replacementModeFor(_selected),
+          );
       if (!mounted) return;
       if (result.isPremium) {
+        final switched = ref.read(currentSubscriptionProvider).value != null &&
+            ref.read(currentSubscriptionProvider).value!.productID != _selected;
         AtlasToast.success(
           context,
-          result.isTrial
-              ? 'Your free trial has started ✨'
-              : 'Welcome to Atlas premium ✨',
+          switched
+              ? (_selected == AtlasProducts.yearly
+                  ? 'Switched to yearly ✨'
+                  : 'You will move to monthly when this period ends')
+              : result.isTrial
+                  ? 'Your free trial has started ✨'
+                  : 'Welcome to Atlas premium ✨',
         );
+        // The plan changed, so the cached purchase is stale.
+        ref.invalidate(currentSubscriptionProvider);
         context.pop();
       } else {
         AtlasToast.warning(
@@ -208,6 +238,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final offersLoading = offersAsync.isLoading && !kDebugMode;
     final busy = _purchasing || _restoring;
 
+    // What this account already holds. A subscriber opening the paywall is here
+    // to see their plan or move between plans, not to be sold to again.
+    final isPremium = ref.watch(isPremiumProvider);
+    final isLifetime =
+        ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+    final currentProductId =
+        ref.watch(currentSubscriptionProvider).value?.productID;
+    final onSelectedPlan = currentProductId == _selected;
+
     final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
     final selectedOffer = offers[_selected];
     // The store's price is the RECURRING one, never the trial's "$0.00" phase —
@@ -235,7 +274,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Everything in Aurora',
+                      if (isPremium) ...[
+                        _PremiumBanner(
+                          isLifetime: isLifetime,
+                          currentProductId: currentProductId,
+                        ),
+                        AppSpacing.gapLg,
+                      ],
+                      Text(
+                          isPremium
+                              ? 'What you have'
+                              : 'Everything in Aurora',
                           style: theme.textTheme.titleLarge),
                       AppSpacing.gapMd,
                       ..._benefits.map((b) => Padding(
@@ -285,16 +334,111 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           _StickyCta(
             label: busy
                 ? 'Please wait…'
-                : selectedTrialDays > 0
-                    ? 'Start your $selectedTrialDays-day free trial'
-                    : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+                : isLifetime
+                    ? 'You own Atlas forever'
+                    : onSelectedPlan
+                        ? 'Your current plan'
+                        : currentProductId != null
+                            ? (_selected == AtlasProducts.yearly
+                                ? 'Switch to yearly · $selectedPrice'
+                                : 'Switch to monthly · $selectedPrice')
+                            : selectedTrialDays > 0
+                                ? 'Start your $selectedTrialDays-day free trial'
+                                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
             trialDays: selectedTrialDays,
             trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
             purchasing: busy,
             // Buying before the store has answered would hand purchase() a null
             // offer, which in release reads as "that plan isn't available" —
             // a confusing error for a store that is merely slow.
-            onContinue: busy || offersLoading ? null : _purchase,
+            // Nothing to do on a plan you already hold, and a Founder has
+            // nothing left to buy at all.
+            onContinue: busy || offersLoading || isLifetime || onSelectedPlan
+                ? null
+                : _purchase,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tells a subscriber where they stand, so the paywall stops reading as a
+/// sales page to someone who has already bought.
+class _PremiumBanner extends StatelessWidget {
+  const _PremiumBanner({
+    required this.isLifetime,
+    required this.currentProductId,
+  });
+
+  final bool isLifetime;
+
+  /// Null while the store is still being asked, which is why the copy below
+  /// never claims a specific plan it cannot name.
+  final String? currentProductId;
+
+  String get _planName => switch (currentProductId) {
+        AtlasProducts.yearly => 'Yearly',
+        AtlasProducts.monthly => 'Monthly',
+        _ => '',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final line = isLifetime
+        ? 'You are a Founder. Every premium feature, yours forever.'
+        : _planName.isEmpty
+            ? 'Your subscription is active.'
+            : 'You are on the $_planName plan.';
+
+    final hint = isLifetime
+        ? null
+        : _planName.isEmpty
+            ? null
+            : 'Choose the other plan below to switch. Manage or cancel any time '
+                'in Google Play.';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.xpPrimary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.xpPrimary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_rounded,
+              color: AppColors.xpPrimary, size: 22),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Premium active',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(color: AppColors.xpPrimary)),
+                Text(
+                  line,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                if (hint != null) ...[
+                  AppSpacing.gapXs,
+                  Text(
+                    hint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),

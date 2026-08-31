@@ -4,6 +4,10 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:in_app_purchase/in_app_purchase.dart';
+// Plan switching is Play-specific: the old purchase and the replacement mode
+// have no equivalent in the platform-agnostic API.
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -183,7 +187,14 @@ class EntitlementService {
   /// Buy [offer] and verify it with the backend. Returns the resulting entitlement.
   /// Throws [PurchaseCancelledException] if the user backs out, or [StoreException]
   /// when the store itself refuses.
-  Future<EntitlementResult> purchase(AtlasOffer offer) async {
+  /// Pass [replacing] to switch plans rather than start a new subscription.
+  /// [replacementMode] decides the billing: prorated and immediate for an
+  /// upgrade, deferred to the next renewal for a downgrade.
+  Future<EntitlementResult> purchase(
+    AtlasOffer offer, {
+    GooglePlayPurchaseDetails? replacing,
+    ReplacementMode? replacementMode,
+  }) async {
     await start();
 
     final productId = offer.productId;
@@ -193,10 +204,24 @@ class EntitlementService {
     try {
       // Tag the purchase with our user id so the RTDN webhook can recover it. Null
       // when unauthenticated — the buy still works, just without webhook recovery.
-      final param = PurchaseParam(
-        productDetails: offer.details,
-        applicationUserName: _userIdGetter?.call(),
-      );
+      // Switching plans is not a fresh purchase: Play needs the subscription
+      // being replaced, or it rejects the buy as "already owned".
+      final PurchaseParam param;
+      if (replacing != null && offer.details is GooglePlayProductDetails) {
+        param = GooglePlayPurchaseParam(
+          productDetails: offer.details,
+          applicationUserName: _userIdGetter?.call(),
+          changeSubscriptionParam: ChangeSubscriptionParam(
+            oldPurchaseDetails: replacing,
+            replacementMode: replacementMode,
+          ),
+        );
+      } else {
+        param = PurchaseParam(
+          productDetails: offer.details,
+          applicationUserName: _userIdGetter?.call(),
+        );
+      }
 
       // Every Atlas product is non-consumable: subscriptions and the lifetime
       // unlock are both owned, never spent.
@@ -212,6 +237,36 @@ class EntitlementService {
       _pending.remove(productId);
       _inFlight.remove(productId);
     }
+  }
+
+  /// The live subscription purchase, when the store has told us about one.
+  ///
+  /// Play requires the OLD purchase to be named when switching plans, and the
+  /// only place that object exists is the purchase stream. Cached from whatever
+  /// the stream last reported as owned.
+  GooglePlayPurchaseDetails? _ownedSubscription;
+
+  void _rememberSubscription(PurchaseDetails purchase) {
+    if (purchase is! GooglePlayPurchaseDetails) return;
+    if (purchase.productID == AtlasProducts.lifetime) return;
+    if (!AtlasProducts.all.contains(purchase.productID)) return;
+    _ownedSubscription = purchase;
+  }
+
+  /// The subscription this account currently holds, or null.
+  ///
+  /// Falls back to a restore, because the stream only speaks when something
+  /// happens: on a cold start nothing has been purchased or replayed yet, so
+  /// the cache is empty even for a long-standing subscriber.
+  Future<GooglePlayPurchaseDetails?> currentSubscription() async {
+    if (_ownedSubscription != null) return _ownedSubscription;
+    if (!Platform.isAndroid) return null;
+    try {
+      await restore();
+    } catch (e) {
+      _log.w('Could not read the current subscription: $e');
+    }
+    return _ownedSubscription;
   }
 
   /// Debug-only fallback so the full flow is exercisable without a store listing.
@@ -311,6 +366,7 @@ class EntitlementService {
   }
 
   Future<void> _handleOwned(PurchaseDetails purchase) async {
+    _rememberSubscription(purchase);
     final id = purchase.purchaseID;
     if (id != null && _verifiedPurchaseIds.contains(id)) {
       // A restore replays everything the account owns on every call; verifying the
