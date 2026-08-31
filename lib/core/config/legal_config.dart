@@ -33,19 +33,26 @@ class LegalConfig {
     bool trialEligibilityKnown = true,
   }) {
     final isApple = Platform.isIOS || Platform.isMacOS;
-    final account = isApple ? 'Apple ID' : 'Google Play account';
     final store = isApple ? 'App Store' : 'Google Play';
 
+    // Kept to what the stores actually require, because this sits on the
+    // purchase screen and every line of it pushes the benefits out of view.
+    // The long version stated the cancel-24-hours rule twice (once for the
+    // trial, once for the renewal) and spent a sentence on the account being
+    // charged on confirmation, which no guideline asks for and no reader needs.
     final trial = trialDays > 0
-        ? '${trialEligibilityKnown ? 'Your' : 'The'} $trialDays-day free trial'
-            '${trialEligibilityKnown ? '' : ', available to new subscribers,'} '
-            'converts to a paid subscription unless you cancel at least 24 hours '
-            'before it ends. '
+        ? '${trialEligibilityKnown ? 'Your' : 'A'} $trialDays-day free trial'
+            '${trialEligibilityKnown ? '' : ' for new subscribers'} '
+            'converts to a paid subscription unless cancelled 24h before it '
+            'ends. '
         : '';
 
-    return '${trial}Subscriptions renew automatically unless cancelled at least '
-        '24 hours before the end of the current period. Your $account is charged '
-        'on confirmation of purchase, and renewals are billed to the same '
-        'account. Manage or cancel any time in your $store account settings.';
+    // With a trial, the conversion sentence above already carries the renewal
+    // terms; without one they still have to be stated.
+    final renewal = trialDays > 0
+        ? ''
+        : 'Renews automatically until cancelled. ';
+
+    return '$trial${renewal}Cancel any time in $store.';
   }
 }

@@ -163,17 +163,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
-  Future<void> _manageSubscription() async {
-    try {
-      await ref
-          .read(entitlementControllerProvider)
-          .manageSubscription(productId: _selected);
-    } catch (_) {
-      if (!mounted) return;
-      AtlasToast.error(context, 'Couldn’t open subscription settings.');
-    }
-  }
-
   Future<void> _restore() async {
     setState(() => _restoring = true);
     try {
@@ -233,7 +222,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _Hero(onClose: () => context.pop())
+                _Hero(
+                  onClose: () => context.pop(),
+                  onRestore: busy ? null : _restore,
+                  restoring: _restoring,
+                )
                     .animate()
                     .fadeIn(duration: AppMotion.medium),
                 Padding(
@@ -302,8 +295,6 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             // offer, which in release reads as "that plan isn't available" —
             // a confusing error for a store that is merely slow.
             onContinue: busy || offersLoading ? null : _purchase,
-            onRestore: busy ? null : _restore,
-            onManage: busy ? null : _manageSubscription,
           ),
         ],
       ),
@@ -314,8 +305,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 // ─── Hero (full-bleed, atmospheric) ─────────────────────────────────
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.onClose});
+  const _Hero({
+    required this.onClose,
+    required this.onRestore,
+    required this.restoring,
+  });
+
   final VoidCallback onClose;
+
+  /// Null while a purchase or restore is already running.
+  final VoidCallback? onRestore;
+  final bool restoring;
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +363,41 @@ class _Hero extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.all(AppSpacing.xs),
                   child: Icon(Icons.close_rounded, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          // Restore sits opposite the close button rather than under the CTA.
+          // It is a rare, recovery-shaped action: people who already paid come
+          // looking for it, and everyone else should not have to scroll past it
+          // to read what they are buying.
+          Positioned(
+            top: topInset + AppSpacing.xxs,
+            right: AppSpacing.xs,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onRestore,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                  child: restoring
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(
+                          'Restore',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: Colors.white
+                                .withValues(alpha: onRestore == null ? 0.5 : 1),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -424,8 +459,6 @@ class _StickyCta extends StatelessWidget {
     required this.trialEligibilityKnown,
     required this.purchasing,
     required this.onContinue,
-    required this.onRestore,
-    required this.onManage,
   });
 
   final String label;
@@ -433,8 +466,6 @@ class _StickyCta extends StatelessWidget {
   final bool trialEligibilityKnown;
   final bool purchasing;
   final VoidCallback? onContinue;
-  final VoidCallback? onRestore;
-  final VoidCallback? onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -465,25 +496,6 @@ class _StickyCta extends StatelessWidget {
                 icon: Icons.auto_awesome_rounded,
                 isLoading: purchasing,
                 onPressed: onContinue,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: onRestore,
-                    child: Text('Restore',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ),
-                  Text('·',
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-                  TextButton(
-                    onPressed: onManage,
-                    child: Text('Manage subscription',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ),
-                ],
               ),
               // Guideline 3.1.2 requires the renewal terms plus links to the
               // terms/EULA and privacy policy on the purchase screen itself.
