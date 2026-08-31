@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
+import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
 /// Set once the primer has been shown, so it is only ever asked once.
 const _kPrimerShown = 'atlas_notification_primer_shown';
@@ -50,9 +51,21 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
     // said yes but stays unreachable until the next cold start, because the
     // token is only picked up at launch when permission already exists.
     await ref.read(fcmServiceProvider).onPermissionGranted();
+    return true;
   }
 
-  return granted;
+  // Saying yes here and getting nothing is the confusing case. Android stops
+  // showing its dialog once a denial is marked USER_FIXED, so requesting again
+  // returns false without any UI at all; from the user's side the button simply
+  // did nothing. Say where the switch actually lives instead.
+  if (context.mounted) {
+    AtlasToast.warning(
+      context,
+      'Notifications are blocked for Atlas. You can turn them on in your '
+      'device settings.',
+    );
+  }
+  return false;
 }
 
 /// Show the primer once, when Atlas has earned the ask.
