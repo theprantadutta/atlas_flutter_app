@@ -149,7 +149,35 @@ class EntitlementService {
     if (response.notFoundIDs.isNotEmpty) {
       _log.w('Products missing from the store: ${response.notFoundIDs}');
     }
-    return resolveOffers(response.productDetails);
+
+    final offers = resolveOffers(response.productDetails);
+    _reportTrialMismatches(offers);
+    return offers;
+  }
+
+  /// Warn when the store grants a shorter trial than the one configured for a
+  /// product, or none at all.
+  ///
+  /// The paywall only ever promises what the store confirms, because a trial the
+  /// store will not honour turns "start your free trial" into an immediate
+  /// charge. That is the right policy, but on its own it fails silently: an
+  /// offer that is inactive, still propagating, attached to the wrong base plan,
+  /// or filtered out because this account is not eligible all look identical to
+  /// a product that never had a trial. This is the only place the two can be
+  /// compared, so it is the only place that difference can be noticed.
+  void _reportTrialMismatches(Map<String, AtlasOffer> offers) {
+    AtlasProducts.declaredTrialDays.forEach((productId, declared) {
+      final offer = offers[productId];
+      if (offer == null) return;
+      if (offer.trialDays >= declared) return;
+
+      _log.w(
+        'Store trial for $productId is ${offer.trialDays} day(s), but $declared '
+        'is configured. The paywall will show what the store returned. Usual '
+        'causes: the offer is not Active, it has not propagated yet, it is on a '
+        'different base plan, or this account is not eligible for it.',
+      );
+    });
   }
 
   /// Buy [offer] and verify it with the backend. Returns the resulting entitlement.
