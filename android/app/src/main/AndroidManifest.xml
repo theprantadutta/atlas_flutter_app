@@ -4,12 +4,12 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- Reminders are scheduled with AndroidScheduleMode.inexactAllowWhileIdle,
-         so Atlas needs no exact-alarm capability. USE_EXACT_ALARM is restricted
-         to alarm-clock and calendar apps, which Atlas is not. Both are stripped
-         here so they cannot arrive via a dependency's merged manifest. -->
+    <!-- Atlas schedules nothing on the device: every notification is pushed
+         from the backend over FCM, and the local plugin only draws one that
+         arrives while the app is foregrounded. So there is no alarm to keep,
+         exact or otherwise. Both are stripped here so they cannot arrive via a
+         dependency's merged manifest. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
         tools:node="remove" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"
@@ -39,25 +39,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
-        <!-- flutter_local_notifications: Scheduled notification receiver -->
-        <receiver android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-
-        <!-- flutter_local_notifications: Boot receiver to reschedule notifications after reboot -->
-        <receiver android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
-            </intent-filter>
-        </receiver>
-
-        <!-- flutter_local_notifications: Action broadcast receiver -->
-        <receiver android:exported="false"
-            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
 
         <meta-data
             android:name="flutterEmbedding"
