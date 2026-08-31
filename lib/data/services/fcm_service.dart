@@ -19,44 +19,88 @@ class FcmService {
 
   FcmService(this._apiService, this._tokenService);
 
-  /// Request permissions, obtain the FCM token, and start listening for
-  /// token refreshes and foreground messages.
+  /// Whether push is already authorised. Read-only: this never shows a prompt.
+  Future<bool> hasPermission() async {
+    try {
+      final settings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+    } catch (e) {
+      _log.w('[FCM] Could not read notification settings: $e');
+      return false;
+    }
+  }
+
+  /// Start listening for token refreshes and messages, and pick up the token
+  /// if push is already authorised.
+  ///
+  /// This deliberately does **not** ask for permission. It used to, with a
+  /// comment claiming Android auto-grants; that stopped being true at Android
+  /// 13, and since this runs at app start it meant the bare system dialog
+  /// appeared on a cold launch, ahead of the in-app primer that exists to
+  /// explain it. The OS ask is one-shot, so spending it that way is the whole
+  /// problem the primer solves. Permission is requested only through
+  /// [requestPermission], from a screen where the ask has context.
   Future<void> initialize() async {
     try {
       final messaging = FirebaseMessaging.instance;
 
-      // Request permission (iOS shows a dialog; Android auto-grants)
-      final settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        _log.w('[FCM] Notification permission denied');
-        return;
-      }
-
-      // Get the current FCM token
-      _currentToken = await messaging.getToken();
-      _log.d('[FCM] Token obtained: ${_currentToken?.substring(0, 20)}...');
-
-      // Listen for token refreshes
+      // Listeners are cheap and permission-independent: a user who grants
+      // later should not need a restart for messages to arrive.
       messaging.onTokenRefresh.listen((newToken) {
         _log.d('[FCM] Token refreshed');
         _currentToken = newToken;
         registerToken();
       });
-
-      // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-      // Handle notification tap when app was in background
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+
+      if (await hasPermission()) {
+        await _fetchToken();
+      } else {
+        _log.i('[FCM] Not authorised yet; deferring token until permission.');
+      }
     } catch (e) {
       _log.e('[FCM] Initialization failed: $e');
     }
+  }
+
+  /// Ask the OS for push permission. Shows the system dialog, so call it only
+  /// once the user has said yes to the in-app primer.
+  Future<bool> requestPermission() async {
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+      final granted =
+          settings.authorizationStatus == AuthorizationStatus.authorized ||
+              settings.authorizationStatus == AuthorizationStatus.provisional;
+      _log.i('[FCM] Permission status: ${settings.authorizationStatus}');
+      if (granted) await onPermissionGranted();
+      return granted;
+    } catch (e) {
+      _log.e('[FCM] Permission request failed: $e');
+      return false;
+    }
+  }
+
+  /// Pick up and register the token after permission is granted elsewhere.
+  /// Without this, a user who accepts stays unreachable until the next launch.
+  Future<void> onPermissionGranted() async {
+    await _fetchToken();
+    await registerToken();
+  }
+
+  Future<void> _fetchToken() async {
+    _currentToken = await FirebaseMessaging.instance.getToken();
+    final preview = _currentToken == null
+        ? 'none'
+        : '${_currentToken!.substring(0, 20)}...';
+    _log.d('[FCM] Token obtained: $preview');
   }
 
   /// Register the current FCM token with the backend.

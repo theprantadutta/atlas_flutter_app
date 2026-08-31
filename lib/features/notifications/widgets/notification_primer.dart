@@ -37,9 +37,21 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
 
   if (optedIn != true) return false;
 
+  // One OS permission covers both kinds of notification, so this single prompt
+  // is the whole ask: POST_NOTIFICATIONS on Android, UNUserNotificationCenter
+  // on iOS. Local notifications go first because that call also asks for exact
+  // alarms, which the scheduled reminders need.
   final granted =
       await ref.read(localNotificationServiceProvider).requestPermissions();
   _log.i('Notification permission after primer: $granted');
+
+  if (granted) {
+    // Push needs its token fetched and registered now. Without this the user
+    // said yes but stays unreachable until the next cold start, because the
+    // token is only picked up at launch when permission already exists.
+    await ref.read(fcmServiceProvider).onPermissionGranted();
+  }
+
   return granted;
 }
 

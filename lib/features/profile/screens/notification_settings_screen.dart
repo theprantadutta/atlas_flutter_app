@@ -76,8 +76,16 @@ class _NotificationSettingsScreenState
 
     final granted =
         await ref.read(localNotificationServiceProvider).requestPermissions();
-    if (!mounted || granted) return;
 
+    if (granted) {
+      // Push stays unreachable until the token is fetched and registered, and
+      // that only happens at launch when permission already exists. Same reason
+      // the primer does this.
+      await ref.read(fcmServiceProvider).onPermissionGranted();
+      return;
+    }
+
+    if (!mounted) return;
     setState(() => _settings[index].value = false);
     AtlasToast.warning(
       context,
