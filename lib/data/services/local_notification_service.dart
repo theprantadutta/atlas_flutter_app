@@ -115,11 +115,21 @@ class LocalNotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin == null) return false;
 
-    final granted = await androidPlugin.requestNotificationsPermission();
-    // Exact alarms (Android 14+) back the scheduled reminders.
-    await androidPlugin.requestExactAlarmsPermission();
+    // Notifications, and nothing else. There is deliberately no exact-alarm
+    // request here: every reminder Atlas schedules uses
+    // AndroidScheduleMode.inexactAllowWhileIdle, and the manifest strips
+    // SCHEDULE_EXACT_ALARM and USE_EXACT_ALARM with tools:node="remove"
+    // precisely because a habit tracker is not an alarm clock.
+    //
+    // This used to call requestExactAlarmsPermission unconditionally. That has
+    // no dialog: it fires an intent that opens the full "Alarms & reminders"
+    // settings screen. So a user who had permanently denied notifications saw
+    // no prompt at all (Android stops showing it once the denial is USER_FIXED)
+    // and was then dumped into system settings, asking for a capability the app
+    // had explicitly given up.
+    final granted = await androidPlugin.requestNotificationsPermission() ?? false;
     _log.i('[LocalNotification] Android permission granted: $granted');
-    return granted ?? false;
+    return granted;
   }
 
   /// Show an immediate local notification.
