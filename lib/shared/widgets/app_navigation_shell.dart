@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
+import 'package:atlas_flutter_app/features/notifications/widgets/notification_primer.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
@@ -28,6 +30,11 @@ class AppNavigationShell extends ConsumerStatefulWidget {
 class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
   /// When the last unanswered back press happened, or null if there isn't one.
   DateTime? _armedAt;
+
+  /// Whether the notification primer has already been considered this session.
+  /// The primer keeps its own persistent "asked once" flag; this only stops the
+  /// check firing again on every rebuild.
+  bool _primerConsidered = false;
 
   @override
   void didUpdateWidget(AppNavigationShell old) {
@@ -93,11 +100,35 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     AtlasToast.info(context, 'Press back again to leave Atlas.');
   }
 
+  /// Ask about notifications once the tour is out of the way.
+  ///
+  /// Home is the right place and the wrong time is any earlier: the OS prompt
+  /// is one-shot, so it should be spent on someone who has seen what Atlas
+  /// does, not on a stranger at cold start.
+  void _considerNotificationPrimer(OnboardingState onboarding, int tabIndex) {
+    if (_primerConsidered) return;
+    if (tabIndex != 0) return;
+    if (!onboarding.loaded ||
+        !onboarding.setupComplete ||
+        !onboarding.coachMarksSeen) {
+      return;
+    }
+
+    _primerConsidered = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      maybeShowNotificationPrimer(context, ref, tourFinished: true);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = widget.navigationShell;
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final coachKeys = ref.watch(coachMarkKeysProvider);
+
+    _considerNotificationPrimer(
+        ref.watch(onboardingProvider), shell.currentIndex);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {

@@ -73,6 +73,25 @@ class LocalNotificationService {
     _log.i('[LocalNotification] Initialized (permission not yet requested)');
   }
 
+  /// Whether Atlas may currently post notifications.
+  ///
+  /// Read-only: unlike [requestPermissions] this never shows a system prompt,
+  /// so it is safe to call before deciding whether to ask at all. Someone who
+  /// already said yes should not be asked again, and neither should someone who
+  /// turned them on from system settings without ever seeing our prompt.
+  Future<bool> hasPermission() async {
+    if (Platform.isIOS) {
+      final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      final options = await iosPlugin?.checkPermissions();
+      return options?.isEnabled ?? false;
+    }
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    return await androidPlugin?.areNotificationsEnabled() ?? false;
+  }
+
   /// Ask the OS for notification permission.
   ///
   /// Call this only from a context where the user has just expressed intent —
