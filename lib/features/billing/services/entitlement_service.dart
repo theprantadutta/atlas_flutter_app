@@ -66,7 +66,9 @@ class EntitlementService {
 
   StreamSubscription<Purchase>? _purchaseSub;
   StreamSubscription<PurchaseError>? _errorSub;
-  bool _started = false;
+
+  /// The in-flight (or completed) connection attempt, shared by every caller.
+  Future<void>? _starting;
   bool _connected = false;
 
   /// Fires whenever the store hands us a purchase this account owns. Carries the
@@ -123,14 +125,20 @@ class EntitlementService {
     _userIdGetter = getUserId;
   }
 
-  /// Begin listening for store events. Idempotent.
+  /// Begin listening for store events. Idempotent, and safe to await while an
+  /// earlier call is still connecting.
   ///
-  /// Both listeners are attached BEFORE the connection opens, or a store that
-  /// replays something immediately delivers it to nobody.
-  Future<void> start() async {
-    if (_started) return;
-    _started = true;
+  /// Every caller gets the SAME future, so awaiting it always means "the store
+  /// has finished connecting". A flag set before the await would let the second
+  /// caller return while the first is still opening the connection: the app
+  /// starts this unawaited at launch, so the paywall's own `await start()` came
+  /// back instantly with `_connected` still false, loadOffers bailed out with no
+  /// products, and the FutureProvider cached that empty answer for the rest of
+  /// the session. Every plan then read as unavailable, on a store that was
+  /// connected a few hundred milliseconds later.
+  Future<void> start() => _starting ??= _start();
 
+  Future<void> _start() async {
     _purchaseSub = _iap.purchaseUpdatedListener.listen(
       (purchase) => unawaited(_onPurchase(purchase)),
       onError: (Object e, StackTrace st) =>
@@ -158,7 +166,7 @@ class EntitlementService {
     _owned.close();
     if (_connected) unawaited(_iap.endConnection());
     _connected = false;
-    _started = false;
+    _starting = null;
   }
 
   /// Whether a real store purchase is possible right now. The paywall uses this
@@ -351,7 +359,7 @@ class EntitlementService {
   /// purchase completed on another device, a deferred payment that cleared
   /// while the app was closed, and a verification that failed the first time.
   Future<void> reconcileStoreState() async {
-    if (!_started) return;
+    if (_starting == null) return;
     if (!_connected) return;
     await _reconcile(announceEmpty: false);
   }
