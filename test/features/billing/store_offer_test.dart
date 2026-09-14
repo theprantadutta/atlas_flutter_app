@@ -1,13 +1,19 @@
+import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
 import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 
-/// Platform-agnostic checks on the pieces of the billing flow that decide what a
-/// user is *told* and *charged* — the parts where an Android/iOS difference would
-/// quietly show the wrong price or promise a trial that won't apply.
+import 'billing_fixtures.dart';
+
+/// What a user is *told* and *charged*: the parts where an Android/iOS
+/// difference would quietly show the wrong price or promise a trial that will
+/// not apply.
+///
+/// The store's own product types say which platform answered, so both are
+/// covered here on any host. The previous suite could only test the shared
+/// fallback path, because it had to branch on the host Platform.
 void main() {
   group('offer resolution', () {
     test('ignores products that are not Atlas plans', () {
@@ -29,11 +35,61 @@ void main() {
     test('keeps one offer per product id', () {
       final offers = resolveOffers([
         _plain(AtlasProducts.monthly),
-        _plain(AtlasProducts.monthly),
         _plain(AtlasProducts.yearly),
       ]);
       expect(offers.keys, containsAll([AtlasProducts.monthly, AtlasProducts.yearly]));
       expect(offers, hasLength(2));
+    });
+
+    test('shows the recurring price, not the free phase the store leads with', () {
+      // A subscription's displayPrice is its FIRST pricing phase, which reads
+      // "Free" whenever a trial comes first. Showing that would tell the user a
+      // paid plan costs nothing.
+      final offers = resolveOffers([
+        androidSubscription(
+          AtlasProducts.monthly,
+          displayPrice: 'Free',
+          offers: [trialOffer(offerToken: 'tok')],
+        ),
+      ]);
+
+      expect(offers[AtlasProducts.monthly]!.displayPrice, r'$9.99');
+    });
+
+    test('reads the trial length Play actually returned', () {
+      final offers = resolveOffers([
+        androidSubscription(
+          AtlasProducts.yearly,
+          offers: [trialOffer(offerToken: 'tok', period: 'P7D')],
+        ),
+      ]);
+
+      final offer = offers[AtlasProducts.yearly]!;
+      expect(offer.trialDays, 7);
+      expect(offer.trialEligibilityKnown, isTrue,
+          reason: 'Play only returns offers this account can still use');
+    });
+
+    test('an iOS trial arrives hedged, because StoreKit hides eligibility', () {
+      final offers = resolveOffers([
+        iosSubscription(AtlasProducts.monthly, offers: [
+          SubscriptionOffer(
+            displayPrice: 'Free',
+            id: 'intro',
+            price: 0,
+            type: DiscountOfferType.Introductory,
+            paymentMode: PaymentMode.FreeTrial,
+            period: const SubscriptionPeriod(
+                unit: SubscriptionPeriodUnit.Day, value: 3),
+            periodCount: 1,
+          ),
+        ]),
+      ]);
+
+      final offer = offers[AtlasProducts.monthly]!;
+      expect(offer.trialDays, 3);
+      expect(offer.trialEligibilityKnown, isFalse,
+          reason: 'a returning subscriber would be charged immediately');
     });
 
     test('an offer with no trial defaults to eligibility-known', () {
@@ -49,7 +105,7 @@ void main() {
     // used it, so on iOS the offer arrives "unknown" and the server decides.
     final unknown = AtlasOffer(
       productId: AtlasProducts.monthly,
-      details: _plain(AtlasProducts.monthly),
+      product: _plain(AtlasProducts.monthly),
       displayPrice: r'$9.99',
       trialDays: 3,
       trialEligibilityKnown: false,
@@ -86,7 +142,7 @@ void main() {
     test('leaves Android offers alone — Play already filtered them', () {
       final androidOffer = AtlasOffer(
         productId: AtlasProducts.monthly,
-        details: _plain(AtlasProducts.monthly),
+        product: _plain(AtlasProducts.monthly),
         displayPrice: r'$9.99',
         trialDays: 3,
         trialEligibilityKnown: true,
@@ -208,13 +264,11 @@ void main() {
   });
 }
 
-ProductDetails _plain(String id) => ProductDetails(
-      id: id,
-      title: 'Atlas Aurora',
-      description: '',
+/// A product with no offers attached: the lifetime unlock, and the shape a
+/// subscription takes before the store has any offer to report.
+ProductAndroid _plain(String id) => androidProduct(
+      id,
       price: id == AtlasProducts.lifetime ? r'$199.99' : r'$9.99',
-      rawPrice: id == AtlasProducts.lifetime ? 199.99 : 9.99,
-      currencyCode: 'USD',
     );
 
 Entitlements _entitlements({

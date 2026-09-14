@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
 import 'package:go_router/go_router.dart';
-import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/legal_config.dart';
@@ -117,10 +117,10 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   /// and the user gets what they just paid for. Downgrading waits for the period
   /// they already paid for to run out: charging now would mean refunding the
   /// remainder of a year, and nobody expects a downgrade to move money.
-  ReplacementMode _replacementModeFor(String target) =>
+  SubscriptionReplacementModeAndroid _replacementModeFor(String target) =>
       target == AtlasProducts.yearly
-          ? ReplacementMode.chargeProratedPrice
-          : ReplacementMode.deferred;
+          ? SubscriptionReplacementModeAndroid.ChargeProratedPrice
+          : SubscriptionReplacementModeAndroid.Deferred;
 
   Future<void> _purchase() async {
     setState(() => _purchasing = true);
@@ -129,7 +129,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       // Switching from an existing subscription is a replacement, not a new
       // purchase; Play rejects the latter as "already owned".
       final replacing =
-          current != null && current.productID != _selected ? current : null;
+          current != null && current.productId != _selected ? current : null;
 
       final result = await ref.read(entitlementControllerProvider).purchase(
             _selected,
@@ -141,7 +141,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       if (!mounted) return;
       if (result.isPremium) {
         final switched = ref.read(currentSubscriptionProvider).value != null &&
-            ref.read(currentSubscriptionProvider).value!.productID != _selected;
+            ref.read(currentSubscriptionProvider).value!.productId != _selected;
         AtlasToast.success(
           context,
           switched
@@ -244,7 +244,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final isLifetime =
         ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
     final currentProductId =
-        ref.watch(currentSubscriptionProvider).value?.productID;
+        ref.watch(currentSubscriptionProvider).value?.productId;
     final onSelectedPlan = currentProductId == _selected;
 
     // A subscriber whose live plan we can name may move to the other one.

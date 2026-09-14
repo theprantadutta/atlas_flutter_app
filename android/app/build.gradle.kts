@@ -46,6 +46,12 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+
+        // flutter_inapp_purchase ships one Android module per store (play /
+        // amazon / horizon) behind a product flavour dimension. Without this the
+        // build cannot resolve which one to link and fails on a missing
+        // dimension rather than anything that names billing.
+        missingDimensionStrategy("platform", "play")
     }
 
     signingConfigs {
@@ -61,6 +67,13 @@ android {
 
     buildTypes {
         release {
+            // Inert while minification is off, which it currently is; here so
+            // that turning R8 on later cannot silently strip the billing
+            // classes and break purchases only in release.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Signed with the upload key when key.properties is present,
             // otherwise falls back to debug so release builds still run locally.
             signingConfig = if (keystorePropertiesFile.exists()) {

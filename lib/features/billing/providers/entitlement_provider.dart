@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'dart:io' show Platform;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase_android/billing_client_wrappers.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
+import 'package:atlas_flutter_app/features/billing/data/purchase_mapping.dart';
 import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
@@ -191,8 +189,7 @@ final isOnTrialProvider = Provider<bool>((ref) {
 /// store is the only place that knows which base plan is live. Falls back to a
 /// restore on a cold start, so it can take a moment.
 final currentSubscriptionProvider =
-    FutureProvider<GooglePlayPurchaseDetails?>((ref) async {
-  if (!Platform.isAndroid) return null;
+    FutureProvider<OwnedSubscription?>((ref) async {
   return ref.read(entitlementServiceProvider).currentSubscription();
 });
 
@@ -257,8 +254,8 @@ class EntitlementController {
   Future<EntitlementResult> purchase(
     String productId, {
     AtlasOffer? offer,
-    GooglePlayPurchaseDetails? replacing,
-    ReplacementMode? replacementMode,
+    OwnedSubscription? replacing,
+    SubscriptionReplacementModeAndroid? replacementMode,
   }) async {
     final service = _ref.read(entitlementServiceProvider);
 
