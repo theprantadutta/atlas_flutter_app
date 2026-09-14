@@ -140,7 +140,9 @@ class EntitlementService {
 
     try {
       _connected = await _iap.initConnection();
-      if (!_connected) _log.i('Store unavailable; billing is disabled.');
+      _log.i(_connected
+          ? 'Store connected.'
+          : 'Store unavailable; billing is disabled.');
     } catch (e) {
       // A device with no Play Services, or a simulator with no store account.
       // Not fatal: the app runs, premium simply cannot be bought here.
@@ -177,9 +179,18 @@ class EntitlementService {
 
     // Two calls, not one: the store keeps subscriptions and one-time products
     // in separate catalogues and asking the wrong one returns nothing.
+    //
+    // Both ask for ProductCommon rather than the narrower ProductSubscription /
+    // Product. fetchProducts ends in `List.cast<T>()`, which is LAZY: the type
+    // check happens per element as the list is walked, here inside addAll. So
+    // one product the plugin parsed into an unexpected subtype throws partway
+    // through and takes the whole catalogue down with it, leaving a paywall with
+    // no plans and one warning to explain it. Nothing downstream needs the
+    // narrower type — AtlasOffer holds a ProductCommon — so the only thing that
+    // type parameter ever bought us was that failure.
     final products = <ProductCommon>[];
     try {
-      products.addAll(await _iap.fetchProducts<ProductSubscription>(
+      products.addAll(await _iap.fetchProducts<ProductCommon>(
         skus: AtlasProducts.subscriptions.toList(),
         type: ProductQueryType.Subs,
       ));
@@ -187,7 +198,7 @@ class EntitlementService {
       _log.w('Could not load subscriptions from the store: $e');
     }
     try {
-      products.addAll(await _iap.fetchProducts<Product>(
+      products.addAll(await _iap.fetchProducts<ProductCommon>(
         skus: const [AtlasProducts.lifetime],
         type: ProductQueryType.InApp,
       ));
@@ -197,9 +208,13 @@ class EntitlementService {
 
     final found = products.map((p) => p.id).toSet();
     final missing = AtlasProducts.all.difference(found);
-    if (missing.isNotEmpty) {
-      _log.w('Products missing from the store: $missing');
-    }
+    // Logged at every outcome, not only the bad one. "The store returned
+    // nothing" and "the store was never asked" are the two explanations for an
+    // empty paywall and they are indistinguishable from silence.
+    _log.i(
+      'Store returned ${products.length} product(s): $found'
+      '${missing.isEmpty ? '' : ' — missing $missing'}',
+    );
 
     final offers = resolveOffers(products);
     _reportTrialMismatches(offers);
