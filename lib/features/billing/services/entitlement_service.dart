@@ -283,13 +283,26 @@ class EntitlementService {
   }
 
   /// Debug-only fallback so the full flow is exercisable without a store listing.
+  ///
+  /// Nothing is bought here: the backend only honours [devPlaceholderToken] when
+  /// BILLING_DEV_BYPASS is on, and rejects it otherwise. Logged loudly because a
+  /// granted entitlement that no store ever charged for is easy to mistake for a
+  /// working purchase.
   Future<EntitlementResult> purchaseDevFallback(String productId) {
+    _log.w(
+      'Store unavailable — asking the backend for a dev-bypass grant of '
+      '$productId. No money moves and this only works against a server with '
+      'BILLING_DEV_BYPASS on.',
+    );
     return _billing.verify(
       platform: _platform,
       productId: productId,
-      purchaseToken: 'dev-token',
+      purchaseToken: devPlaceholderToken,
     );
   }
+
+  /// Mirrors VerifyPurchaseCommandHandler.DevPlaceholderToken on the backend.
+  static const devPlaceholderToken = 'dev-token';
 
   // ─── Owned purchases ──────────────────────────────────────────────
 

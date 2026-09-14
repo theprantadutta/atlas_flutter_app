@@ -245,10 +245,13 @@ class EntitlementController {
   /// providers reflect the new access. Returns the backend-verified entitlement.
   /// Throws on cancel/failure so the UI can surface it.
   ///
-  /// [offer] is null only when the store returned nothing for this product — in a
-  /// debug build that falls back to the dev token so the paywall is still
-  /// exercisable, and in release it's surfaced as a store error rather than
-  /// silently faking a purchase.
+  /// [offer] is null when the store returned nothing for this product. That has
+  /// two very different causes and only one of them is safe to paper over: a
+  /// store that could not be reached at all (an emulator, no Play Services) is
+  /// the case the debug fallback exists for, and a store that answered but has
+  /// no listing for this product is a real bug. Falling back in the second case
+  /// turns a missing product into a fake purchase and a confusing store error on
+  /// the server, so it is surfaced instead.
   /// Pass [replacing] and [replacementMode] to switch an existing subscription
   /// rather than start a new one.
   Future<EntitlementResult> purchase(
@@ -266,7 +269,8 @@ class EntitlementController {
         replacing: replacing,
         replacementMode: replacementMode,
       );
-    } else if (EntitlementService.devFallbackAllowed) {
+    } else if (EntitlementService.devFallbackAllowed &&
+        !await service.isStoreAvailable) {
       result = await service.purchaseDevFallback(productId);
     } else {
       throw const StoreException('That plan isn’t available right now.');
