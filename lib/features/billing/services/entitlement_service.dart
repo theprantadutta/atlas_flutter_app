@@ -247,9 +247,14 @@ class EntitlementService {
 
       _log.w(
         'Store trial for $productId is ${offer.trialDays} day(s), but $declared '
-        'is configured. The paywall will show what the store returned. Usual '
-        'causes: the offer is not Active, it has not propagated yet, it is on a '
-        'different base plan, or this account is not eligible for it.',
+        'is configured. The paywall will show what the store returned. The usual '
+        'cause is eligibility: both Atlas offers are New customer acquisition / '
+        '"never had any subscription in this app", so any account that has ever '
+        'subscribed — including a test purchase, which Play counts as real '
+        'history and never resets — stops being offered either trial. Test '
+        'trials on a Google account that has never subscribed. Otherwise: the '
+        'offer is not Active, it has not propagated yet, or it is attached to a '
+        'different base plan.',
       );
     });
   }
