@@ -13,10 +13,13 @@ class StoreConfig {
   /// Android application id, and the `id=` parameter of the Play listing.
   static const String androidPackage = 'com.pranta.atlas';
 
-  /// Apple's numeric App Store id. Empty until Atlas is live on iOS; while it
-  /// is empty [listingUrl] falls back to a name search so the button still
-  /// lands somewhere sensible.
-  static const String appleAppId = '';
+  /// Apple's numeric App Store id, from the App Store Connect record.
+  ///
+  /// It was left empty while Atlas had no iOS listing, which sent anyone
+  /// tapping "Rate Atlas" to a search results page for "atlas self care" and
+  /// asked them to pick our app out of a list. [listingUrl] still falls back
+  /// to that search if this is ever blanked again.
+  static const String appleAppId = '6797224284';
 
   /// True on the two platforms that actually have a store to send people to.
   static bool get hasStore =>
