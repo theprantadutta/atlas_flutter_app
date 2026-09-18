@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/core/config/demo_driver.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
@@ -31,6 +32,8 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     WidgetsBinding.instance.addObserver(this);
     _wireUnauthorizedHandler();
     _initializeOfflineServices();
+    // No-op unless this is a debug demo run; see registerDemoDriver.
+    registerDemoDriver(ref.read(routerProvider));
     // Look for a Play update once the first frame is up, so the check never
     // competes with startup.
     WidgetsBinding.instance.addPostFrameCallback((_) {

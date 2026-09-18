@@ -84,7 +84,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Unattended demo runs go straight to Home — the intro, legal gate and
       // personalisation are all first-run flows we don't want to re-drive on
       // every rebuild. Compiled out unless ATLAS_DEMO is defined.
-      final skipFirstRun = DemoConfig.isUsable && DemoConfig.skipOnboarding;
+      final skipFirstRun = DemoConfig.enabled && DemoConfig.skipOnboarding;
 
       // The pitch comes before we ask for an account.
       if (!skipFirstRun && !onboarding.introSeen) return isOnIntro ? null : '/intro';
