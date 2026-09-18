@@ -34,7 +34,6 @@ class _PlanOption {
   const _PlanOption({
     required this.productId,
     required this.title,
-    required this.fallbackPrice,
     required this.cadence,
     this.badge,
     this.subtitle,
@@ -42,17 +41,26 @@ class _PlanOption {
 
   final String productId;
   final String title;
-  final String fallbackPrice;
   final String cadence;
   final String? badge;
   final String? subtitle;
 }
 
+/// Stands in for a price we do not have yet.
+///
+/// There used to be a hard-coded `$9.99` here, per plan. Only the store knows
+/// what this person pays: StoreKit hands back a price already formatted for
+/// their storefront, so someone in Berlin pays 9,99 € and someone in Delhi
+/// pays a rupee amount that is not a conversion of the dollar figure. Showing
+/// the dollar anchor while the store was still answering quoted a price that
+/// was wrong everywhere outside the US, and it is the one number on this
+/// screen a user is entitled to take literally.
+const _priceUnknown = '\u2014';
+
 const _plans = <_PlanOption>[
   _PlanOption(
     productId: AtlasProducts.yearly,
     title: 'Yearly',
-    fallbackPrice: r'$99.99',
     cadence: 'per year',
     badge: 'Save 17%',
     subtitle: 'Our best value, billed yearly',
@@ -60,13 +68,11 @@ const _plans = <_PlanOption>[
   _PlanOption(
     productId: AtlasProducts.monthly,
     title: 'Monthly',
-    fallbackPrice: r'$9.99',
     cadence: 'per month',
   ),
   _PlanOption(
     productId: AtlasProducts.lifetime,
     title: 'Founder',
-    fallbackPrice: r'$199.99',
     cadence: 'one time',
     badge: 'Lifetime',
     subtitle: 'Pay once, yours forever',
@@ -222,6 +228,13 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
+  /// " · 9,99 €/mo", or nothing at all while the store is still answering.
+  ///
+  /// A button that reads "Continue · " is worse than one that reads "Continue",
+  /// and inventing a price to fill the gap is worse than both.
+  String _priceSuffix(String? price, {String cadence = ''}) =>
+      price == null ? '' : ' · $price$cadence';
+
   String _shortCadence(String productId) => switch (productId) {
         AtlasProducts.yearly => '/yr',
         AtlasProducts.monthly => '/mo',
@@ -264,11 +277,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         ? _plans.where((p) => p.productId != AtlasProducts.lifetime).toList()
         : _plans;
 
-    final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
     final selectedOffer = offers[_selected];
-    // The store's price is the RECURRING one, never the trial's "$0.00" phase —
-    // see AtlasOffer. Fall back to the hard-coded anchor before the store answers.
-    final selectedPrice = selectedOffer?.displayPrice ?? selectedPlan.fallbackPrice;
+    // The store's price is the RECURRING one, never the trial's "$0.00" phase;
+    // see AtlasOffer. Null until the store answers, which the CTA reads as
+    // "say nothing about price yet" rather than inventing one.
+    final selectedPrice = selectedOffer?.displayPrice;
     final selectedTrialDays = selectedOffer?.trialDays ?? 0;
 
     return Scaffold(
@@ -373,11 +386,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                         ? 'Your current plan'
                         : currentProductId != null
                             ? (_selected == AtlasProducts.yearly
-                                ? 'Switch to yearly · $selectedPrice'
-                                : 'Switch to monthly · $selectedPrice')
+                                ? 'Switch to yearly${_priceSuffix(selectedPrice)}'
+                                : 'Switch to monthly${_priceSuffix(selectedPrice)}')
                             : selectedTrialDays > 0 && !isPremium
                                 ? 'Start your $selectedTrialDays-day free trial'
-                                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+                                : 'Continue${_priceSuffix(selectedPrice, cadence: _shortCadence(_selected))}',
             trialDays: isPremium ? 0 : selectedTrialDays,
             trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
             purchasing: busy,
@@ -826,8 +839,8 @@ class _PlanCard extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
 
-    // Always the recurring price — the trial's free phase is never the headline.
-    final price = offer?.displayPrice ?? plan.fallbackPrice;
+    // Always the recurring price; the trial's free phase is never the headline.
+    final price = offer?.displayPrice ?? _priceUnknown;
 
     // Only the store knows whether THIS user still has a trial left; Play omits
     // offers you're no longer eligible for. So an absent offer means no promise.
