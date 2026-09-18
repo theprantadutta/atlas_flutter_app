@@ -18,12 +18,15 @@ class RouteNames {
   static const notifications = 'notifications';
   static const notificationCenter = 'notificationCenter';
   static const syncManagement = 'syncManagement';
+  static const displaySettings = 'displaySettings';
   static const deleteAccount = 'deleteAccount';
   static const intro = 'intro';
   static const legal = 'legal';
   static const legalView = 'legalView';
+  static const about = 'about';
   static const setup = 'setup';
   static const aurora = 'aurora';
   static const auroraChat = 'auroraChat';
+  static const auroraSettings = 'auroraSettings';
   static const paywall = 'paywall';
 }

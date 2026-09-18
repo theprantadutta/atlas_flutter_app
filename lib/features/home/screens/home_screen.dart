@@ -680,7 +680,7 @@ class _AuroraHomeHero extends ConsumerWidget {
 
   String _checkIn(int streak) {
     if (streak >= 3) {
-      return 'You’re on a $streak-day streak — a lovely moment to pause and '
+      return 'You’re on a $streak-day streak, a lovely moment to pause and '
           'reflect on how it’s going.';
     }
     return 'How are you feeling today? I can reflect on your week or just '

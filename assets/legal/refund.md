@@ -11,7 +11,7 @@ Atlas is developed and operated by Pranta Dutta ("we", "us"). We want Atlas to b
 ## The short version
 
 - Purchases are handled by the platform you obtained Atlas from, so **refunds are requested through that platform**, not through us.
-- Every paid feature has a **free tier you can try first** — no trial to forget about, and no charge until you decide.
+- Every paid feature has a **free tier you can try first**. There is no trial to forget about, and no charge until you decide.
 - If a refund request is outside the platform's window and you feel the outcome is unfair, **write to us anyway** and we will do what we reasonably can.
 
 ---
@@ -36,7 +36,7 @@ If you are a consumer, you may have a legal right to cancel or obtain a refund u
 
 You can cancel a recurring subscription at any time in the subscription settings provided by the platform you purchased through. The app also provides a shortcut to that screen.
 
-Cancelling stops future renewals. It does **not** by itself refund the current period — your paid access continues until the end of the period you have already paid for, and then stops. We do not provide pro-rated refunds for the unused part of a billing period unless the law requires it.
+Cancelling stops future renewals. It does **not** by itself refund the current period. Your paid access continues until the end of the period you have already paid for, and then stops. We do not provide pro-rated refunds for the unused part of a billing period unless the law requires it.
 
 ## 5. Lifetime purchases
 
@@ -48,7 +48,7 @@ We may decline a discretionary refund where a request is repeated or appears abu
 
 ## 7. Problems that are our fault
 
-If a paid feature is broken, unavailable for an extended period, or does not work as described, that is on us. Tell us what happened — we would rather fix the problem or arrange a fair remedy than have you out of pocket.
+If a paid feature is broken, unavailable for an extended period, or does not work as described, that is on us. Tell us what happened. We would rather fix the problem or arrange a fair remedy than have you out of pocket.
 
 ## 8. Changes to this policy
 

@@ -7,6 +7,9 @@ class Entitlements {
     required this.isPremium,
     required this.isLifetime,
     this.premiumUntil,
+    this.isTrial = false,
+    this.trialEligible = true,
+    this.trialEligibilityConfirmed = false,
     required this.auroraUnlimited,
     required this.auroraQuickAdd,
     required this.cloudSync,
@@ -18,6 +21,25 @@ class Entitlements {
   final bool isPremium;
   final bool isLifetime;
   final DateTime? premiumUntil;
+
+  /// True while premium is running on its free-trial offer. Access is identical
+  /// to a paid period; this only lets the UI say "Trial ends in 2 days" instead
+  /// of showing a renewal date as though the card had already been charged.
+  final bool isTrial;
+
+  /// Whether this user may still START a free trial, per the server.
+  ///
+  /// Only consulted on iOS. Play already filters out offers an account has
+  /// consumed, so Android reads eligibility straight off the product — better
+  /// data than the server has, since Play knows the Google account and we only
+  /// know the Atlas one. Defaults to true so a missing/stale snapshot degrades
+  /// into the hedged copy rather than hiding a trial the user can have.
+  final bool trialEligible;
+
+  /// Whether [trialEligible] is definitive. Only "ineligible" ever is — see the
+  /// backend's EntitlementTrialDto. When false the paywall keeps the
+  /// "available to new subscribers" wording.
+  final bool trialEligibilityConfirmed;
 
   // ─── Per-feature flags ───
   final bool auroraUnlimited;
@@ -39,16 +61,33 @@ class Entitlements {
     return true;
   }
 
+  /// Whole days left in the free trial, or null when not on one. Rounds up so
+  /// the last partial day still reads as "1 day left" rather than "0".
+  int? get trialDaysRemaining {
+    if (!isTrial) return null;
+    final until = premiumUntil;
+    if (until == null) return null;
+    final left = until.difference(DateTime.now());
+    return left.isNegative ? 0 : (left.inHours / 24).ceil();
+  }
+
   factory Entitlements.fromJson(Map<String, dynamic> json) {
     final features =
         (json['features'] as Map?)?.cast<String, dynamic>() ?? const {};
     final aurora =
         (json['aurora'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final trial =
+        (json['trial'] as Map?)?.cast<String, dynamic>() ?? const {};
     final until = json['premium_until'] as String?;
     return Entitlements(
       isPremium: json['is_premium'] == true,
       isLifetime: json['is_lifetime'] == true,
       premiumUntil: until == null ? null : DateTime.tryParse(until),
+      isTrial: json['is_trial'] == true,
+      // Absent on an older backend or a pre-upgrade cache: fall back to the
+      // unconfirmed-but-offered state, which is what iOS did before this existed.
+      trialEligible: trial['eligible'] != false,
+      trialEligibilityConfirmed: trial['confirmed'] == true,
       auroraUnlimited: features['aurora_unlimited'] == true,
       auroraQuickAdd: features['aurora_quick_add'] == true,
       cloudSync: features['cloud_sync'] == true,
@@ -61,6 +100,11 @@ class Entitlements {
   Map<String, dynamic> toJson() => {
         'is_premium': isPremium,
         'is_lifetime': isLifetime,
+        'is_trial': isTrial,
+        'trial': {
+          'eligible': trialEligible,
+          'confirmed': trialEligibilityConfirmed,
+        },
         'premium_until': premiumUntil?.toIso8601String(),
         'features': {
           'aurora_unlimited': auroraUnlimited,

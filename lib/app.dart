@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/features/billing/providers/entitlement_provide
 import 'package:atlas_flutter_app/features/updates/providers/app_update_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+import 'package:atlas_flutter_app/shared/providers/refresh_rate_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_theme.dart';
 
@@ -32,9 +33,12 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     _initializeOfflineServices();
     // Look for a Play update once the first frame is up, so the check never
     // competes with startup.
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => ref.read(appUpdateProvider.notifier).check(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(appUpdateProvider.notifier).check();
+      // Opt into the display's high refresh rate if the user wants it. The
+      // provider reads the stored preference itself on first build.
+      ref.read(refreshRateProvider);
+    });
   }
 
   /// When a token refresh fails irrecoverably, drop the session so the router
@@ -80,8 +84,15 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
         // Re-check entitlement on resume so renewals / lapses / expiry are
         // picked up without a restart.
         ref.read(entitlementsProvider.notifier).refresh();
+        // Returning from the Play billing sheet: clear a stuck purchase spinner
+        // when Android closed it without emitting an event, and retry any
+        // verification that failed while offline.
+        ref.read(entitlementControllerProvider).onAppResumed();
         // Cheap no-op once an update has already been picked up this session.
         ref.read(appUpdateProvider.notifier).check();
+        // Android drops the window's preferred display mode when the app is
+        // backgrounded, so re-assert it rather than silently sliding to 60 Hz.
+        ref.read(refreshRateProvider.notifier).apply();
         _connectSignalR();
         break;
       case AppLifecycleState.paused:

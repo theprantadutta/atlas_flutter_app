@@ -122,14 +122,19 @@ class AuroraUsageMeter extends ConsumerWidget {
     final resets = _resetLabel(usage);
 
     if (exhausted) {
+      // Only offer the trial the store says this user can still start — a
+      // returning subscriber has already used theirs and Play won't grant it again.
+      final trialDays = ref.watch(availableTrialDaysProvider);
       return Padding(
         padding: const EdgeInsets.fromLTRB(
             AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.xs),
         child: UpgradeCtaCard(
           icon: Icons.auto_awesome_rounded,
           title: 'You’ve used your free chats',
-          subtitle: 'Upgrade for unlimited Aurora$resets.',
-          actionLabel: 'Upgrade',
+          subtitle: trialDays > 0
+              ? 'Try $trialDays days free for unlimited Aurora$resets.'
+              : 'Upgrade for unlimited Aurora$resets.',
+          actionLabel: trialDays > 0 ? 'Try free' : 'Upgrade',
         ),
       );
     }

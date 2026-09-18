@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/legal_config.dart';
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -100,15 +103,57 @@ const _benefits = <(IconData, String, String)>[
 class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   String _selected = _plans.first.productId;
   bool _purchasing = false;
+  bool _restoring = false;
+
+  /// Store offers keyed by product id. Empty until the store answers (and in
+  /// development, when no listing exists yet) — every read falls back to the
+  /// hard-coded plan copy.
+  Map<String, AtlasOffer> get _offers =>
+      ref.read(offersProvider).value ?? const {};
+
+  /// How Play should bill a switch.
+  ///
+  /// Upgrading charges now and credits the unused time, so premium never lapses
+  /// and the user gets what they just paid for. Downgrading waits for the period
+  /// they already paid for to run out: charging now would mean refunding the
+  /// remainder of a year, and nobody expects a downgrade to move money.
+  SubscriptionReplacementModeAndroid _replacementModeFor(String target) =>
+      target == AtlasProducts.yearly
+          ? SubscriptionReplacementModeAndroid.ChargeProratedPrice
+          : SubscriptionReplacementModeAndroid.Deferred;
 
   Future<void> _purchase() async {
     setState(() => _purchasing = true);
     try {
-      final result =
-          await ref.read(entitlementControllerProvider).purchase(_selected);
+      final current = ref.read(currentSubscriptionProvider).value;
+      // Switching from an existing subscription is a replacement, not a new
+      // purchase; Play rejects the latter as "already owned".
+      final replacing =
+          current != null && current.productId != _selected ? current : null;
+
+      final result = await ref.read(entitlementControllerProvider).purchase(
+            _selected,
+            offer: _offers[_selected],
+            replacing: replacing,
+            replacementMode:
+                replacing == null ? null : _replacementModeFor(_selected),
+          );
       if (!mounted) return;
       if (result.isPremium) {
-        AtlasToast.success(context, 'Welcome to Atlas premium ✨');
+        final switched = ref.read(currentSubscriptionProvider).value != null &&
+            ref.read(currentSubscriptionProvider).value!.productId != _selected;
+        AtlasToast.success(
+          context,
+          switched
+              ? (_selected == AtlasProducts.yearly
+                  ? 'Switched to yearly ✨'
+                  : 'You will move to monthly when this period ends')
+              : result.isTrial
+                  ? 'Your free trial has started ✨'
+                  : 'Welcome to Atlas premium ✨',
+        );
+        // The plan changed, so the cached purchase is stale.
+        ref.invalidate(currentSubscriptionProvider);
         context.pop();
       } else {
         AtlasToast.warning(
@@ -116,6 +161,26 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       }
     } on PurchaseCancelledException {
       // User backed out — no error needed.
+    } on PurchasePendingException {
+      // Deferred payment or Ask-to-Buy: accepted, not yet charged. Say so and
+      // close, rather than leaving the button spinning until it clears (days,
+      // for carrier billing). The RTDN webhook grants premium when it does.
+      if (!mounted) return;
+      AtlasToast.info(
+        context,
+        'Your purchase is awaiting approval. Premium unlocks as soon as it '
+        'clears — no need to keep the app open.',
+      );
+      context.pop();
+    } on PurchaseNotYetVerifiedException {
+      // The money moved; we just couldn't confirm it. Never call this a failure.
+      if (!mounted) return;
+      AtlasToast.info(
+        context,
+        'Payment received. We’ll unlock premium as soon as we can reach the '
+        'server — this happens automatically.',
+      );
+      context.pop();
     } on StoreException catch (e) {
       if (!mounted) return;
       AtlasToast.error(context, e.message);
@@ -128,30 +193,31 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     }
   }
 
-  Future<void> _manageSubscription() async {
-    try {
-      await ref
-          .read(entitlementControllerProvider)
-          .manageSubscription(productId: _selected);
-    } catch (_) {
-      if (!mounted) return;
-      AtlasToast.error(context, 'Couldn’t open subscription settings.');
-    }
-  }
-
   Future<void> _restore() async {
+    setState(() => _restoring = true);
     try {
-      await ref.read(entitlementControllerProvider).restore();
+      final restored = await ref.read(entitlementControllerProvider).restore();
       if (!mounted) return;
+
       if (ref.read(isPremiumProvider)) {
         AtlasToast.success(context, 'Premium restored ✨');
         context.pop();
+      } else if (restored) {
+        // The store DID return a purchase — it's just no longer active (an
+        // expired or refunded subscription). Saying "nothing found" here would
+        // send the user hunting for a bug that isn't one.
+        AtlasToast.info(
+          context,
+          'We found a past purchase, but it’s no longer active.',
+        );
       } else {
         AtlasToast.info(context, 'No previous purchase found.');
       }
     } catch (_) {
       if (!mounted) return;
       AtlasToast.error(context, 'Couldn’t restore right now.');
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
@@ -164,12 +230,45 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final products = ref.watch(productsProvider).value ?? const [];
-    final priceFor = <String, String>{
-      for (final p in products) p.id: p.price,
-    };
-    final selectedPrice = priceFor[_selected] ??
-        _plans.firstWhere((p) => p.productId == _selected).fallbackPrice;
+    final offersAsync = ref.watch(offersProvider);
+    final offers = offersAsync.value ?? const <String, AtlasOffer>{};
+    // In debug the paywall stays usable with no store listing (the dev-bypass
+    // token covers it); in release, tapping before the store answers is what we
+    // guard against.
+    final offersLoading = offersAsync.isLoading && !kDebugMode;
+    final busy = _purchasing || _restoring;
+
+    // What this account already holds. A subscriber opening the paywall is here
+    // to see their plan or move between plans, not to be sold to again.
+    final isPremium = ref.watch(isPremiumProvider);
+    final isLifetime =
+        ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+    final currentProductId =
+        ref.watch(currentSubscriptionProvider).value?.productId;
+    final onSelectedPlan = currentProductId == _selected;
+
+    // A subscriber whose live plan we can name may move to the other one.
+    // Everyone else who is already premium (a Founder, or premium granted
+    // without a store purchase) has nothing to buy, so the plans and every
+    // price and trial line come off the screen entirely. Showing "start your
+    // 7-day free trial" to someone already paying is the exact incoherence
+    // this guards.
+    final canSwitchPlans =
+        isPremium && !isLifetime && currentProductId != null;
+    final showPlans = !isPremium || canSwitchPlans;
+
+    // Switching is between the two subscriptions. The lifetime unlock is a
+    // one-time product, and Play cannot replace a subscription with one.
+    final visiblePlans = canSwitchPlans
+        ? _plans.where((p) => p.productId != AtlasProducts.lifetime).toList()
+        : _plans;
+
+    final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
+    final selectedOffer = offers[_selected];
+    // The store's price is the RECURRING one, never the trial's "$0.00" phase —
+    // see AtlasOffer. Fall back to the hard-coded anchor before the store answers.
+    final selectedPrice = selectedOffer?.displayPrice ?? selectedPlan.fallbackPrice;
+    final selectedTrialDays = selectedOffer?.trialDays ?? 0;
 
     return Scaffold(
       body: Column(
@@ -178,7 +277,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _Hero(onClose: () => context.pop())
+                _Hero(
+                  onClose: () => context.pop(),
+                  onRestore: busy ? null : _restore,
+                  restoring: _restoring,
+                )
                     .animate()
                     .fadeIn(duration: AppMotion.medium),
                 Padding(
@@ -187,7 +290,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Everything in Aurora',
+                      if (isPremium) ...[
+                        _PremiumBanner(
+                          isLifetime: isLifetime,
+                          currentProductId: currentProductId,
+                        ),
+                        AppSpacing.gapLg,
+                      ],
+                      Text(
+                          isPremium
+                              ? 'What you have'
+                              : 'Everything in Aurora',
                           style: theme.textTheme.titleLarge),
                       AppSpacing.gapMd,
                       ..._benefits.map((b) => Padding(
@@ -196,26 +309,43 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                             child: _BenefitRow(
                                 icon: b.$1, title: b.$2, subtitle: b.$3),
                           )),
-                      AppSpacing.gapSm,
-                      Text('Choose your plan',
-                          style: theme.textTheme.titleLarge),
-                      AppSpacing.gapMd,
-                      ..._plans.map((plan) => Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: _PlanCard(
-                              plan: plan,
-                              price: priceFor[plan.productId] ??
-                                  plan.fallbackPrice,
-                              selected: _selected == plan.productId,
-                              onTap: () =>
-                                  setState(() => _selected = plan.productId),
-                            ),
-                          )),
+                      if (showPlans) ...[
+                        AppSpacing.gapSm,
+                        Text(
+                            canSwitchPlans
+                                ? 'Change your plan'
+                                : 'Choose your plan',
+                            style: theme.textTheme.titleLarge),
+                        AppSpacing.gapMd,
+                        ...visiblePlans.map((plan) => Padding(
+                              padding:
+                                  const EdgeInsets.only(bottom: AppSpacing.sm),
+                              child: _PlanCard(
+                                plan: plan,
+                                offer: offers[plan.productId],
+                                cadenceSuffix: _shortCadence(plan.productId),
+                                selected: _selected == plan.productId,
+                                // The plan they are on is a statement, not an
+                                // option to pick.
+                                isCurrent: plan.productId == currentProductId,
+                                onTap: () =>
+                                    setState(() => _selected = plan.productId),
+                              ),
+                            )),
+                      ],
                       AppSpacing.gapSm,
                       Text(
-                        'Cancel anytime. Atlas works fully offline on the free '
-                        'plan — premium adds Aurora’s depth and cloud sync.',
+                        isPremium
+                            ? 'Manage or cancel any time in Google Play.'
+                            : selectedTrialDays > 0
+                            ? 'Free for $selectedTrialDays days, then '
+                                '$selectedPrice${_shortCadence(_selected)}. '
+                                'Cancel anytime before it ends and you won’t be '
+                                'charged.'
+                                '${selectedOffer?.trialEligibilityKnown == false ? ' Trial available to new subscribers.' : ''}'
+                            : 'Cancel anytime. Atlas works fully offline on the '
+                                'free plan. Premium adds Aurora’s depth and '
+                                'cloud sync.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant),
@@ -227,14 +357,116 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               ],
             ),
           ),
-          _StickyCta(
-            label: _purchasing
+          // No bar at all when nothing can be bought: a disabled "Your current
+          // plan" button is still a button, and it invites a tap that does
+          // nothing.
+          if (showPlans)
+            _StickyCta(
+            label: busy
                 ? 'Please wait…'
-                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
-            purchasing: _purchasing,
-            onContinue: _purchasing ? null : _purchase,
-            onRestore: _purchasing ? null : _restore,
-            onManage: _purchasing ? null : _manageSubscription,
+                : onSelectedPlan
+                        ? 'Your current plan'
+                        : currentProductId != null
+                            ? (_selected == AtlasProducts.yearly
+                                ? 'Switch to yearly · $selectedPrice'
+                                : 'Switch to monthly · $selectedPrice')
+                            : selectedTrialDays > 0 && !isPremium
+                                ? 'Start your $selectedTrialDays-day free trial'
+                                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+            trialDays: isPremium ? 0 : selectedTrialDays,
+            trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
+            purchasing: busy,
+            // Buying before the store has answered would hand purchase() a null
+            // offer, which in release reads as "that plan isn't available" —
+            // a confusing error for a store that is merely slow.
+            // Nothing to do on a plan you already hold, and a Founder has
+            // nothing left to buy at all.
+            onContinue: busy || offersLoading || isLifetime || onSelectedPlan
+                ? null
+                : _purchase,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tells a subscriber where they stand, so the paywall stops reading as a
+/// sales page to someone who has already bought.
+class _PremiumBanner extends StatelessWidget {
+  const _PremiumBanner({
+    required this.isLifetime,
+    required this.currentProductId,
+  });
+
+  final bool isLifetime;
+
+  /// Null while the store is still being asked, which is why the copy below
+  /// never claims a specific plan it cannot name.
+  final String? currentProductId;
+
+  String get _planName => switch (currentProductId) {
+        AtlasProducts.yearly => 'Yearly',
+        AtlasProducts.monthly => 'Monthly',
+        _ => '',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final line = isLifetime
+        ? 'You are a Founder. Every premium feature, yours forever.'
+        : _planName.isEmpty
+            ? 'Your subscription is active.'
+            : 'You are on the $_planName plan.';
+
+    final hint = isLifetime
+        ? null
+        : _planName.isEmpty
+            ? null
+            : 'Choose the other plan below to switch. Manage or cancel any time '
+                'in Google Play.';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.xpPrimary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.xpPrimary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_rounded,
+              color: AppColors.xpPrimary, size: 22),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Premium active',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(color: AppColors.xpPrimary)),
+                Text(
+                  line,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+                if (hint != null) ...[
+                  AppSpacing.gapXs,
+                  Text(
+                    hint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -245,8 +477,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 // ─── Hero (full-bleed, atmospheric) ─────────────────────────────────
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.onClose});
+  const _Hero({
+    required this.onClose,
+    required this.onRestore,
+    required this.restoring,
+  });
+
   final VoidCallback onClose;
+
+  /// Null while a purchase or restore is already running.
+  final VoidCallback? onRestore;
+  final bool restoring;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +535,41 @@ class _Hero extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.all(AppSpacing.xs),
                   child: Icon(Icons.close_rounded, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          // Restore sits opposite the close button rather than under the CTA.
+          // It is a rare, recovery-shaped action: people who already paid come
+          // looking for it, and everyone else should not have to scroll past it
+          // to read what they are buying.
+          Positioned(
+            top: topInset + AppSpacing.xxs,
+            right: AppSpacing.xs,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onRestore,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                  child: restoring
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(
+                          'Restore',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: Colors.white
+                                .withValues(alpha: onRestore == null ? 0.5 : 1),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -351,17 +627,17 @@ class _Hero extends StatelessWidget {
 class _StickyCta extends StatelessWidget {
   const _StickyCta({
     required this.label,
+    required this.trialDays,
+    required this.trialEligibilityKnown,
     required this.purchasing,
     required this.onContinue,
-    required this.onRestore,
-    required this.onManage,
   });
 
   final String label;
+  final int trialDays;
+  final bool trialEligibilityKnown;
   final bool purchasing;
   final VoidCallback? onContinue;
-  final VoidCallback? onRestore;
-  final VoidCallback? onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -393,28 +669,13 @@ class _StickyCta extends StatelessWidget {
                 isLoading: purchasing,
                 onPressed: onContinue,
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextButton(
-                    onPressed: onRestore,
-                    child: Text('Restore',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ),
-                  Text('·',
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-                  TextButton(
-                    onPressed: onManage,
-                    child: Text('Manage subscription',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ),
-                ],
-              ),
               // Guideline 3.1.2 requires the renewal terms plus links to the
               // terms/EULA and privacy policy on the purchase screen itself.
-              const _LegalFooter(),
+              // With a free trial, the conversion terms have to be here too.
+              _LegalFooter(
+                trialDays: trialDays,
+                trialEligibilityKnown: trialEligibilityKnown,
+              ),
             ],
           ),
         ),
@@ -425,7 +686,13 @@ class _StickyCta extends StatelessWidget {
 
 /// Auto-renewal disclosure + the two legal links App Review looks for.
 class _LegalFooter extends StatelessWidget {
-  const _LegalFooter();
+  const _LegalFooter({
+    required this.trialDays,
+    required this.trialEligibilityKnown,
+  });
+
+  final int trialDays;
+  final bool trialEligibilityKnown;
 
   Future<void> _open(String url) async {
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -450,7 +717,10 @@ class _LegalFooter extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            LegalConfig.subscriptionDisclosure,
+            LegalConfig.subscriptionDisclosure(
+              trialDays: trialDays,
+              trialEligibilityKnown: trialEligibilityKnown,
+            ),
             textAlign: TextAlign.center,
             style: muted,
           ),
@@ -524,13 +794,24 @@ class _BenefitRow extends StatelessWidget {
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
-    required this.price,
+    required this.offer,
+    required this.cadenceSuffix,
     required this.selected,
     required this.onTap,
+    this.isCurrent = false,
   });
 
+  /// The plan this account is already on. Marked rather than offered.
+  final bool isCurrent;
+
   final _PlanOption plan;
-  final String price;
+
+  /// The live store offer, or null before the store answers.
+  final AtlasOffer? offer;
+
+  /// Compact cadence for the trial line ("/mo", "/yr", "").
+  final String cadenceSuffix;
+
   final bool selected;
   final VoidCallback onTap;
 
@@ -538,6 +819,14 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
+
+    // Always the recurring price — the trial's free phase is never the headline.
+    final price = offer?.displayPrice ?? plan.fallbackPrice;
+
+    // Only the store knows whether THIS user still has a trial left; Play omits
+    // offers you're no longer eligible for. So an absent offer means no promise.
+    final trialDays = offer?.trialDays ?? 0;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -565,13 +854,24 @@ class _PlanCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(plan.title, style: theme.textTheme.titleLarge),
-                      if (plan.badge != null) ...[
+                      if (isCurrent) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      const _Badge('Current', tone: AppColors.xpPrimary),
+                    ] else if (plan.badge != null) ...[
                         const SizedBox(width: AppSpacing.xs),
                         _Badge(plan.badge!),
                       ],
                     ],
                   ),
-                  if (plan.subtitle != null)
+                  if (trialDays > 0)
+                    Text(
+                      '$trialDays days free, then $price$cadenceSuffix',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else if (plan.subtitle != null)
                     Text(plan.subtitle!,
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant)),
@@ -623,22 +923,31 @@ class _RadioDot extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.label);
+  const _Badge(this.label, {this.tone});
   final String label;
+
+  /// Gold by default, since these are sales labels. A flat [tone] marks a
+  /// statement of fact instead, like the plan the user is already on.
+  final Color? tone;
 
   @override
   Widget build(BuildContext context) {
+    final flat = tone != null;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xs, vertical: 2),
       decoration: BoxDecoration(
-        gradient: AppColors.goldGradient,
+        gradient: flat ? null : AppColors.goldGradient,
+        color: flat ? tone!.withValues(alpha: 0.18) : null,
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+        border: flat
+            ? Border.all(color: tone!.withValues(alpha: 0.45))
+            : null,
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF3A2A00),
+              color: flat ? tone : const Color(0xFF3A2A00),
               fontWeight: FontWeight.w700,
             ),
       ),

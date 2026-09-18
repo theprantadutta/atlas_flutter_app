@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/config/demo_config.dart';
+import 'package:atlas_flutter_app/features/about/screens/about_screen.dart';
 import 'package:atlas_flutter_app/features/achievements/screens/achievements_screen.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
@@ -11,6 +12,7 @@ import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_settings_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
 import 'package:atlas_flutter_app/features/billing/screens/paywall_screen.dart';
 import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
@@ -22,6 +24,7 @@ import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provi
 import 'package:atlas_flutter_app/features/onboarding/screens/intro_screen.dart';
 import 'package:atlas_flutter_app/features/onboarding/screens/setup_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/delete_account_screen.dart';
+import 'package:atlas_flutter_app/features/profile/screens/display_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/notification_settings_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/profile_screen.dart';
 import 'package:atlas_flutter_app/features/profile/screens/sync_management_screen.dart';
@@ -232,10 +235,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => const SyncManagementScreen(),
                   ),
                   GoRoute(
+                    path: 'display',
+                    name: RouteNames.displaySettings,
+                    builder: (context, state) =>
+                        const DisplaySettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'aurora',
+                    name: RouteNames.auroraSettings,
+                    builder: (context, state) => const AuroraSettingsScreen(),
+                  ),
+                  GoRoute(
                     path: 'legal',
                     name: RouteNames.legalView,
                     builder: (context, state) =>
                         const LegalScreen(readOnly: true),
+                  ),
+                  GoRoute(
+                    path: 'about',
+                    name: RouteNames.about,
+                    builder: (context, state) => const AboutScreen(),
                   ),
                   GoRoute(
                     path: 'delete-account',

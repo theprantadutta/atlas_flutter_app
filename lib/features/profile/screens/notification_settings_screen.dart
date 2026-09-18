@@ -79,16 +79,14 @@ class _NotificationSettingsScreenState
         await ref.read(localNotificationServiceProvider).requestPermissions();
 
     if (granted) {
-      // FcmService.initialize() bails out when permission hasn't been granted,
-      // so this is the point where push registration can finally succeed.
-      try {
-        await ref.read(fcmServiceProvider).initialize();
-        await ref.read(fcmServiceProvider).registerToken();
-      } catch (_) {/* best-effort: local reminders still work */}
+      // Push stays unreachable until the token is fetched and registered, and
+      // that only happens at launch when permission already exists. Same reason
+      // the primer does this.
+      await ref.read(fcmServiceProvider).onPermissionGranted();
+      return;
     }
 
-    if (!mounted || granted) return;
-
+    if (!mounted) return;
     setState(() => _settings[index].value = false);
     AtlasToast.warning(
       context,

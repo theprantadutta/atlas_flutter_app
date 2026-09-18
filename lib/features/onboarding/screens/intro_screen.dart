@@ -31,7 +31,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
       'Welcome to Atlas',
       'A world that grows\nas you care for yourself',
       'Every habit you tend, every small step you take, brings your world a '
-          'little more to life. No pressure — just gentle progress.',
+          'little more to life. No pressure, just gentle progress.',
     ),
     (
       'Tend your days',

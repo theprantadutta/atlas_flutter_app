@@ -8,7 +8,9 @@ import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/feedback/widgets/feedback_sheet.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -364,6 +366,22 @@ class _SettingsMenu extends ConsumerWidget {
         ),
         AppSpacing.gapSm,
         _SettingsRow(
+          icon: Icons.auto_awesome_outlined,
+          color: AppColors.auroraLilac,
+          title: 'Aurora',
+          subtitle: 'Her voice, and what she keeps in mind',
+          onTap: () => context.push('/profile/aurora'),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
+          icon: Icons.motion_photos_on_rounded,
+          color: AppColors.xpPrimary,
+          title: 'Display',
+          subtitle: 'Smooth motion and refresh rate',
+          onTap: () => context.push('/profile/display'),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
           icon: Icons.notifications_none_rounded,
           color: AppColors.info,
           title: 'Notifications',
@@ -379,6 +397,22 @@ class _SettingsMenu extends ConsumerWidget {
           onTap: () => context.push('/profile/sync'),
         ),
         AppSpacing.gapSm,
+        _SettingsRow(
+          icon: Icons.explore_outlined,
+          color: AppColors.tertiary,
+          title: 'Replay the tour',
+          subtitle: 'Walk through Atlas again',
+          onTap: () => _replayTour(context, ref),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
+          icon: Icons.favorite_border_rounded,
+          color: AppColors.auroraRose,
+          title: 'Send feedback',
+          subtitle: 'Tell us how Atlas is going',
+          onTap: () => showFeedbackSheet(context),
+        ),
+        AppSpacing.gapSm,
         // These have to be reachable from inside the app, not just from the
         // store listing (Guideline 5.1.1). The in-app viewer shows the exact
         // documents this user accepted, and works offline; the hosted copies in
@@ -389,6 +423,14 @@ class _SettingsMenu extends ConsumerWidget {
           title: 'Legal',
           subtitle: 'Privacy, terms and refunds',
           onTap: () => context.push('/profile/legal'),
+        ),
+        AppSpacing.gapSm,
+        _SettingsRow(
+          icon: Icons.info_outline_rounded,
+          color: AppColors.auroraTeal,
+          title: 'About Atlas',
+          subtitle: 'Version, and who built this',
+          onTap: () => context.push('/profile/about'),
         ),
         AppSpacing.gapSm,
         _SettingsRow(
@@ -413,18 +455,42 @@ class _SettingsMenu extends ConsumerWidget {
     );
   }
 
+  /// Re-arm the Home coach marks and go to the tab that hosts them, so the
+  /// tour starts straight away instead of waiting for the next visit.
+  Future<void> _replayTour(BuildContext context, WidgetRef ref) async {
+    await ref.read(onboardingProvider.notifier).replayCoachMarks();
+    if (!context.mounted) return;
+    context.go('/');
+  }
 }
 
 /// A branded settings entry for premium — an invitation when free, a calm
-/// "Premium active" status (still tappable, to manage) when subscribed.
-class _PremiumRow extends StatelessWidget {
+/// "Premium active" status when subscribed, which is a statement rather than a
+/// button: someone who already pays has nothing to do here.
+class _PremiumRow extends ConsumerWidget {
   const _PremiumRow({required this.isPremium});
   final bool isPremium;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final onTrial = ref.watch(isOnTrialProvider);
+    final trialLeft = ref.watch(trialDaysRemainingProvider);
+    // Only advertise a trial the store says this user can still start.
+    final trialOffer = ref.watch(availableTrialDaysProvider);
+    final isLifetime =
+        ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+
     return AtlasCard(
+      // Inert once premium. This row is an invitation to buy, and there is
+      // nothing left to invite a subscriber to: the paywall is a purchase screen
+      // they have already been through, and sending them out to the store's
+      // subscription page is a jarring exit from the app for something they did
+      // not ask for. Cancelling lives in the store, and that is where people
+      // already look for it.
+      // Always the paywall, never the store. A subscriber goes there to see
+      // what they are on and to switch plans; being thrown out to Play's
+      // subscription page for that is a jarring exit from the app.
       onTap: () => context.push('/paywall'),
       padding: const EdgeInsets.all(AppSpacing.sm + 2),
       child: Row(
@@ -450,9 +516,7 @@ class _PremiumRow extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  isPremium
-                      ? 'Premium active — manage your plan'
-                      : 'Unlimited Aurora, cloud sync & deeper insights',
+                  _subtitle(onTrial, trialLeft, trialOffer, isLifetime),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -460,13 +524,36 @@ class _PremiumRow extends StatelessWidget {
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          // A chevron promises somewhere to go. Premium gets a quiet mark that
+          // the thing is on instead.
+          if (isPremium)
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.xpPrimary, size: 22)
+          else
+            Icon(
+              Icons.chevron_right_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
     );
+  }
+
+  String _subtitle(
+      bool onTrial, int? trialLeft, int trialOffer, bool isLifetime) {
+    if (isPremium) {
+      if (!onTrial) {
+        return isLifetime
+            ? 'Founder. Premium, yours forever'
+            : 'Premium active';
+      }
+      return trialLeft == null
+          ? 'Free trial active'
+          : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
+    }
+    return trialOffer > 0
+        ? 'Start with $trialOffer days free — unlimited Aurora & cloud sync'
+        : 'Unlimited Aurora, cloud sync & deeper insights';
   }
 }
 

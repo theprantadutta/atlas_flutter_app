@@ -52,7 +52,7 @@ class UpdateBanner extends ConsumerWidget {
                     style: theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700)),
                 Text(
-                  'Restart to bring it in — takes a moment.',
+                  'Restart to bring it in. It takes a moment.',
                   style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant),
                 ),

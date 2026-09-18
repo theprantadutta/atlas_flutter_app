@@ -50,7 +50,7 @@ const _steps = <_Step>[
   _Step(
     title: 'Add anything, fast',
     body:
-        'Tap to add a habit, task or goal — or simply describe it and let Aurora '
+        'Tap to add a habit, task or goal, or simply describe it and let Aurora '
         'set it up for you.',
     radius: AppSpacing.radiusPill,
     circle: true,
