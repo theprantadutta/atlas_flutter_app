@@ -9,5 +9,11 @@ class SyncConfig {
   SyncConfig._();
 
   /// Master switch for the sync engine. Keep false until premium is wired.
-  static const bool enabled = false;
+  ///
+  /// Overridable at build time so demo and screenshot runs can pull a seeded
+  /// account down to the device without changing what ships:
+  /// `--dart-define=ATLAS_SYNC=true`. The default stays false, so a normal
+  /// build is unaffected.
+  static const bool enabled =
+      bool.fromEnvironment('ATLAS_SYNC', defaultValue: false);
 }

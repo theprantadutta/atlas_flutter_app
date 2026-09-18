@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/achievements/providers/achievement_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// The Achievements sub-page — a calm, rewarding gallery of earned and
@@ -49,12 +50,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
             };
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.md,
-                AppSpacing.gutter,
-                AppSpacing.bottomNavSpace,
-              ),
+              padding: adaptiveScreenPadding(context),
               children: [
                 AtlasHeader(
                   title: 'Achievements',

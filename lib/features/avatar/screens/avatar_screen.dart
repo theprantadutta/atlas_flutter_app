@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
     show currentUserIdProvider;
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
@@ -94,12 +95,7 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
           data: (avatar) {
             _maybeInit(avatar);
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.md,
-                AppSpacing.gutter,
-                AppSpacing.bottomNavSpace,
-              ),
+              padding: adaptiveScreenPadding(context),
               children: [
                 AtlasHeader(title: 'Your Avatar', onBack: () => context.pop()),
             AppSpacing.gapLg,

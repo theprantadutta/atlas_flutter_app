@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
@@ -76,6 +77,16 @@ class _NotificationSettingsScreenState
 
     final granted =
         await ref.read(localNotificationServiceProvider).requestPermissions();
+
+    if (granted) {
+      // FcmService.initialize() bails out when permission hasn't been granted,
+      // so this is the point where push registration can finally succeed.
+      try {
+        await ref.read(fcmServiceProvider).initialize();
+        await ref.read(fcmServiceProvider).registerToken();
+      } catch (_) {/* best-effort: local reminders still work */}
+    }
+
     if (!mounted || granted) return;
 
     setState(() => _settings[index].value = false);
@@ -91,12 +102,7 @@ class _NotificationSettingsScreenState
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
+          padding: adaptiveScreenPadding(context),
           children: [
             AtlasHeader(
               title: 'Notifications',

@@ -19,22 +19,26 @@ class FcmService {
 
   FcmService(this._apiService, this._tokenService);
 
-  /// Request permissions, obtain the FCM token, and start listening for
-  /// token refreshes and foreground messages.
+  /// Obtain the FCM token and start listening for token refreshes and
+  /// foreground messages.
+  ///
+  /// This deliberately does **not** prompt for permission. It runs the moment
+  /// a user signs in, so prompting here means the OS dialog lands on top of
+  /// the first screen they ever see — the same cold-start ask that
+  /// [LocalNotificationService] was changed to avoid. Instead we read the
+  /// existing decision and register the token only once the user has actually
+  /// granted it, from the Notifications settings screen.
   Future<void> initialize() async {
     try {
       final messaging = FirebaseMessaging.instance;
 
-      // Request permission (iOS shows a dialog; Android auto-grants)
-      final settings = await messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      // Read the current decision without showing anything.
+      final settings = await messaging.getNotificationSettings();
 
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        _log.w('[FCM] Notification permission denied');
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        _log.i('[FCM] Notifications not authorised yet — deferring token '
+            'registration until the user turns reminders on');
         return;
       }
 

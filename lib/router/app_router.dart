@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/core/config/demo_config.dart';
 import 'package:atlas_flutter_app/features/achievements/screens/achievements_screen.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
@@ -77,19 +78,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isOnSplash ? null : '/splash';
       }
 
+      // Unattended demo runs go straight to Home — the intro, legal gate and
+      // personalisation are all first-run flows we don't want to re-drive on
+      // every rebuild. Compiled out unless ATLAS_DEMO is defined.
+      final skipFirstRun = DemoConfig.isUsable && DemoConfig.skipOnboarding;
+
       // The pitch comes before we ask for an account.
-      if (!onboarding.introSeen) return isOnIntro ? null : '/intro';
+      if (!skipFirstRun && !onboarding.introSeen) return isOnIntro ? null : '/intro';
 
       // Nobody uses Atlas — or creates an account — without accepting the
       // current documents. A version bump re-gates everyone, signed in or not.
-      if (!legal.isAccepted) return isOnLegal ? null : '/legal';
+      if (!skipFirstRun && !legal.isAccepted) return isOnLegal ? null : '/legal';
 
       if (!authState.isAuthenticated) {
         return isOnAuthPage ? null : '/login';
       }
 
       // Signed in — personalise once before Home.
-      if (!onboarding.setupComplete) return isOnSetup ? null : '/setup';
+      if (!skipFirstRun && !onboarding.setupComplete) return isOnSetup ? null : '/setup';
 
       if (isOnSetup || isOnIntro || isOnLegal || isOnSplash || isOnAuthPage) {
         return '/';

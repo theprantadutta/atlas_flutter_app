@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_pro
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
@@ -27,12 +28,7 @@ class SyncManagementScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
+          padding: adaptiveScreenPadding(context),
           children: [
             AtlasHeader(title: 'Sync & data', onBack: () => context.pop()),
             AppSpacing.gapLg,

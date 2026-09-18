@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
 
 /// Home — the showpiece. A time-aware greeting, the living-world hero that
@@ -34,8 +35,7 @@ class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
+          padding: adaptiveScreenPadding(context),
           children: [
             _GreetingHeader(name: home.greetingName, isDark: isDark)
                 .animate()

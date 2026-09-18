@@ -9,7 +9,9 @@ import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/world/providers/world_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
@@ -33,12 +35,9 @@ class WorldScreen extends ConsumerWidget {
             final unlockedCount = rows.where((t) => t.isUnlocked).length;
             final total = rows.length;
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.md,
-                AppSpacing.gutter,
-                AppSpacing.bottomNavSpace,
-              ),
+              // The whole world should be visible at once on a tablet
+              // rather than 5 tiles per row.
+              padding: adaptiveScreenPadding(context, maxWidth: 1000),
               children: [
                 AtlasHeader(
                   title: 'Your World',
@@ -143,8 +142,11 @@ class _WorldGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: rows.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
+      // Five across on a phone; on a tablet the world is square (8×8), so
+      // widen to eight and the whole map reads at a glance instead of
+      // scrolling as a five-wide strip.
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: context.isCompactWindow ? 5 : 8,
         mainAxisSpacing: AppSpacing.xs,
         crossAxisSpacing: AppSpacing.xs,
       ),

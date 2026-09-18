@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 
@@ -44,10 +45,28 @@ class AppNavigationShell extends ConsumerWidget {
         ),
       ];
 
+  void _goBranch(int index) => navigationShell.goBranch(
+        index,
+        initialLocation: index == navigationShell.currentIndex,
+      );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bottomInset = MediaQuery.of(context).padding.bottom;
     final coachKeys = ref.watch(coachMarkKeysProvider);
+
+    // On iPad and wide windows the navigation stands up the left edge; a
+    // floating capsule at the bottom of a 13" screen is both far from the eye
+    // and a waste of the sides.
+    if (context.windowSize.usesSideNav) {
+      return _WideShell(
+        navigationShell: navigationShell,
+        items: _items(coachKeys),
+        fabKey: coachKeys.fab,
+        onTap: _goBranch,
+      );
+    }
+
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       body: Stack(
         children: [
@@ -59,12 +78,7 @@ class AppNavigationShell extends ConsumerWidget {
             child: AuroraNavBar(
               currentIndex: navigationShell.currentIndex,
               items: _items(coachKeys),
-              onTap: (index) {
-                navigationShell.goBranch(
-                  index,
-                  initialLocation: index == navigationShell.currentIndex,
-                );
-              },
+              onTap: _goBranch,
             ),
           ),
           // Floating "+" hovering above the bar.
@@ -78,6 +92,50 @@ class AppNavigationShell extends ConsumerWidget {
           ),
           // First-run tour, above everything (Home tab only).
           CoachMarks(enabled: navigationShell.currentIndex == 0),
+        ],
+      ),
+    );
+  }
+}
+
+/// iPad / wide-window shell: rail on the left, content filling the rest.
+class _WideShell extends StatelessWidget {
+  const _WideShell({
+    required this.navigationShell,
+    required this.items,
+    required this.fabKey,
+    required this.onTap,
+  });
+
+  final StatefulNavigationShell navigationShell;
+  final List<AuroraNavItem> items;
+  final Key? fabKey;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Row(
+        children: [
+          AuroraNavRail(
+            currentIndex: navigationShell.currentIndex,
+            items: items,
+            onTap: onTap,
+            // Quick-add lives at the foot of the rail rather than floating over
+            // the content, where on a tablet it would hover in dead space.
+            trailing: AuroraFab(
+              key: fabKey,
+              onTap: () => showQuickAddSheet(context),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                navigationShell,
+                CoachMarks(enabled: navigationShell.currentIndex == 0),
+              ],
+            ),
+          ),
         ],
       ),
     );

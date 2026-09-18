@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -92,6 +93,157 @@ class AuroraNavBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The same five destinations as a vertical rail, for iPad and wide windows.
+///
+/// A floating capsule pinned to the bottom of a 13" screen puts navigation
+/// about as far from the eye as it can get, and leaves the sides empty. The
+/// rail keeps the identity — frosted glass, aurora pill on the active
+/// destination — but stands it up the left edge where a tablet user's thumb
+/// and gaze already are.
+class AuroraNavRail extends StatelessWidget {
+  const AuroraNavRail({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+    required this.items,
+    this.leading,
+    this.trailing,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+  final List<AuroraNavItem> items;
+  final Widget? leading;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SafeArea(
+      right: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.sm, AppSpacing.sm, 0, AppSpacing.sm),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                width: AppBreakpoints.navRailWidth - AppSpacing.sm,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: isDark ? 0.62 : 0.74),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                  border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.8)),
+                ),
+                child: Column(
+                  children: [
+                    ?leading,
+                    if (leading != null) AppSpacing.gapLg,
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0) AppSpacing.gapXs,
+                      _RailSlot(
+                        item: items[i],
+                        selected: i == currentIndex,
+                        onTap: () => onTap(i),
+                      ),
+                    ],
+                    const Spacer(),
+                    ?trailing,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RailSlot extends StatelessWidget {
+  const _RailSlot({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+  final AuroraNavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _onAurora = Color(0xFF10162B);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final duration =
+        AppMotion.reduceMotion(context) ? Duration.zero : AppMotion.medium;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        key: item.anchorKey,
+        duration: duration,
+        curve: AppMotion.standard,
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs + 2),
+        decoration: BoxDecoration(
+          gradient: selected ? AppColors.auroraGradient : null,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.auroraLilac.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              selected ? item.selectedIcon : item.icon,
+              size: 23,
+              color: selected ? _onAurora : theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 2),
+            // The rail always shows labels — there's room, and an unlabelled
+            // icon column is a guessing game.
+            Text(
+              item.label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color:
+                    selected ? _onAurora : theme.colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

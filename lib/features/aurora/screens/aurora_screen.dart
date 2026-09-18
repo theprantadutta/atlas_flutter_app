@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart'
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
@@ -39,8 +40,7 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.md,
-              AppSpacing.gutter, AppSpacing.bottomNavSpace),
+          padding: adaptiveScreenPadding(context),
           children: [
             const AtlasHeader(
               title: 'Aurora',

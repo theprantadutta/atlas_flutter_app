@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// Notification Center — a gentle, swipe-to-dismiss feed backed by the
@@ -38,12 +39,7 @@ class NotificationCenterScreen extends ConsumerWidget {
             final unread = items.where((n) => !n.read).length;
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.md,
-                AppSpacing.gutter,
-                AppSpacing.bottomNavSpace,
-              ),
+              padding: adaptiveScreenPadding(context),
               children: [
                 AtlasHeader(
                   title: 'Notifications',

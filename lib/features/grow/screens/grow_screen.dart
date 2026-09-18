@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
@@ -195,8 +196,9 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
+          // Cards, not prose: a wider column fits two or three across
+          // instead of stranding one lonely ribbon down the middle.
+          padding: adaptiveScreenPadding(context, maxWidth: 1100),
           children: [
             AtlasHeader(
               title: 'Grow',
@@ -261,19 +263,22 @@ class _TasksView extends ConsumerWidget {
             for (final cadence in cadences)
               if (tasks.any((t) => _cadenceLabel(t.type) == cadence)) ...[
                 SectionHeader(title: cadence),
-                ...tasks.where((t) => _cadenceLabel(t.type) == cadence).map(
-                      (t) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: _TaskRow(
-                          task: t,
-                          onTap: () =>
-                              ref.read(taskActionsProvider).toggleComplete(t),
-                          onDelete: () =>
-                              ref.read(taskActionsProvider).delete(t.id),
-                        ),
+                // One column on a phone, two or three on a tablet — a single
+                // ribbon of rows leaves most of an iPad empty.
+                AdaptiveCardGrid(
+                  children: [
+                    for (final t in tasks
+                        .where((t) => _cadenceLabel(t.type) == cadence))
+                      _TaskRow(
+                        task: t,
+                        onTap: () =>
+                            ref.read(taskActionsProvider).toggleComplete(t),
+                        onDelete: () =>
+                            ref.read(taskActionsProvider).delete(t.id),
                       ),
-                    ),
-                AppSpacing.gapXs,
+                  ],
+                ),
+                AppSpacing.gapMd,
               ],
           ],
         );
@@ -410,16 +415,16 @@ class _HabitsView extends ConsumerWidget {
               ),
             ),
             AppSpacing.gapMd,
-            ...habits.map(
-              (h) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _HabitRow(
-                  habit: h,
-                  onTap: () =>
-                      ref.read(habitActionsProvider).toggleComplete(h),
-                  onDelete: () => ref.read(habitActionsProvider).delete(h.id),
-                ),
-              ),
+            AdaptiveCardGrid(
+              children: [
+                for (final h in habits)
+                  _HabitRow(
+                    habit: h,
+                    onTap: () =>
+                        ref.read(habitActionsProvider).toggleComplete(h),
+                    onDelete: () => ref.read(habitActionsProvider).delete(h.id),
+                  ),
+              ],
             ),
           ],
         );
@@ -518,15 +523,16 @@ class _GoalsView extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final g in goals)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _GoalCard(
-                  goal: g,
-                  onTap: () => ref.read(goalActionsProvider).bumpProgress(g),
-                  onDelete: () => ref.read(goalActionsProvider).delete(g.id),
-                ),
-              ),
+            AdaptiveCardGrid(
+              children: [
+                for (final g in goals)
+                  _GoalCard(
+                    goal: g,
+                    onTap: () => ref.read(goalActionsProvider).bumpProgress(g),
+                    onDelete: () => ref.read(goalActionsProvider).delete(g.id),
+                  ),
+              ],
+            ),
           ],
         );
       },

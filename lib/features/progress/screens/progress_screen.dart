@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/progress/providers/progress_providers
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// Progress — a calm, day-by-day ledger of the week, with each day's XP shown
@@ -34,12 +35,7 @@ class ProgressScreen extends ConsumerWidget {
             final maxXp = days.fold<int>(0, (p, e) => e.xp > p ? e.xp : p);
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.gutter,
-                AppSpacing.md,
-                AppSpacing.gutter,
-                AppSpacing.bottomNavSpace,
-              ),
+              padding: adaptiveScreenPadding(context),
               children: [
                 AtlasHeader(
                   title: 'Progress',

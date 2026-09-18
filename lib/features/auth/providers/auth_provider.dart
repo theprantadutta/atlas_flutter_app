@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/core/config/demo_config.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
@@ -63,6 +64,27 @@ class AuthNotifier extends Notifier<AuthState> {
     return const AuthState();
   }
 
+  /// Signs in with the throwaway demo account. Returns true when the session
+  /// is established, so the caller can stop and leave state authenticated.
+  Future<bool> _tryDemoSignIn() async {
+    try {
+      final user = await _authService.login(
+        email: DemoConfig.email,
+        password: DemoConfig.password,
+      );
+      await _cacheUser(user);
+      state = AuthState(
+        isInitializing: false,
+        isAuthenticated: true,
+        user: user,
+      );
+      return true;
+    } catch (_) {
+      // Wrong credentials or no backend — fall through to the login screen.
+      return false;
+    }
+  }
+
   // ─── Offline-first user cache ───
   Future<void> _cacheUser(User user) async {
     try {
@@ -85,6 +107,10 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final hasTokens = await _authService.isAuthenticated();
       if (!hasTokens) {
+        // Unattended runs (layout work, store screenshots) sign themselves in
+        // rather than waiting for someone to type into a simulator. Compiled
+        // out unless ATLAS_DEMO is defined.
+        if (DemoConfig.isUsable && await _tryDemoSignIn()) return;
         state = const AuthState(isInitializing: false);
         return;
       }

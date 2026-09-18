@@ -94,6 +94,13 @@
 			<string>mailto</string>
 		</array>
 
+		<!-- Stop Firebase Messaging registering for remote notifications during
+		     native init, which is what puts the permission dialog on screen
+		     before the user has seen anything. Registration happens once they
+		     turn reminders on (see FcmService / Notifications settings). -->
+		<key>FirebaseMessagingAutoInitEnabled</key>
+		<false/>
+
 		<!-- FCM silent pushes + background delivery of reminders. -->
 		<key>UIBackgroundModes</key>
 		<array>
