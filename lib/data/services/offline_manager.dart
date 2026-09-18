@@ -36,7 +36,21 @@ class OfflineManager {
   final ConflictResolutionService _conflictResolution;
   final _log = AppLog('Sync');
 
-  static const _lastSyncKey = 'offline_manager_last_sync';
+  /// The pull cursor is stored per user.
+  ///
+  /// It used to be one global key. Because it lives in SharedPreferences rather
+  /// than the Drift database, signing in as a second account on the same device
+  /// inherited the first account's cursor: `/sync/pull` then asked for
+  /// everything changed *since* that moment and the server correctly returned
+  /// nothing older, so a fully populated account came up empty and stayed that
+  /// way. Nothing ever re-requested those rows, because the cursor only moves
+  /// forward.
+  static String _lastSyncKeyFor(String userId) =>
+      'offline_manager_last_sync_$userId';
+
+  /// The pre-per-user key. Read once so an existing install keeps its cursor,
+  /// then removed so it can never be picked up by a different account.
+  static const _legacyLastSyncKey = 'offline_manager_last_sync';
   static const _periodicSyncInterval = Duration(minutes: 5);
   static const _syncDebounceDelay = Duration(seconds: 2);
 
@@ -71,15 +85,55 @@ class OfflineManager {
 
   /// Call when auth state changes. Sync only runs when authenticated.
   void setAuthenticated(bool authenticated, {String? userId}) {
+    final previousUserId = _currentUserId;
     _isAuthenticated = authenticated;
     _currentUserId = userId;
-    if (authenticated && _isOnline) {
-      syncNow();
-      _maybeStartPeriodicSync();
-    }
+
     if (!authenticated) {
       _currentUserId = null;
+      _lastSyncTime = null;
+      _lastSyncTimeController.add(null);
       _cancelPeriodicSync();
+      return;
+    }
+
+    // Load this user's own cursor before anything can sync. A different user
+    // than last time starts from no cursor at all, which is a full pull — the
+    // only way their existing server rows can reach a device that has never
+    // seen them.
+    final restore = userId == null
+        ? Future<void>.value()
+        : _restoreCursor(userId, changedUser: userId != previousUserId);
+
+    restore.then((_) {
+      if (!_isAuthenticated || _currentUserId != userId) return;
+      if (_isOnline) {
+        syncNow();
+        _maybeStartPeriodicSync();
+      }
+    });
+  }
+
+  /// Read [userId]'s stored cursor into [_lastSyncTime].
+  Future<void> _restoreCursor(String userId, {required bool changedUser}) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    var stored = prefs.getString(_lastSyncKeyFor(userId));
+
+    // One-time carry-over for an install that predates the per-user key. Only
+    // the first user to sign in after upgrading may claim it; it is deleted
+    // either way so a second account can never inherit it.
+    final legacy = prefs.getString(_legacyLastSyncKey);
+    if (legacy != null) {
+      stored ??= legacy;
+      await prefs.remove(_legacyLastSyncKey);
+    }
+
+    _lastSyncTime = stored == null ? null : DateTime.tryParse(stored);
+    _lastSyncTimeController.add(_lastSyncTime);
+
+    if (changedUser && _lastSyncTime == null) {
+      _log.i('OfflineManager: no cursor for this account — pulling in full');
     }
   }
 
@@ -130,13 +184,8 @@ class OfflineManager {
 
   /// Initialise the manager. Call once at app startup.
   Future<void> initialize(Stream<bool> connectivityStream) async {
-    // Restore persisted last-sync time
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_lastSyncKey);
-    if (stored != null) {
-      _lastSyncTime = DateTime.tryParse(stored);
-      _lastSyncTimeController.add(_lastSyncTime);
-    }
+    // The cursor belongs to a user, and no user is known yet at startup. It is
+    // loaded by [setAuthenticated] once we know who signed in.
 
     // Listen to connectivity changes
     _connectivitySubscription = connectivityStream.listen((online) {
@@ -201,12 +250,15 @@ class OfflineManager {
       await _pushNotifications();
       await _pullRows();
 
-      // Persist last sync time
+      // Persist last sync time, against the user it describes.
       _lastSyncTime = DateTime.now();
       _lastSyncTimeController.add(_lastSyncTime);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _lastSyncKey, _lastSyncTime!.toIso8601String());
+      final userId = _currentUserId;
+      if (userId != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            _lastSyncKeyFor(userId), _lastSyncTime!.toIso8601String());
+      }
 
       _syncStatusController.add(SyncStatus.idle);
       _log.i('OfflineManager: Sync completed at $_lastSyncTime');

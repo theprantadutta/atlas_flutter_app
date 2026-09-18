@@ -80,11 +80,25 @@ class AvatarActions {
   final _uuid = const Uuid();
   final _seeded = <String>{};
 
+  /// The server owns the avatar — it creates the 1:1 row at registration. This
+  /// only gives the UI something to draw on a device that has not pulled yet.
+  ///
+  /// It is therefore written *clean* and stamped at the epoch, and both matter:
+  ///
+  ///  * dirty, and the sync engine pushes this invented 10/10/10 row over the
+  ///    real one, so reinstalling the app silently reset a real avatar;
+  ///  * stamped `now`, and last-write-wins rejects the server's genuinely older
+  ///    avatar on pull, so the placeholder could never be replaced either.
+  ///
+  /// Together those two made the placeholder permanent and destructive. An
+  /// epoch stamp loses every comparison, which is exactly what a stand-in
+  /// should do; the first real edit marks the row dirty in the normal way.
+  static final _placeholderStamp = DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<void> ensureExists(String userId) async {
     if (_seeded.contains(userId)) return;
     _seeded.add(userId);
     if (await _dao.getAvatarByUserId(userId) != null) return;
-    final now = DateTime.now();
     await _dao.insertAvatar(AvatarsCompanion(
       id: Value(_uuid.v4()),
       userId: Value(userId),
@@ -96,9 +110,9 @@ class AvatarActions {
       intelligence: const Value(10),
       appearanceData:
           Value(avatarAppearanceJson(skin: 1, hair: 0, outfit: 0)),
-      createdAt: Value(now),
-      updatedAt: Value(now),
-      isDirty: const Value(true),
+      createdAt: Value(_placeholderStamp),
+      updatedAt: Value(_placeholderStamp),
+      isDirty: const Value(false),
     ));
   }
 
