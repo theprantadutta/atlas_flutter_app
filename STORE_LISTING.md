@@ -132,11 +132,29 @@ scannable on a phone without needing markdown, which Play does not render.
 
 ## 3. Apple App Store
 
+> **What is actually live** (App Store Connect, iOS 1.4.0). The recommendations
+> below were written before the listing existed and assume the app is renamed.
+> It is not: the live name is `Atlas: Habits & Self-Care`. That matters, because
+> the keyword field deliberately omits words already in the name, so the
+> recommended keyword line does not apply unchanged to the live name.
+>
+> | Field | Live value |
+> |---|---|
+> | Name | `Atlas: Habits & Self-Care` |
+> | Keywords | `tracker,routine,goal,task,todo,streak,wellbeing,journal,mindfulness,productivity,reminder,planner` |
+> | Promotional text | Points at 1.4.0: iPad support and Aurora's voice settings |
+> | Description | 2,330 chars, includes an ON IPHONE AND IPAD section |
+>
+> House style is enforced in the live copy: no em or en dashes. Bullets use
+> colons. Re-check this if you edit the listing by hand.
+
 ### App name (30 char limit) [28]
 
 ```
 Atlas: Habit Tracker & Goals
 ```
+
+Not adopted. The live listing still uses `Atlas: Habits & Self-Care`.
 
 ### Subtitle (30 char limit) [30]
 
@@ -180,8 +198,10 @@ search, so it exists purely to convert, but the copy already does both jobs.
 
 ## 4. What still needs doing outside this file
 
-- [ ] **Screenshots.** Caption the first two, since those are the only ones most people see. Lead
-      with the living world and the habit list, not the login screen. Assets live in
+- [x] **Screenshots.** Done for the App Store: 10 iPhone (6.5", 1284x2778) and 6 iPad (13",
+      2064x2752) captioned marketing shots, uploaded and live. Sources in
+      `ios_app_store_screenshots/` and `ipad_app_store_screenshots/`; raw captures in
+      `ios_screenshots/` and `ipad_screenshots/`. Play still uses
       `play_store_screenshots/` and `android_screenshots/`.
 - [ ] **Feature graphic** (Play, 1024x500). Should read at thumbnail size.
 - [ ] **Localisation.** Even translating just the name, subtitle and short description into the top
