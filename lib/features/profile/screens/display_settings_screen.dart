@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/shared/providers/refresh_rate_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 
 /// Display — how smoothly Atlas moves, and what the screen is actually doing.
@@ -39,12 +40,7 @@ class _DisplaySettingsScreenState
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.md,
-            AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
-          ),
+          padding: adaptiveScreenPadding(context),
           children: [
             AtlasHeader(title: 'Display', onBack: () => context.pop()),
             AppSpacing.gapLg,

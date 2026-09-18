@@ -18,6 +18,7 @@ import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 
 final _log = AppLog('Billing');
 
@@ -284,9 +285,12 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                 )
                     .animate()
                     .fadeIn(duration: AppMotion.medium),
+                // The hero art stays full-bleed; only the copy and the plan
+                // cards are held to a readable column, so an iPad paywall
+                // doesn't run its price rows the width of the screen.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, 0),
+                  padding: const EdgeInsets.only(top: AppSpacing.lg),
+                  child: AdaptiveContentPadding(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -352,6 +356,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       ),
                       AppSpacing.gapMd,
                     ],
+                  ),
                   ),
                 ),
               ],
@@ -658,8 +663,8 @@ class _StickyCta extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm,
-              AppSpacing.gutter, AppSpacing.xs),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: AdaptiveContentPadding(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -677,6 +682,7 @@ class _StickyCta extends StatelessWidget {
                 trialEligibilityKnown: trialEligibilityKnown,
               ),
             ],
+          ),
           ),
         ),
       ),

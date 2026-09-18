@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/features/billing/providers/entitlement_provide
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
@@ -19,6 +20,9 @@ Future<void> showQuickAddSheet(BuildContext context) {
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
+    // A sheet pinned to the full width of an iPad puts its controls at the far
+    // edges of a 1366pt screen. Hold it to the same measure as the content.
+    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
     builder: (_) => const QuickAddSheet(),
   );
 }

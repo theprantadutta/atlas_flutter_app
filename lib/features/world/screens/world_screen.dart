@@ -249,6 +249,9 @@ void _showTileSheet(BuildContext context, WorldTileInfo tile) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
+    // A sheet pinned to the full width of an iPad puts its controls at the far
+    // edges of a 1366pt screen. Hold it to the same measure as the content.
+    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
     builder: (context) => Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,

@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 
 /// The post-sign-in personalisation step. Picking a few focus areas seeds real
 /// habits into the local database, so the very first Home screen has something
@@ -83,7 +84,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             ),
           ),
           SafeArea(
-            child: Column(
+            // Personalisation is a short column of copy and a chip cloud; both
+            // read better held to a phone-ish measure than spread over an iPad.
+            child: AdaptiveCenteredColumn(
+              child: Column(
               children: [
                 Expanded(
                   child: SingleChildScrollView(
@@ -152,6 +156,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ],

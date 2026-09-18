@@ -67,8 +67,3 @@ lib/generated/
 
 nul
 .claude/
-
-# Simulator scratch captures from demo runs; the submission-ready sets
-# live in ios_app_store_screenshots/ and ipad_app_store_screenshots/.
-ios_screenshots/
-ipad_screenshots/

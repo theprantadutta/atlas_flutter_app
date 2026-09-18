@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/store_config.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -23,6 +24,9 @@ Future<void> showFeedbackSheet(BuildContext context) {
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
+    // A sheet pinned to the full width of an iPad puts its controls at the far
+    // edges of a 1366pt screen. Hold it to the same measure as the content.
+    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
     builder: (_) => const FeedbackSheet(),
   );
 }

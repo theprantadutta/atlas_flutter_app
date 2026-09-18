@@ -25,6 +25,11 @@ class AuthScaffold extends StatelessWidget {
 
   static const double _headerHeight = 252;
 
+  /// A form is not a page of prose: past about this width the labels drift far
+  /// from their fields and the eye has to travel for no reason. On a phone this
+  /// is wider than the screen, so nothing changes there.
+  static const double _formWidth = 480;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -58,9 +63,16 @@ class AuthScaffold extends StatelessWidget {
                         AppSpacing.gutter,
                         AppSpacing.lg + bottomInset,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: children,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: _formWidth,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -69,9 +81,7 @@ class AuthScaffold extends StatelessWidget {
             ],
           ),
           if (isBusy)
-            const Positioned.fill(
-              child: ColoredBox(color: Color(0x22000000)),
-            ),
+            const Positioned.fill(child: ColoredBox(color: Color(0x22000000))),
         ],
       ),
     );
@@ -117,39 +127,46 @@ class _Header extends StatelessWidget {
               AppSpacing.gutter,
               AppSpacing.xl,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AuthScaffold._formWidth,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AtlasLogo(size: 30),
-                    const SizedBox(width: AppSpacing.xs),
+                    Row(
+                      children: [
+                        const AtlasLogo(size: 30),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'Atlas',
+                          style: GoogleFonts.fraunces(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
                     Text(
-                      'Atlas',
-                      style: GoogleFonts.fraunces(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.5,
-                        color: Colors.white,
+                      title,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.displaySmall?.copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.82),
                       ),
                     ),
                   ],
                 ),
-                const Spacer(),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: Colors.white,
-                      ),
-                ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
-                      ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

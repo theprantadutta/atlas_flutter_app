@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart'
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
 import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 
@@ -88,7 +89,11 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        // A conversation is the clearest case for a held column: bubbles run
+        // the full width of an iPad otherwise, and a one-line reply becomes a
+        // 1900pt ribbon with three words in it.
+        child: AdaptiveCenteredColumn(
+          child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpacing.gutter,
@@ -121,6 +126,7 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
               onSend: _send,
             ),
           ],
+          ),
         ),
       ),
     );

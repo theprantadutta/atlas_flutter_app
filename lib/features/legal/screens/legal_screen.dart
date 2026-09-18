@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 
 /// The legal documents — privacy, terms and refunds — behind a tab bar.
 ///
@@ -52,7 +53,11 @@ class _LegalScreenState extends ConsumerState<LegalScreen>
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Column(
+        // The documents are the screen, and a licence agreement set 1900pt wide
+        // is unreadable. One column keeps the header, tabs and accept bar lined
+        // up with the prose they belong to.
+        child: AdaptiveCenteredColumn(
+          child: Column(
           children: [
             // ── Header ──
             Padding(
@@ -149,6 +154,7 @@ class _LegalScreenState extends ConsumerState<LegalScreen>
             else
               SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
@@ -33,6 +34,9 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
+    // A sheet pinned to the full width of an iPad puts its controls at the far
+    // edges of a 1366pt screen. Hold it to the same measure as the content.
+    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
     builder: (_) => const _NotificationPrimerSheet(),
   );
 

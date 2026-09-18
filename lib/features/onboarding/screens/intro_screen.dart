@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 
 /// The pre-auth introduction — Atlas's pitch, shown before we ask for anything.
 /// Three calm pages set up the living-world metaphor and introduce Aurora, and
@@ -120,7 +121,10 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
             ),
           ),
           SafeArea(
-            child: Column(
+            // The pitch is a single column of copy over the horizon art; let it
+            // run the full width of an iPad and the title outpaces the eye.
+            child: AdaptiveCenteredColumn(
+              child: Column(
               children: [
                 Align(
                   alignment: Alignment.centerRight,
@@ -195,6 +199,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ],
