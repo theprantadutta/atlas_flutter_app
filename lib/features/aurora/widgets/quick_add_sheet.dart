@@ -4,23 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
-import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
-import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
-import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/features/grow/widgets/item_editor_sheet.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// Opens the quick-add sheet: natural-language capture with Aurora (premium)
-/// plus manual add for everyone. Everything is created in local Drift.
+/// Opens the quick-add sheet: describe it to Aurora (premium), or add a
+/// task, habit or goal by hand. Everything is created in local Drift.
 Future<void> showQuickAddSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (_) => const QuickAddSheet(),
-  );
+  return showAtlasSheet<void>(context, builder: (_) => const QuickAddSheet());
 }
 
 class QuickAddSheet extends ConsumerStatefulWidget {
@@ -54,372 +44,235 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     }
     if (ok) {
       final n = state.result?.created.length ?? 0;
-      AtlasToast.success(context, n == 1 ? 'Added 1 item' : 'Added $n items');
+      AtlasToast.success(
+          context, n == 1 ? 'Added 1 thing to Grow' : 'Added $n things to Grow');
       Navigator.of(context).pop();
       ref.read(quickAddProvider.notifier).reset();
     }
   }
 
+  Future<void> _manual(ItemKind kind) async {
+    final nav = Navigator.of(context);
+    final rootContext = nav.context;
+    nav.pop();
+    await showItemEditor(rootContext, kind: kind);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final isPremium = ref.watch(isPremiumProvider);
     final qa = ref.watch(quickAddProvider);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-          AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.lg + bottomInset),
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.md),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: Text('Add something new',
-                style: theme.textTheme.headlineSmall),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('Add something',
+                style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
           ),
-
-          // ── Aurora natural-language capture ──
+          const SizedBox(height: AppSpacing.md),
           if (isPremium)
-            _NlField(
+            _AuroraInput(
               controller: _input,
               submitting: qa.submitting,
-              error: qa.error,
               onSubmit: _submitNl,
             )
           else
-            _PremiumNlTeaser(onTap: () {
+            _AuroraTeaser(onTap: () {
               Navigator.of(context).pop();
               context.push('/paywall');
             }),
-
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(child: Divider(color: theme.colorScheme.outline)),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                child: Text('or add manually',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
-              ),
-              Expanded(child: Divider(color: theme.colorScheme.outline)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          _ManualTile(
-            icon: Icons.check_circle_outline_rounded,
-            color: AppColors.categoryWork,
+          if (qa.error != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            ErrorRow(message: qa.error!, onRetry: _submitNl),
+          ],
+          const SizedBox(height: AppSpacing.lg - 4),
+          Row(children: [
+            Expanded(child: Divider(color: p.hairline)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text('or add manually',
+                  style: AppTypography.metaStrong.copyWith(color: p.textMuted)),
+            ),
+            Expanded(child: Divider(color: p.hairline)),
+          ]),
+          const SizedBox(height: AppSpacing.lg - 4),
+          _ManualRow(
+            style: const CategoryStyle(Symbols.task_alt_rounded, AppColors.sky),
             title: 'New task',
-            subtitle: 'A one-off to tend to',
-            onTap: () => _manualAdd(_ManualKind.task),
+            subtitle: 'Something to get done',
+            onTap: () => _manual(ItemKind.task),
           ),
           const SizedBox(height: AppSpacing.xs),
-          _ManualTile(
-            icon: Icons.eco_outlined,
-            color: AppColors.xpPrimary,
+          _ManualRow(
+            style: const CategoryStyle(Symbols.repeat_rounded, AppColors.leaf),
             title: 'New habit',
-            subtitle: 'Something to nurture daily',
-            onTap: () => _manualAdd(_ManualKind.habit),
+            subtitle: 'Something to come back to',
+            onTap: () => _manual(ItemKind.habit),
           ),
           const SizedBox(height: AppSpacing.xs),
-          _ManualTile(
-            icon: Icons.flag_outlined,
-            color: AppColors.tertiary,
+          _ManualRow(
+            style: const CategoryStyle(Symbols.flag_rounded, AppColors.amber),
             title: 'New goal',
-            subtitle: 'A horizon to grow toward',
-            onTap: () => _manualAdd(_ManualKind.goal),
+            subtitle: 'Somewhere you’re heading',
+            onTap: () => _manual(ItemKind.goal),
           ),
         ],
       ),
     );
   }
-
-  Future<void> _manualAdd(_ManualKind kind) async {
-    final title = await showDialog<String>(
-      context: context,
-      builder: (_) => _TitleDialog(kind: kind),
-    );
-    if (title == null || title.trim().isEmpty || !mounted) return;
-    final userId = ref.read(currentUserIdProvider);
-    switch (kind) {
-      case _ManualKind.task:
-        await ref
-            .read(taskActionsProvider)
-            .create(userId: userId, title: title.trim());
-      case _ManualKind.habit:
-        await ref
-            .read(habitActionsProvider)
-            .create(userId: userId, title: title.trim());
-      case _ManualKind.goal:
-        await ref
-            .read(goalActionsProvider)
-            .create(userId: userId, title: title.trim());
-    }
-    if (!mounted) return;
-    AtlasToast.success(context, 'Added ${kind.label}');
-    Navigator.of(context).pop();
-  }
 }
 
-enum _ManualKind {
-  task('task'),
-  habit('habit'),
-  goal('goal');
-
-  const _ManualKind(this.label);
-  final String label;
-}
-
-// ─── Aurora NL field (premium) ──────────────────────────────────────
-
-class _NlField extends StatelessWidget {
-  const _NlField({
+/// The Aurora input: a 56 paper pill with the spark, and a gradient send.
+class _AuroraInput extends StatelessWidget {
+  const _AuroraInput({
     required this.controller,
     required this.submitting,
-    required this.error,
     required this.onSubmit,
   });
+
   final TextEditingController controller;
   final bool submitting;
-  final String? error;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.auto_awesome_rounded,
-                size: 18, color: AppColors.auroraLilac),
-            const SizedBox(width: AppSpacing.xs),
-            Text('Ask Aurora',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: 4,
-                  autofocus: true,
-                  enabled: !submitting,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => onSubmit(),
-                  style: theme.textTheme.bodyMedium,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. “read 20 pages on weekdays”',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  ),
-                ),
+    final p = context.palette;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: p.paper,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        children: [
+          AtlasSpark(size: 22, busy: submitting),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              autofocus: true,
+              enabled: !submitting,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => onSubmit(),
+              style: AppTypography.sans(size: 15, color: p.textPrimary),
+              decoration: const InputDecoration(
+                hintText: 'e.g. read 20 pages on weekdays',
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10),
               ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                child: GestureDetector(
-                  onTap: submitting ? null : onSubmit,
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: submitting ? null : AppColors.auroraGradient,
-                      color: submitting
-                          ? theme.colorScheme.surfaceContainerHighest
-                          : null,
-                    ),
-                    child: submitting
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2.4),
-                          )
-                        : const Icon(Icons.arrow_upward_rounded,
-                            color: Color(0xFF10243B)),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        if (error != null) ...[
-          const SizedBox(height: AppSpacing.xs),
-          Text(error!,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error)),
+          const SizedBox(width: 6),
+          SendButton(onTap: submitting ? null : onSubmit, size: 44),
         ],
-      ],
-    );
-  }
-}
-
-class _PremiumNlTeaser extends StatelessWidget {
-  const _PremiumNlTeaser({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    const ink = Color(0xFF10243B);
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            gradient: AppColors.auroraGradient,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome_rounded, color: ink),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Add with Aurora',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(color: ink, fontWeight: FontWeight.w700)),
-                    Text('Describe it in words, a premium touch',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: ink.withValues(alpha: 0.8))),
-                  ],
-                ),
-              ),
-              const Icon(Icons.lock_rounded, color: ink, size: 18),
-            ],
-          ),
-        ),
       ),
     );
   }
 }
 
-// ─── Manual add ─────────────────────────────────────────────────────
+/// The round sunrise send button (quick add, chat composer).
+class SendButton extends StatelessWidget {
+  const SendButton({super.key, required this.onTap, this.size = 54});
+  final VoidCallback? onTap;
+  final double size;
 
-class _ManualTile extends StatelessWidget {
-  const _ManualTile({
-    required this.icon,
-    required this.color,
+  @override
+  Widget build(BuildContext context) => Pressable(
+        onTap: onTap,
+        circle: true,
+        haptic: PressHaptic.light,
+        semanticLabel: 'Send',
+        child: AnimatedOpacity(
+          duration: AppMotion.instant,
+          opacity: onTap == null ? .5 : 1,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: AppColors.sunrise,
+              boxShadow: size >= 54 ? AppColors.fabShadow : null,
+            ),
+            child: const AtlasIcon(Symbols.arrow_upward_rounded,
+                color: AppColors.white, size: 24, weight: 600),
+          ),
+        ),
+      );
+}
+
+/// For free users: what Aurora can do here, and where to unlock it.
+class _AuroraTeaser extends StatelessWidget {
+  const _AuroraTeaser({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return AtlasTile(
+      gradient: p.letter,
+      onTap: onTap,
+      semanticLabel: 'Add with Aurora. Premium.',
+      child: Row(
+        children: [
+          const AtlasSpark(size: 30, animated: true),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Just say it to Aurora',
+                    style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
+                const SizedBox(height: 2),
+                Text('Describe it in words and she sets it up. Premium.',
+                    style: AppTypography.meta.copyWith(color: p.textMuted)),
+              ],
+            ),
+          ),
+          AtlasIcon(Symbols.arrow_forward_rounded, size: 20, color: p.textMuted),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManualRow extends StatelessWidget {
+  const _ManualRow({
+    required this.style,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
-  final IconData icon;
-  final Color color;
+
+  final CategoryStyle style;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
+  Widget build(BuildContext context) => AtlasRow(
+        leading: IconTile(style: style),
+        title: title,
+        meta: subtitle,
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm + 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.titleMedium),
-                    Text(subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  color: theme.colorScheme.onSurfaceVariant),
-            ],
-          ),
+        trailing: Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: AtlasIcon(Symbols.arrow_forward_rounded,
+              size: 20, color: context.palette.chevron),
         ),
-      ),
-    );
-  }
-}
-
-class _TitleDialog extends StatefulWidget {
-  const _TitleDialog({required this.kind});
-  final _ManualKind kind;
-
-  @override
-  State<_TitleDialog> createState() => _TitleDialogState();
-}
-
-class _TitleDialogState extends State<_TitleDialog> {
-  final _c = TextEditingController();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('New ${widget.kind.label}'),
-      content: TextField(
-        controller: _c,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (v) => Navigator.of(context).pop(v),
-        decoration: const InputDecoration(hintText: 'Give it a name'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_c.text),
-          child: const Text('Add'),
-        ),
-      ],
-    );
-  }
+      );
 }
