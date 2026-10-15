@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/gamification/providers/gamification_p
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
 import 'package:atlas_flutter_app/features/notifications/providers/notification_providers.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 import '../helpers/golden.dart';
@@ -52,7 +53,13 @@ List overridesFor(HomeView view) => [
       unreadNotificationCountProvider.overrideWith((ref) => Stream.value(2)),
       auroraNudgeProvider.overrideWithValue(null),
       dailyRolloverProvider.overrideWithValue(null),
+      starterDataProvider.overrideWith(_Chosen.new),
     ];
+
+class _Chosen extends StarterDataController {
+  @override
+  StarterDataState build() => const StarterDataState(loaded: true, choiceMade: true);
+}
 
 void main() {
   setUpAll(loadAppFonts);

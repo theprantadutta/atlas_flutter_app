@@ -1,6 +1,7 @@
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/world/providers/world_providers.dart';
 
 /// Deterministic sample data matching the Daylight mocks. "Today" is a
 /// Tuesday so the week strip reads M 13 … S 19 like the design.
@@ -155,7 +156,7 @@ List<WorldTile> sampleTiles({int unlocked = 12}) => [
           name: _tileNames[_tileTypes[i % 8]]!,
           tileType: _tileTypes[i % 8],
           isUnlocked: i < unlocked,
-          unlockRequirement: i == 0 ? 0 : 50 + (i - 1) * 25,
+          unlockRequirement: WorldActions.costFor(i),
           positionX: i % 5,
           positionY: i ~/ 5,
           unlockedAt: i < unlocked ? addDays(kToday, -(unlocked - i) * 3) : null,

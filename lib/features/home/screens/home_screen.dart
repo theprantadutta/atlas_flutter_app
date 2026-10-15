@@ -13,7 +13,10 @@ import 'package:atlas_flutter_app/features/grow/widgets/item_actions.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
 import 'package:atlas_flutter_app/features/notifications/providers/notification_providers.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
+import 'package:atlas_flutter_app/features/onboarding/widgets/starter_choice_sheet.dart';
 import 'package:atlas_flutter_app/features/updates/widgets/update_banner.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
@@ -42,6 +45,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int? _lastTended;
 
   GlobalKey _keyFor(String id) => _rowKeys.putIfAbsent(id, GlobalKey.new);
+
+  /// The first-run "examples or empty?" question, asked once.
+  static bool _starterAsked = false;
+
+  void _maybeAskStarter() {
+    if (_starterAsked) return;
+    final starter = ref.read(starterDataProvider);
+    final onboarding = ref.read(onboardingProvider);
+    if (!starter.loaded || starter.choiceMade || !onboarding.setupComplete) return;
+    _starterAsked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showStarterChoiceSheet(context, ref);
+    });
+  }
 
   Future<void> _leave(TodayItem item, {required bool tended}) async {
     setState(() => _leaving[item.id] = (item: item, tended: tended));
@@ -114,6 +131,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final view = ref.watch(homeProvider);
     ref.watch(dayCompleteProvider);
     ref.watch(dailyRolloverProvider);
+    ref.watch(starterDataProvider);
+    _maybeAskStarter();
     _maybeCelebrate(view);
     _maybePulseStreak(view);
     final unread = ref.watch(unreadNotificationCountProvider).value ?? 0;

@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 /// Anchors the first-run coach marks point at. Screens attach these keys to the
@@ -109,6 +110,10 @@ class _CoachMarksState extends ConsumerState<CoachMarks> {
   @override
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
+    // The tour waits for the first-run "examples or empty?" choice, so it
+    // never sits behind that sheet and has something to point at.
+    final starter = ref.watch(starterDataProvider);
+    if (!starter.loaded || !starter.choiceMade) return const SizedBox.shrink();
     if (!widget.enabled ||
         !onboarding.loaded ||
         !onboarding.setupComplete ||

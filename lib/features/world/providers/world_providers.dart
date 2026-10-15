@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -58,10 +60,41 @@ class WorldActions {
     );
   }
 
+  /// Total XP at which the place in grid slot [index] is discovered: a
+  /// gentle curve, so early places come quickly and the last of 30 takes a
+  /// few months of steady tending (about 13,000 XP).
+  static int costFor(int index) =>
+      index <= 0 ? 0 : ((60 * math.pow(index, 1.6)) / 10).round() * 10;
+
+  /// The old linear costs (50 + 25 per slot) let a whole world unlock in a
+  /// week. Re-cost places that are still locked and still at the old value;
+  /// anything a user or the server changed is left alone.
+  Future<void> _rebalance(String userId) async {
+    final tiles = await _dao.getAllTiles(userId);
+    final now = DateTime.now();
+    for (final t in tiles) {
+      if (t.isUnlocked) continue;
+      final i = t.positionY * 5 + t.positionX;
+      final legacy = 50 + (i - 1).clamp(0, 99) * 25;
+      if (i == 0 || t.unlockRequirement != legacy) continue;
+      await _dao.updateFields(
+        t.id,
+        WorldTilesCompanion(
+          unlockRequirement: Value(costFor(i)),
+          updatedAt: Value(now),
+          isDirty: const Value(true),
+        ),
+      );
+    }
+  }
+
   Future<void> ensureSeeded(String userId) async {
     if (_seeded.contains(userId)) return;
     _seeded.add(userId);
-    if (await _dao.countForUser(userId) > 0) return;
+    if (await _dao.countForUser(userId) > 0) {
+      await _rebalance(userId);
+      return;
+    }
 
     final now = DateTime.now();
     const cols = 5;
@@ -72,7 +105,7 @@ class WorldActions {
     for (var i = 0; i < total; i++) {
       final type = _tileTypes[i % _tileTypes.length];
       final unlocked = i < unlockedCount;
-      final cost = 50 + ((i - unlockedCount).clamp(0, 99)) * 25;
+      final cost = costFor(i);
       await _dao.insertTile(WorldTilesCompanion(
         id: Value(_uuid.v4()),
         userId: Value(userId),
