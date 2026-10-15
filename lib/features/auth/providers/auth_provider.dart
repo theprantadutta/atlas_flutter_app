@@ -274,12 +274,13 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// Log out and clear auth state.
   ///
-  /// Logging out leaves nothing of the account on this device: the sync cursor
-  /// is reset, the local database is wiped and user-scoped prefs are removed
-  /// (see [userScopedPrefKeys]). Before that, entitled users get a best-effort
-  /// final sync so unsynced edits reach the server. For users without cloud
-  /// sync the local data is the only copy, so the UI must warn before calling
-  /// this.
+  /// The sync cursor is reset and user-scoped prefs are removed (see
+  /// [userScopedPrefKeys]), and entitled users get a best-effort final sync
+  /// first. The local database is deliberately kept: Atlas is offline-first,
+  /// and for anyone without cloud sync it is the only copy of their data.
+  /// Every query is scoped by user id, so another account signing in on this
+  /// device never sees it, and the same account signing back in finds
+  /// everything where it left it. Only [deleteAccount] wipes the database.
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -307,7 +308,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {
       // Continue logout regardless of errors
     } finally {
-      await _clearUserScopedState(wipeDatabase: true);
+      await _clearUserScopedState(wipeDatabase: false);
       await _tokenService.clearUser();
       state = const AuthState(
         isInitializing: false,
