@@ -19,4 +19,12 @@ void main() {
     expect(icon('Find an interesting podcast', 'learning'), Symbols.menu_book_rounded);
     expect(icon('Brunch with friends', 'social'), isNot(Symbols.directions_run_rounded));
   });
+
+  test('booking and appointments are not reading', () {
+    expect(icon('Book the dentist', 'health'), Symbols.medical_services_rounded);
+    expect(icon('Doctor check-up', 'health'), Symbols.medical_services_rounded);
+    expect(icon('Book a table for Friday', 'social'), Symbols.calendar_month_rounded);
+    expect(icon('Read a book', 'learning'), Symbols.menu_book_rounded);
+    expect(icon('Read 20 pages', 'learning'), Symbols.menu_book_rounded);
+  });
 }

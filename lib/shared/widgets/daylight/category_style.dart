@@ -98,6 +98,7 @@ class CategoryStyle {
     Symbols.restaurant_rounded: AppColors.amber,
     Symbols.savings_rounded: AppColors.pine,
     Symbols.mail_rounded: AppColors.sky,
+    Symbols.medical_services_rounded: AppColors.rose,
     Symbols.code_rounded: AppColors.sky,
   };
 
@@ -107,6 +108,11 @@ class CategoryStyle {
         words.any((w) => RegExp(r'\b' + RegExp.escape(w)).hasMatch(t));
     if (has(['coffee', 'tea', 'warm drink', 'hot drink'])) return Symbols.coffee_rounded;
     if (has(['water', 'hydrat'])) return Symbols.water_drop_rounded;
+    if (has(['dentist', 'doctor', 'appointment', 'check-up', 'checkup', 'clinic'])) {
+      return Symbols.medical_services_rounded;
+    }
+    // "Book a table", "book the flight": booking, not reading.
+    if (has(['book a', 'book an', 'book the', 'book my'])) return Symbols.calendar_month_rounded;
     if (has(['read', 'book', 'pages', 'study'])) return Symbols.menu_book_rounded;
     if (has(['meditat', 'breath', 'calm', 'mindful'])) {
       return Symbols.self_improvement_rounded;
