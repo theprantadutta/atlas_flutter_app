@@ -1,461 +1,173 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_extra.dart' show AttributeStat;
+import 'package:atlas_flutter_app/core/config/sync_config.dart';
 import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/feedback/widgets/feedback_sheet.dart';
-import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
-import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
-import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/features/profile/widgets/settings_widgets.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// You — the home for the person behind the world. A calm hero with avatar,
-/// level and XP, a quiet stat strip, the attributes that grow with care, and a
-/// gentle settings menu.
+/// You: the person behind the world. A big avatar, one ink card with level,
+/// total XP and streaks (from the local ledger, not the server copy), then
+/// calm groups of settings.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  String _formatXp(int xp) =>
-      xp >= 1000 ? '${(xp / 1000).toStringAsFixed(1)}k' : '$xp';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final p = context.palette;
     final user = ref.watch(authProvider).user;
     if (user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: AtlasSpark(size: 48, busy: true)));
     }
-    // Live stats from the local-first Drift stores.
-    final tasks = ref.watch(tasksStreamProvider).value ?? const [];
-    final habits = ref.watch(habitsStreamProvider).value ?? const [];
-    final tasksDone = tasks.where((t) => t.isCompleted).length;
-    final habitCount = habits.length;
-    // Attributes come from the local-first avatar (Drift), not sample data.
-    final avatar = ref.watch(avatarStreamProvider).value;
-    final attributes = <AttributeStat>[
-      AttributeStat('Strength', avatar?.strength ?? 0,
-          Icons.fitness_center_rounded, AppColors.categoryFitness),
-      AttributeStat('Wisdom', avatar?.wisdom ?? 0, Icons.auto_stories_rounded,
-          AppColors.categoryLearning),
-      AttributeStat('Intelligence', avatar?.intelligence ?? 0,
-          Icons.psychology_rounded, AppColors.categoryMindfulness),
-    ];
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.gutter,
-            AppSpacing.md,
+            AppSpacing.xs,
             AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
+            MediaQuery.paddingOf(context).bottom + AppSpacing.xxl,
           ),
           children: [
-            AtlasHeader(
-              title: 'You',
-              trailing: CircleActionButton(
-                icon: isDark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
-                onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
-              ),
+            Row(children: [
+              CircleIconButton.back(onTap: () => context.go('/')),
+              const Spacer(),
+            ]),
+            const SizedBox(height: AppSpacing.sm),
+            _Identity(user: user),
+            const SizedBox(height: AppSpacing.lg),
+            const EntryFade(id: 'profile-hero', index: 0, child: _StatsHero()),
+            const SizedBox(height: 14),
+            const EntryFade(id: 'profile-premium', index: 1, child: _PremiumTile()),
+            settingsGap,
+            RowGroup(
+              title: 'Aurora and you',
+              children: [
+                GroupRow(
+                  icon: Symbols.auto_awesome_rounded,
+                  iconColor: AppColors.violet,
+                  title: 'Aurora’s voice',
+                  subtitle: 'How she speaks, and what she keeps in mind',
+                  onTap: () => context.push('/profile/aurora'),
+                ),
+                const _AvatarRow(),
+              ],
             ),
-            AppSpacing.gapLg,
-            _ProfileHero(user: user, formatXp: _formatXp)
-                .animate()
-                .fadeIn(duration: AppMotion.medium)
-                .slideY(begin: 0.05, end: 0, curve: AppMotion.standard),
-            AppSpacing.gapMd,
-            _StatStrip(
-              user: user,
-              formatXp: _formatXp,
-              tasksDone: tasksDone,
-              habitCount: habitCount,
-            ).animate().fadeIn(duration: AppMotion.medium, delay: 80.ms),
-            AppSpacing.gapXl,
-            const SectionHeader(title: 'Attributes'),
-            _AttributesCard(attributes: attributes)
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 120.ms),
-            AppSpacing.gapXl,
-            const SectionHeader(title: 'Settings'),
-            _SettingsMenu(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Hero ───────────────────────────────────────────────────────────
-
-class _ProfileHero extends StatelessWidget {
-  const _ProfileHero({required this.user, required this.formatXp});
-  final User user;
-  final String Function(int) formatXp;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final initial = user.fullName.isNotEmpty
-        ? user.fullName.characters.first.toUpperCase()
-        : '?';
-    final xpInLevel = user.totalXp % 1000;
-    const xpForNext = 1000;
-    final fraction = xpInLevel / xpForNext;
-
-    return AtlasCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _AvatarCircle(initial: initial),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(user.fullName, style: theme.textTheme.headlineSmall),
-                    const SizedBox(height: 2),
-                    Text(
-                      user.email,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _LevelPill(level: user.level),
-                  ],
+            settingsGap,
+            RowGroup(
+              title: 'App',
+              children: [
+                GroupRow(
+                  icon: Symbols.contrast_rounded,
+                  iconColor: AppColors.amber,
+                  title: 'Display',
+                  subtitle: 'Light, dark and smooth motion',
+                  onTap: () => context.push('/profile/display'),
                 ),
-              ),
-            ],
-          ),
-          AppSpacing.gapLg,
-          AtlasProgressBar(fraction: fraction, height: 12),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$xpInLevel / $xpForNext XP',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                GroupRow(
+                  icon: Symbols.notifications_rounded,
+                  iconColor: AppColors.coral,
+                  title: 'Notifications',
+                  subtitle: 'Choose what reaches you',
+                  onTap: () => context.push('/profile/notifications'),
                 ),
-              ),
-              Text(
-                '${xpForNext - xpInLevel} to level ${user.level + 1}',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvatarCircle extends StatelessWidget {
-  const _AvatarCircle({required this.initial});
-  final String initial;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 72,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        gradient: AppColors.auroraGradient,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.auroraLilac.withValues(alpha: 0.4),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Text(
-        initial,
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+                const _SyncRow(),
+              ],
             ),
-      ),
-    );
-  }
-}
-
-class _LevelPill extends StatelessWidget {
-  const _LevelPill({required this.level});
-  final int level;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xxs + 2,
-      ),
-      decoration: BoxDecoration(
-        gradient: AppColors.goldGradient,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.auto_awesome_rounded,
-              size: 13, color: Color(0xFF3A2A00)),
-          const SizedBox(width: 5),
-          Text(
-            'Level $level',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF3A2A00),
-                  fontWeight: FontWeight.w700,
+            settingsGap,
+            RowGroup(
+              title: 'Your progress',
+              children: [
+                GroupRow(
+                  icon: Symbols.insights_rounded,
+                  iconColor: AppColors.sky,
+                  title: 'Your week',
+                  subtitle: 'XP, best day and where it came from',
+                  onTap: () => context.push('/analytics'),
                 ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Stat strip ─────────────────────────────────────────────────────
-
-class _StatStrip extends StatelessWidget {
-  const _StatStrip({
-    required this.user,
-    required this.formatXp,
-    required this.tasksDone,
-    required this.habitCount,
-  });
-  final User user;
-  final String Function(int) formatXp;
-  final int tasksDone;
-  final int habitCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final tiles = [
-      StatTile(
-        icon: Icons.check_circle_rounded,
-        color: AppColors.categoryWork,
-        value: '$tasksDone',
-        label: 'Done',
-      ),
-      StatTile(
-        icon: Icons.loop_rounded,
-        color: AppColors.xpPrimary,
-        value: '$habitCount',
-        label: 'Habits',
-      ),
-      StatTile(
-        icon: Icons.local_fire_department_rounded,
-        color: AppColors.streakFlame,
-        value: '${user.currentStreak}',
-        label: 'Streak',
-      ),
-      StatTile(
-        icon: Icons.bolt_rounded,
-        color: AppColors.tertiary,
-        value: formatXp(user.totalXp),
-        label: 'Total XP',
-      ),
-    ];
-
-    return Row(
-      children: [
-        for (var i = 0; i < tiles.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppSpacing.sm),
-          Expanded(child: tiles[i]),
-        ],
-      ],
-    );
-  }
-}
-
-// ─── Attributes ─────────────────────────────────────────────────────
-
-class _AttributesCard extends StatelessWidget {
-  const _AttributesCard({required this.attributes});
-  final List<AttributeStat> attributes;
-
-  @override
-  Widget build(BuildContext context) {
-    return AtlasCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        children: [
-          for (var i = 0; i < attributes.length; i++) ...[
-            if (i > 0) AppSpacing.gapLg,
-            _AttributeRow(attr: attributes[i]),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AttributeRow extends StatelessWidget {
-  const _AttributeRow({required this.attr});
-  final AttributeStat attr;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(attr.icon, color: attr.color, size: 20),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                attr.label,
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
+                GroupRow(
+                  icon: Symbols.calendar_view_day_rounded,
+                  iconColor: AppColors.leaf,
+                  title: 'Day by day',
+                  subtitle: 'Every day, with what you tended',
+                  onTap: () => context.push('/progress'),
+                ),
+              ],
             ),
-            Text(
-              '${attr.value}',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: attr.color,
-                fontWeight: FontWeight.w700,
-              ),
+            settingsGap,
+            RowGroup(
+              title: 'Help',
+              children: [
+                GroupRow(
+                  icon: Symbols.explore_rounded,
+                  iconColor: AppColors.amber,
+                  title: 'Replay the tour',
+                  subtitle: 'Walk through Atlas again',
+                  onTap: () => _replayTour(context, ref),
+                ),
+                GroupRow(
+                  icon: Symbols.favorite_rounded,
+                  iconColor: AppColors.rose,
+                  title: 'Send feedback',
+                  subtitle: 'Tell us how Atlas is going',
+                  onTap: () => showFeedbackSheet(context),
+                ),
+                // Reachable from inside the app, not just the store listing
+                // (Guideline 5.1.1). Shows the exact documents this user
+                // accepted, and works offline.
+                GroupRow(
+                  icon: Symbols.shield_rounded,
+                  iconColor: AppColors.sky,
+                  title: 'Legal',
+                  subtitle: 'Privacy, terms and refunds',
+                  onTap: () => context.push('/profile/legal'),
+                ),
+                GroupRow(
+                  icon: Symbols.info_rounded,
+                  iconColor: AppColors.violet,
+                  title: 'About Atlas',
+                  subtitle: 'Version, and who built this',
+                  onTap: () => context.push('/profile/about'),
+                ),
+              ],
+            ),
+            settingsGap,
+            RowGroup(
+              title: 'Account',
+              children: [
+                GroupRow(
+                  icon: Symbols.logout_rounded,
+                  title: 'Sign out',
+                  subtitle: user.email,
+                  onTap: () => _signOut(context, ref),
+                ),
+                // Required by App Store Guideline 5.1.1(v).
+                GroupRow(
+                  icon: Symbols.delete_rounded,
+                  title: 'Delete account',
+                  subtitle: 'Permanently erase your world',
+                  destructive: true,
+                  onTap: () => context.push('/profile/delete-account'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Center(
+              child: Text('Atlas keeps your data on this device first.',
+                  style: AppTypography.meta.copyWith(color: p.textMuted)),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.xs + 2),
-        AtlasProgressBar(
-          fraction: attr.value / 100,
-          height: 8,
-          color: attr.color,
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Settings ───────────────────────────────────────────────────────
-
-class _SettingsMenu extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isPremium = ref.watch(isPremiumProvider);
-    return Column(
-      children: [
-        _PremiumRow(isPremium: isPremium),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.face_retouching_natural_rounded,
-          color: AppColors.primary,
-          title: 'Customize avatar',
-          subtitle: 'Make this world yours',
-          onTap: () => context.push('/profile/avatar'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.auto_awesome_outlined,
-          color: AppColors.auroraLilac,
-          title: 'Aurora',
-          subtitle: 'Her voice, and what she keeps in mind',
-          onTap: () => context.push('/profile/aurora'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.motion_photos_on_rounded,
-          color: AppColors.xpPrimary,
-          title: 'Display',
-          subtitle: 'Smooth motion and refresh rate',
-          onTap: () => context.push('/profile/display'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.notifications_none_rounded,
-          color: AppColors.info,
-          title: 'Notifications',
-          subtitle: 'Choose what reaches you',
-          onTap: () => context.push('/profile/notifications'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.cloud_sync_rounded,
-          color: AppColors.secondary,
-          title: 'Sync & data',
-          subtitle: 'Your progress, kept safe',
-          onTap: () => context.push('/profile/sync'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.explore_outlined,
-          color: AppColors.tertiary,
-          title: 'Replay the tour',
-          subtitle: 'Walk through Atlas again',
-          onTap: () => _replayTour(context, ref),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.favorite_border_rounded,
-          color: AppColors.auroraRose,
-          title: 'Send feedback',
-          subtitle: 'Tell us how Atlas is going',
-          onTap: () => showFeedbackSheet(context),
-        ),
-        AppSpacing.gapSm,
-        // These have to be reachable from inside the app, not just from the
-        // store listing (Guideline 5.1.1). The in-app viewer shows the exact
-        // documents this user accepted, and works offline; the hosted copies in
-        // LegalConfig are still linked from the paywall and the store listing.
-        _SettingsRow(
-          icon: Icons.shield_outlined,
-          color: AppColors.info,
-          title: 'Legal',
-          subtitle: 'Privacy, terms and refunds',
-          onTap: () => context.push('/profile/legal'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.info_outline_rounded,
-          color: AppColors.auroraTeal,
-          title: 'About Atlas',
-          subtitle: 'Version, and who built this',
-          onTap: () => context.push('/profile/about'),
-        ),
-        AppSpacing.gapSm,
-        _SettingsRow(
-          icon: Icons.logout_rounded,
-          color: AppColors.streakFlame,
-          title: 'Log out',
-          subtitle: 'See you again soon',
-          destructive: true,
-          onTap: () => ref.read(authProvider.notifier).logout(),
-        ),
-        AppSpacing.gapSm,
-        // Required by App Store Guideline 5.1.1(v).
-        _SettingsRow(
-          icon: Icons.delete_outline_rounded,
-          color: AppColors.error,
-          title: 'Delete account',
-          subtitle: 'Permanently erase your world',
-          destructive: true,
-          onTap: () => context.push('/profile/delete-account'),
-        ),
-      ],
+      ),
     );
   }
 
@@ -466,162 +178,240 @@ class _SettingsMenu extends ConsumerWidget {
     if (!context.mounted) return;
     context.go('/');
   }
+
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final syncing = ref.read(canSyncProvider) && SyncConfig.enabled;
+    final ok = await confirmSheet(
+      context,
+      title: 'Sign out?',
+      body: syncing
+          ? 'Your world is backed up to your account, and stays on this device '
+              'too. Sign back in any time to pick up where you left off.'
+          : 'Everything you’ve tended stays on this device. Sign back in with '
+              'the same account here to pick up where you left off. Without '
+              'cloud sync, it isn’t copied anywhere else.',
+      confirmLabel: 'Sign out',
+      cancelLabel: 'Stay',
+    );
+    if (!ok) return;
+    await ref.read(authProvider.notifier).logout();
+  }
 }
 
-/// A branded settings entry for premium — an invitation when free, a calm
-/// "Premium active" status when subscribed, which is a statement rather than a
-/// button: someone who already pays has nothing to do here.
-class _PremiumRow extends ConsumerWidget {
-  const _PremiumRow({required this.isPremium});
-  final bool isPremium;
+// ─── Identity ───────────────────────────────────────────────────────
+
+class _Identity extends StatelessWidget {
+  const _Identity({required this.user});
+  final User user;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final name = user.fullName.trim().isEmpty ? 'You' : user.fullName.trim();
+    return Column(
+      children: [
+        AvatarRing(name: name, size: 96, ring: 3),
+        const SizedBox(height: AppSpacing.md),
+        Semantics(
+          header: true,
+          child: Text(name,
+              textAlign: TextAlign.center,
+              style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
+        ),
+        const SizedBox(height: 4),
+        Text(user.email,
+            textAlign: TextAlign.center,
+            style: AppTypography.dateLine.copyWith(color: p.textMuted)),
+      ],
+    );
+  }
+}
+
+// ─── Stats hero ─────────────────────────────────────────────────────
+
+class _StatsHero extends ConsumerWidget {
+  const _StatsHero();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final onTrial = ref.watch(isOnTrialProvider);
-    final trialLeft = ref.watch(trialDaysRemainingProvider);
-    // Only advertise a trial the store says this user can still start.
-    final trialOffer = ref.watch(availableTrialDaysProvider);
-    final isLifetime =
-        ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+    final p = context.palette;
+    final stats = ref.watch(playerStatsProvider);
+    final tended = ref.watch(ledgerDaysProvider).fold<int>(0, (a, d) => a + d.count);
+    final lvl = stats.level;
+    final on = p.onRaised;
 
-    return AtlasCard(
-      // Inert once premium. This row is an invitation to buy, and there is
-      // nothing left to invite a subscriber to: the paywall is a purchase screen
-      // they have already been through, and sending them out to the store's
-      // subscription page is a jarring exit from the app for something they did
-      // not ask for. Cancelling lives in the store, and that is where people
-      // already look for it.
-      // Always the paywall, never the store. A subscriber goes there to see
-      // what they are on and to switch plans; being thrown out to Play's
-      // subscription page for that is a jarring exit from the app.
-      onTap: () => context.push('/paywall'),
-      padding: const EdgeInsets.all(AppSpacing.sm + 2),
-      child: Row(
+    return InkHeroCard(
+      glowLevel: lvl.fraction,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: AppColors.auroraGradient,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          Row(children: [
+            Text('Level ${lvl.level}',
+                style: AppTypography.dateLine.copyWith(color: on.withValues(alpha: .7))),
+            const Spacer(),
+            AtlasChip(
+              label: lvl.xpToNext == 0 ? 'Top level' : '${lvl.xpToNext} XP to Level ${lvl.level + 1}',
+              background: on.withValues(alpha: .12),
+              foreground: on,
+              dense: true,
             ),
-            child: const Icon(Icons.auto_awesome_rounded,
-                color: Color(0xFF10243B), size: 22),
+          ]),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              CountUpText(
+                value: stats.totalXp,
+                animateFromZero: true,
+                style: AppTypography.statNumber.copyWith(color: on),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: GradientText('XP', style: AppTypography.cardNumber),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isPremium ? 'Atlas Aurora' : 'Go Premium',
-                  style: theme.textTheme.titleMedium,
-                ),
-                Text(
-                  _subtitle(onTrial, trialLeft, trialOffer, isLifetime),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 14),
+          GradientBar(
+            value: lvl.fraction,
+            height: 8,
+            gradient: AppColors.sunriseBar,
+            trackColor: on.withValues(alpha: .15),
           ),
-          // A chevron promises somewhere to go. Premium gets a quiet mark that
-          // the thing is on instead.
-          if (isPremium)
-            const Icon(Icons.check_circle_rounded,
-                color: AppColors.xpPrimary, size: 22)
-          else
-            Icon(
-              Icons.chevron_right_rounded,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          const SizedBox(height: AppSpacing.lg - 4),
+          Row(children: [
+            _Stat(value: stats.streak, label: 'day streak'),
+            _Stat(value: stats.bestStreak, label: 'best streak'),
+            _Stat(value: tended, label: 'tended'),
+          ]),
         ],
       ),
     );
   }
-
-  String _subtitle(
-      bool onTrial, int? trialLeft, int trialOffer, bool isLifetime) {
-    if (isPremium) {
-      if (!onTrial) {
-        return isLifetime
-            ? 'Founder. Premium, yours forever'
-            : 'Premium active';
-      }
-      return trialLeft == null
-          ? 'Free trial active'
-          : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
-    }
-    return trialOffer > 0
-        ? 'Start with $trialOffer days free — unlimited Aurora & cloud sync'
-        : 'Unlimited Aurora, cloud sync & deeper insights';
-  }
 }
 
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.destructive = false,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool destructive;
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+  final int value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AtlasCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.sm + 2),
+    final on = context.palette.onRaised;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CountUpText(value: value, style: AppTypography.display(size: 24, color: on)),
+          const SizedBox(height: 2),
+          Text(label, style: AppTypography.meta.copyWith(color: on.withValues(alpha: .65))),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Premium ────────────────────────────────────────────────────────
+
+/// An invitation when free; a calm status when subscribed. Always opens the
+/// paywall, never the store: a subscriber goes there to see their plan and
+/// switch, and being thrown out to the store page is a jarring exit.
+class _PremiumTile extends ConsumerWidget {
+  const _PremiumTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final isPremium = ref.watch(isPremiumProvider);
+    final onTrial = ref.watch(isOnTrialProvider);
+    final trialLeft = ref.watch(trialDaysRemainingProvider);
+    // Only advertise a trial the store says this user can still start.
+    final trialOffer = ref.watch(availableTrialDaysProvider);
+    final isLifetime = ref.watch(entitlementsProvider).entitlements?.isLifetime ?? false;
+
+    final subtitle = () {
+      if (isPremium) {
+        if (!onTrial) return isLifetime ? 'Founder. Premium, yours forever' : 'Premium is on';
+        return trialLeft == null
+            ? 'Free trial active'
+            : 'Free trial · $trialLeft day${trialLeft == 1 ? '' : 's'} left';
+      }
+      return trialOffer > 0
+          ? 'Start with $trialOffer days free: unlimited Aurora and cloud sync'
+          : 'Unlimited Aurora, cloud sync and deeper insights';
+    }();
+
+    return AtlasTile(
+      gradient: p.letter,
+      onTap: () => context.push('/paywall'),
+      semanticLabel: '${isPremium ? 'Atlas Aurora' : 'Go Premium'}, $subtitle',
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
+          const AtlasSpark(size: 34, animated: true),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: destructive ? color : theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                Text(isPremium ? 'Atlas Aurora' : 'Go Premium',
+                    style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: AppTypography.meta.copyWith(color: p.textMuted)),
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          const SizedBox(width: AppSpacing.xs),
+          // A chevron promises somewhere to go; premium gets a quiet mark
+          // that the thing is on instead.
+          if (isPremium)
+            AtlasIcon(Symbols.check_circle_rounded, filled: true, size: 22, color: p.success)
+          else
+            AtlasIcon(Symbols.arrow_forward_rounded, size: 20, color: p.textMuted),
         ],
       ),
+    );
+  }
+}
+
+// ─── Rows with live detail ──────────────────────────────────────────
+
+class _AvatarRow extends ConsumerWidget {
+  const _AvatarRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Attributes come from the local-first avatar (Drift).
+    final avatar = ref.watch(avatarStreamProvider).value;
+    final sub = avatar == null
+        ? 'Make this world yours'
+        : 'Strength ${avatar.strength} · Wisdom ${avatar.wisdom} · Mind ${avatar.intelligence}';
+    return GroupRow(
+      icon: Symbols.face_rounded,
+      iconColor: AppColors.leaf,
+      title: 'Your avatar',
+      subtitle: sub,
+      onTap: () => context.push('/profile/avatar'),
+    );
+  }
+}
+
+class _SyncRow extends ConsumerWidget {
+  const _SyncRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final syncing = ref.watch(canSyncProvider) && SyncConfig.enabled;
+    return GroupRow(
+      icon: Symbols.cloud_sync_rounded,
+      iconColor: AppColors.pine,
+      title: 'Sync and data',
+      subtitle: syncing ? 'Backed up to your account' : 'Kept safe on this device',
+      onTap: () => context.push('/profile/sync'),
+      trailing: syncing
+          ? AtlasChip.success(context, 'On', icon: Symbols.check_rounded)
+          : AtlasChip(label: 'Local', background: p.track, dense: true),
     );
   }
 }

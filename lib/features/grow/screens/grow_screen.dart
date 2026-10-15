@@ -64,73 +64,96 @@ class _GrowScreenState extends ConsumerState<GrowScreen> {
     final Widget body = switch (_tab) {
       0 => _TasksTab(key: const ValueKey('tasks'), matches: _matches),
       1 => _HabitsTab(
-          key: const ValueKey('habits'),
-          matches: _matches,
-          day: day,
-          today: today,
-          freq: _freq,
-          onFreq: () => setState(() => _freq = _Freq.values[(_freq.index + 1) % 3]),
-          onDay: (d) => setState(() => _day = isSameDay(d, today) ? null : d),
-        ),
+        key: const ValueKey('habits'),
+        matches: _matches,
+        day: day,
+        today: today,
+        freq: _freq,
+        onFreq: () =>
+            setState(() => _freq = _Freq.values[(_freq.index + 1) % 3]),
+        onDay: (d) => setState(() => _day = isSameDay(d, today) ? null : d),
+      ),
       _ => _GoalsTab(key: const ValueKey('goals'), matches: _matches),
     };
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          controller: ref.watch(tabScrollControllersProvider).of(1),
-          padding: EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, navScrollPadding(context)),
-          children: [
-            ScreenHeader(
-              title: 'Grow',
-              trailing: CircleIconButton(
-                icon: _searching ? Symbols.close_rounded : Symbols.search_rounded,
-                semanticLabel: _searching ? 'Close search' : 'Search',
-                onTap: _toggleSearch,
-              ),
+        child: SparkRefresh(
+          onRefresh: () => refreshEverything(ref),
+          child: ListView(
+            physics: sparkRefreshPhysics,
+            controller: ref.watch(tabScrollControllersProvider).of(1),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.gutter,
+              AppSpacing.sm,
+              AppSpacing.gutter,
+              navScrollPadding(context),
             ),
-            AnimatedSize(
-              duration: AppMotion.fast,
-              curve: AppMotion.standard,
-              child: _searching
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.md),
-                      child: TextField(
-                        controller: _search,
-                        autofocus: true,
-                        onChanged: (v) => setState(() => _query = v.trim()),
-                        style: AppTypography.sans(size: 15, color: p.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Search tasks, habits and goals',
-                          prefixIcon: Padding(
-                            padding: const EdgeInsets.only(left: 16, right: 8),
-                            child: AtlasIcon(Symbols.search_rounded, size: 20, color: p.textMuted),
+            children: [
+              ScreenHeader(
+                title: 'Grow',
+                trailing: CircleIconButton(
+                  icon: _searching
+                      ? Symbols.close_rounded
+                      : Symbols.search_rounded,
+                  semanticLabel: _searching ? 'Close search' : 'Search',
+                  onTap: _toggleSearch,
+                ),
+              ),
+              AnimatedSize(
+                duration: AppMotion.fast,
+                curve: AppMotion.standard,
+                child: _searching
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.md),
+                        child: TextField(
+                          controller: _search,
+                          autofocus: true,
+                          onChanged: (v) => setState(() => _query = v.trim()),
+                          style: AppTypography.sans(
+                            size: 15,
+                            color: p.textPrimary,
                           ),
-                          prefixIconConstraints: const BoxConstraints(minWidth: 44),
+                          decoration: InputDecoration(
+                            hintText: 'Search tasks, habits and goals',
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 16,
+                                right: 8,
+                              ),
+                              child: AtlasIcon(
+                                Symbols.search_rounded,
+                                size: 20,
+                                color: p.textMuted,
+                              ),
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 44,
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SegmentedPill(
-              labels: const ['Tasks', 'Habits', 'Goals'],
-              index: _tab,
-              onChanged: (i) => setState(() => _tab = i),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AnimatedSwitcher(
-              duration: AppMotion.fast,
-              switchInCurve: AppMotion.standard,
-              layoutBuilder: (current, previous) => Stack(
-                alignment: Alignment.topCenter,
-                children: [...previous, ?current],
+                      )
+                    : const SizedBox(width: double.infinity),
               ),
-              child: body,
-            ),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              SegmentedPill(
+                labels: const ['Tasks', 'Habits', 'Goals'],
+                index: _tab,
+                onChanged: (i) => setState(() => _tab = i),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                switchInCurve: AppMotion.standard,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.topCenter,
+                  children: [...previous, ?current],
+                ),
+                child: body,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -165,19 +188,21 @@ class _HabitsTab extends ConsumerWidget {
     final isToday = isSameDay(day, today);
 
     final all = habitsAsync.value ?? const <Habit>[];
-    final habits = all.where((h) {
-      if (!matches(h.title)) return false;
-      final weekly = HabitSchedule.isWeekly(h.frequency);
-      if (freq == _Freq.daily && weekly) return false;
-      if (freq == _Freq.weekly && !weekly) return false;
-      if (!isToday && dateOnly(h.createdAt).isAfter(day)) return false;
-      return weekly || HabitSchedule.isScheduledOn(h.frequency, day);
-    }).toList()
-      ..sort((a, b) {
-        final ad = habitDoneOn(a, day, today, days), bd = habitDoneOn(b, day, today, days);
-        if (ad != bd) return ad ? -1 : 1; // done ones first, like a filled week
-        return a.createdAt.compareTo(b.createdAt);
-      });
+    final habits =
+        all.where((h) {
+          if (!matches(h.title)) return false;
+          final weekly = HabitSchedule.isWeekly(h.frequency);
+          if (freq == _Freq.daily && weekly) return false;
+          if (freq == _Freq.weekly && !weekly) return false;
+          if (!isToday && dateOnly(h.createdAt).isAfter(day)) return false;
+          return weekly || HabitSchedule.isScheduledOn(h.frequency, day);
+        }).toList()..sort((a, b) {
+          final ad = habitDoneOn(a, day, today, days),
+              bd = habitDoneOn(b, day, today, days);
+          // Done ones first, like a filled week.
+          if (ad != bd) return ad ? -1 : 1;
+          return a.createdAt.compareTo(b.createdAt);
+        });
     final done = habits.where((h) => habitDoneOn(h, day, today, days)).length;
     final label = isToday ? 'Today' : weekdayName(day);
 
@@ -202,7 +227,9 @@ class _HabitsTab extends ConsumerWidget {
         else if (habits.isEmpty)
           EmptyState(
             title: all.isEmpty ? 'No habits yet.' : 'Nothing here.',
-            body: all.isEmpty ? 'Start with one small thing you want to come back to.' : null,
+            body: all.isEmpty
+                ? 'Start with one small thing you want to come back to.'
+                : null,
             actionLabel: all.isEmpty ? 'Add a habit' : null,
             onAction: () => showItemEditor(context, kind: ItemKind.habit),
           )
@@ -285,25 +312,31 @@ class _WeekStrip extends StatelessWidget {
           // The 2px ink underline under the selected day.
           SizedBox(
             height: 2,
-            child: LayoutBuilder(builder: (context, c) {
-              final slot = (c.maxWidth - 34) / 6;
-              return Stack(children: [
-                AnimatedPositioned(
-                  duration: AppMotion.reduceMotion(context) ? Duration.zero : AppMotion.medium,
-                  curve: AppMotion.emphasized,
-                  left: selIndex < 0 ? 0 : selIndex * slot + 7,
-                  width: 20,
-                  top: 0,
-                  bottom: 0,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: p.textPrimary,
-                      borderRadius: BorderRadius.circular(2),
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final slot = (c.maxWidth - 34) / 6;
+                return Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: AppMotion.reduceMotion(context)
+                          ? Duration.zero
+                          : AppMotion.medium,
+                      curve: AppMotion.emphasized,
+                      left: selIndex < 0 ? 0 : selIndex * slot + 7,
+                      width: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: p.textPrimary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ]);
-            }),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -330,7 +363,9 @@ class _HabitRow extends ConsumerWidget {
     final level = outcome.leveledUpTo;
     AtlasToast.undo(
       context,
-      level != null ? 'Level $level. +${outcome.xp} XP' : '+${outcome.xp} XP · ${habit.title}',
+      level != null
+          ? 'Level $level. +${outcome.xp} XP'
+          : '+${outcome.xp} XP · ${habit.title}',
       onUndo: outcome.undo,
     );
   }
@@ -340,23 +375,30 @@ class _HabitRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final style = CategoryStyle.forItem(title: habit.title, category: habit.category);
+    final style = CategoryStyle.forItem(
+      title: habit.title,
+      category: habit.category,
+    );
     final isToday = isSameDay(day, today);
     final done = habitDoneOn(habit, day, today, days);
     final week = habitWeek(habit, day, today, days);
-    final streakAlive = HabitSchedule.streakAlive(habit.frequency, habit.lastCompletedDate, today);
+    final streakAlive = HabitSchedule.streakAlive(
+      habit.frequency,
+      habit.lastCompletedDate,
+      today,
+    );
     final streak = streakAlive ? habit.streakCount : 0;
     final time = parseHm(habit.reminderTime);
     final unit = HabitSchedule.isWeekly(habit.frequency) ? 'week' : 'day';
     final meta = !isToday
         ? (done ? 'Done' : 'Not this day')
         : (done || time == null)
-            ? (streak > 0
-                ? '$streak $unit streak'
-                : HabitSchedule.isWeekly(habit.frequency)
-                    ? 'Once this week'
-                    : '+${GamificationConstants.calculateHabitXp(difficulty: habit.difficulty)} XP')
-            : clockLabel(time.hour, time.minute);
+        ? (streak > 0
+              ? '$streak $unit streak'
+              : HabitSchedule.isWeekly(habit.frequency)
+              ? 'Once this week'
+              : '+${GamificationConstants.calculateHabitXp(difficulty: habit.difficulty)} XP')
+        : clockLabel(time.hour, time.minute);
 
     return AtlasRow(
       minHeight: AppSpacing.habitRowHeight,
@@ -398,8 +440,11 @@ class _HabitRow extends ConsumerWidget {
           ? () {
               ref.read(snoozeProvider.notifier).skipToday(habit.id);
               HapticFeedback.selectionClick();
-              AtlasToast.undo(context, 'Skipped for today',
-                  onUndo: () => ref.read(snoozeProvider.notifier).clear(habit.id));
+              AtlasToast.undo(
+                context,
+                'Skipped for today',
+                onUndo: () => ref.read(snoozeProvider.notifier).clear(habit.id),
+              );
             }
           : null,
       swipeLeftLabel: 'Skip today',
@@ -417,20 +462,23 @@ class _TasksTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(tasksStreamProvider);
     final today = ref.watch(todayProvider);
-    final all = (async.value ?? const <Task>[]).where((t) => matches(t.title)).toList();
+    final all = (async.value ?? const <Task>[])
+        .where((t) => matches(t.title))
+        .toList();
 
     bool isDone(Task t) =>
-        t.isCompleted && TaskSchedule.doneInPeriod(t.type, t.lastCompletedDate, today);
+        t.isCompleted &&
+        TaskSchedule.doneInPeriod(t.type, t.lastCompletedDate, today);
 
-    List<Task> group(bool Function(Task) test) => all.where(test).toList()
-      ..sort((a, b) {
-        if (isDone(a) != isDone(b)) return isDone(a) ? 1 : -1;
-        final ad = a.dueDate, bd = b.dueDate;
-        if (ad != null && bd != null) return ad.compareTo(bd);
-        if (ad != null) return -1;
-        if (bd != null) return 1;
-        return a.createdAt.compareTo(b.createdAt);
-      });
+    List<Task> group(bool Function(Task) test) =>
+        all.where(test).toList()..sort((a, b) {
+          if (isDone(a) != isDone(b)) return isDone(a) ? 1 : -1;
+          final ad = a.dueDate, bd = b.dueDate;
+          if (ad != null && bd != null) return ad.compareTo(bd);
+          if (ad != null) return -1;
+          if (bd != null) return 1;
+          return a.createdAt.compareTo(b.createdAt);
+        });
 
     final groups = [
       ('Daily', group((t) => t.type == 'daily')),
@@ -441,8 +489,12 @@ class _TasksTab extends ConsumerWidget {
     if (async.isLoading && all.isEmpty) return const SkeletonList();
     if (groups.isEmpty) {
       return EmptyState(
-        title: (async.value ?? const []).isEmpty ? 'No tasks yet.' : 'Nothing matches.',
-        body: (async.value ?? const []).isEmpty ? 'Add the next small thing you want done.' : null,
+        title: (async.value ?? const []).isEmpty
+            ? 'No tasks yet.'
+            : 'Nothing matches.',
+        body: (async.value ?? const []).isEmpty
+            ? 'Add the next small thing you want done.'
+            : null,
         actionLabel: (async.value ?? const []).isEmpty ? 'Add a task' : null,
         onAction: () => showItemEditor(context, kind: ItemKind.task),
       );
@@ -485,7 +537,9 @@ class _TaskRow extends ConsumerWidget {
     final level = outcome.leveledUpTo;
     AtlasToast.undo(
       context,
-      level != null ? 'Level $level. +${outcome.xp} XP' : 'Done · +${outcome.xp} XP',
+      level != null
+          ? 'Level $level. +${outcome.xp} XP'
+          : 'Done · +${outcome.xp} XP',
       onUndo: outcome.undo,
     );
   }
@@ -502,19 +556,22 @@ class _TaskRow extends ConsumerWidget {
     final when = diff == 0
         ? (hasTime ? clockLabel(due.hour, due.minute) : 'Today')
         : diff == 1
-            ? 'Tomorrow'
-            : diff < 0
-                ? 'Waiting since ${due.day} ${monthShort(due)}'
-                : diff < 7
-                    ? weekdayName(due)
-                    : '${due.day} ${monthShort(due)}';
+        ? 'Tomorrow'
+        : diff < 0
+        ? 'Waiting since ${due.day} ${monthShort(due)}'
+        : diff < 7
+        ? weekdayName(due)
+        : '${due.day} ${monthShort(due)}';
     return '$when · $xp';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final today = ref.watch(todayProvider);
-    final style = CategoryStyle.forItem(title: task.title, category: task.category);
+    final style = CategoryStyle.forItem(
+      title: task.title,
+      category: task.category,
+    );
     return AtlasRow(
       minHeight: AppSpacing.habitRowHeight,
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
@@ -536,8 +593,11 @@ class _TaskRow extends ConsumerWidget {
           ? null
           : () {
               ref.read(snoozeProvider.notifier).skipToday(task.id);
-              AtlasToast.undo(context, 'Skipped for today',
-                  onUndo: () => ref.read(snoozeProvider.notifier).clear(task.id));
+              AtlasToast.undo(
+                context,
+                'Skipped for today',
+                onUndo: () => ref.read(snoozeProvider.notifier).clear(task.id),
+              );
             },
       swipeLeftLabel: 'Skip today',
     );
@@ -554,22 +614,25 @@ class _GoalsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(goalsStreamProvider);
     final all = async.value ?? const <Goal>[];
-    final goals = all.where((g) => matches(g.title) && g.status != 'cancelled').toList()
-      ..sort((a, b) {
-        final ad = a.progress >= 1, bd = b.progress >= 1;
-        if (ad != bd) return ad ? 1 : -1;
-        final adl = a.deadline, bdl = b.deadline;
-        if (adl != null && bdl != null) return adl.compareTo(bdl);
-        if (adl != null) return -1;
-        if (bdl != null) return 1;
-        return a.createdAt.compareTo(b.createdAt);
-      });
+    final goals =
+        all.where((g) => matches(g.title) && g.status != 'cancelled').toList()
+          ..sort((a, b) {
+            final ad = a.progress >= 1, bd = b.progress >= 1;
+            if (ad != bd) return ad ? 1 : -1;
+            final adl = a.deadline, bdl = b.deadline;
+            if (adl != null && bdl != null) return adl.compareTo(bdl);
+            if (adl != null) return -1;
+            if (bdl != null) return 1;
+            return a.createdAt.compareTo(b.createdAt);
+          });
 
     if (async.isLoading && all.isEmpty) return const SkeletonList(height: 132);
     if (goals.isEmpty) {
       return EmptyState(
         title: all.isEmpty ? 'No goals yet.' : 'Nothing matches.',
-        body: all.isEmpty ? 'Pick somewhere you’d like to be in a few months.' : null,
+        body: all.isEmpty
+            ? 'Pick somewhere you’d like to be in a few months.'
+            : null,
         actionLabel: all.isEmpty ? 'Add a goal' : null,
         onAction: () => showItemEditor(context, kind: ItemKind.goal),
       );
@@ -579,7 +642,11 @@ class _GoalsTab extends ConsumerWidget {
         for (var i = 0; i < goals.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: EntryFade(id: 'goal-${goals[i].id}', index: i, child: _GoalCard(goal: goals[i])),
+            child: EntryFade(
+              id: 'goal-${goals[i].id}',
+              index: i,
+              child: _GoalCard(goal: goals[i]),
+            ),
           ),
       ],
     );
@@ -594,7 +661,10 @@ class _GoalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.palette;
     final today = ref.watch(todayProvider);
-    final style = CategoryStyle.forItem(title: goal.title, category: goal.category);
+    final style = CategoryStyle.forItem(
+      title: goal.title,
+      category: goal.category,
+    );
     final pct = (goal.progress * 100).round();
     final complete = goal.progress >= 1;
     final deadline = goal.deadline;
@@ -609,16 +679,16 @@ class _GoalCard extends ConsumerWidget {
       target = d < 0
           ? 'Target was ${deadline.day} ${monthShort(deadline)}'
           : d == 0
-              ? 'Target · today'
-              : d < 14
-                  ? 'Target · in $d ${d == 1 ? 'day' : 'days'}'
-                  : 'Target · in ${(d / 7).round()} weeks';
+          ? 'Target · today'
+          : d < 14
+          ? 'Target · in $d ${d == 1 ? 'day' : 'days'}'
+          : 'Target · in ${(d / 7).round()} weeks';
     }
     final status = complete
         ? 'Complete'
         : pct == 0
-            ? 'Not started'
-            : 'In progress';
+        ? 'Not started'
+        : 'In progress';
 
     return Pressable(
       onTap: () => showGoalProgressSheet(context, ref, goal),
@@ -638,10 +708,14 @@ class _GoalCard extends ConsumerWidget {
                 IconTile(style: style, size: 38),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(goal.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
+                  child: Text(
+                    goal.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.rowTitle.copyWith(
+                      color: p.textPrimary,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 AtlasChip(
@@ -659,17 +733,26 @@ class _GoalCard extends ConsumerWidget {
                 CountUpText(
                   value: pct,
                   suffix: '%',
-                  style: AppTypography.cardNumber.copyWith(color: p.textPrimary),
+                  style: AppTypography.cardNumber.copyWith(
+                    color: p.textPrimary,
+                  ),
                 ),
                 const Spacer(),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(target, style: AppTypography.meta.copyWith(color: p.textMuted)),
+                  child: Text(
+                    target,
+                    style: AppTypography.meta.copyWith(color: p.textMuted),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            GradientBar(value: goal.progress, gradient: AppColors.sunriseBar, sheen: complete),
+            GradientBar(
+              value: goal.progress,
+              gradient: AppColors.sunriseBar,
+              sheen: complete,
+            ),
           ],
         ),
       ),
@@ -678,7 +761,11 @@ class _GoalCard extends ConsumerWidget {
 }
 
 /// Set a goal's progress precisely (replaces the old fixed +25% tap).
-Future<void> showGoalProgressSheet(BuildContext context, WidgetRef ref, Goal goal) async {
+Future<void> showGoalProgressSheet(
+  BuildContext context,
+  WidgetRef ref,
+  Goal goal,
+) async {
   await showAtlasSheet<void>(
     context,
     builder: (_) => _GoalProgressSheet(goal: goal),
@@ -698,12 +785,18 @@ class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
 
   Future<void> _save() async {
     final nav = Navigator.of(context);
-    final outcome = await ref.read(tendControllerProvider).setGoalProgress(widget.goal, _value);
+    final outcome = await ref
+        .read(tendControllerProvider)
+        .setGoalProgress(widget.goal, _value);
     nav.pop();
     if (!mounted) return;
     if (outcome != null) {
       HapticFeedback.heavyImpact();
-      AtlasToast.undo(context, 'Goal reached · +${outcome.xp} XP', onUndo: outcome.undo);
+      AtlasToast.undo(
+        context,
+        'Goal reached · +${outcome.xp} XP',
+        onUndo: outcome.undo,
+      );
     }
   }
 
@@ -712,22 +805,34 @@ class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
     final p = context.palette;
     final pct = (_value * 100).round();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.goal.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.section.copyWith(color: p.textPrimary)),
+          Text(
+            widget.goal.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.section.copyWith(color: p.textPrimary),
+          ),
           const SizedBox(height: AppSpacing.lg),
           Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('$pct', style: AppTypography.statNumber.copyWith(color: p.textPrimary)),
+                Text(
+                  '$pct',
+                  style: AppTypography.statNumber.copyWith(
+                    color: p.textPrimary,
+                  ),
+                ),
                 GradientText('%', style: AppTypography.statNumber),
               ],
             ),
@@ -737,7 +842,9 @@ class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
             value: _value,
             divisions: 20,
             onChanged: (v) {
-              if ((v * 20).round() != (_value * 20).round()) HapticFeedback.selectionClick();
+              if ((v * 20).round() != (_value * 20).round()) {
+                HapticFeedback.selectionClick();
+              }
               setState(() => _value = v);
             },
           ),
@@ -756,8 +863,12 @@ class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
           ),
           const SizedBox(height: AppSpacing.lg),
           PillButton(
-            label: _value >= 1 && widget.goal.progress < 1 ? 'Mark as reached' : 'Save',
-            variant: _value >= 1 && widget.goal.progress < 1 ? PillVariant.gradient : PillVariant.action,
+            label: _value >= 1 && widget.goal.progress < 1
+                ? 'Mark as reached'
+                : 'Save',
+            variant: _value >= 1 && widget.goal.progress < 1
+                ? PillVariant.gradient
+                : PillVariant.action,
             height: 56,
             expand: true,
             onTap: _save,

@@ -1,86 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/atlas_logo.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// First impression: the living world wakes up, the mark rises, the name fades
-/// in. Calm and unhurried.
+/// First impression: the spark rises on the warm canvas, then the name. It
+/// picks up exactly where the native splash (the same spark, same canvas)
+/// leaves off, so there is no jump.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final p = context.palette;
+    final reduce = AppMotion.reduceMotion(context);
+
+    Widget spark = const AtlasSpark(size: 96, animated: true, semanticLabel: 'Atlas');
+    Widget name = Text('Atlas', style: AppTypography.display(size: 44, color: p.textPrimary));
+    Widget line = Text('Every day, a small sunrise.',
+        style: AppTypography.sans(size: 16, weight: FontWeight.w500, color: p.textMuted));
+
+    if (!reduce) {
+      spark = spark
+          .animate()
+          .fadeIn(duration: AppMotion.slow)
+          .scale(
+            begin: const Offset(0.85, 0.85),
+            end: const Offset(1, 1),
+            duration: AppMotion.slow,
+            curve: AppMotion.emphasized,
+          );
+      name = name.animate().fadeIn(delay: 250.ms, duration: AppMotion.medium).slideY(
+            begin: 0.25,
+            end: 0,
+            delay: 250.ms,
+            duration: AppMotion.medium,
+            curve: AppMotion.standard,
+          );
+      line = line.animate().fadeIn(delay: 500.ms, duration: AppMotion.medium);
+    }
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceDark,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // The world as the backdrop.
-          LivingHorizon(
-            height: size.height,
-            progress: 0.7,
-            borderRadius: BorderRadius.zero,
-            brightness: Brightness.dark,
-          ),
-          // Gentle scrim so the mark reads clearly.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.surfaceDark.withValues(alpha: 0.35),
-                  Colors.transparent,
-                  AppColors.surfaceDark.withValues(alpha: 0.55),
-                ],
-                stops: const [0.0, 0.45, 1.0],
-              ),
-            ),
-          ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const AtlasSpark(size: 116, animated: true)
-                    .animate()
-                    .fadeIn(duration: AppMotion.slow)
-                    .scale(
-                      begin: const Offset(0.85, 0.85),
-                      end: const Offset(1, 1),
-                      duration: AppMotion.slow,
-                      curve: AppMotion.emphasized,
-                    ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Atlas',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                ).animate().fadeIn(delay: 250.ms, duration: AppMotion.medium).slideY(
-                      begin: 0.25,
-                      end: 0,
-                      delay: 250.ms,
-                      duration: AppMotion.medium,
-                      curve: AppMotion.standard,
-                    ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Grow a little, every day.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                      ),
-                ).animate().fadeIn(delay: 500.ms, duration: AppMotion.medium),
-              ],
-            ),
-          ),
-        ],
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            spark,
+            const SizedBox(height: AppSpacing.lg),
+            name,
+            const SizedBox(height: AppSpacing.xs),
+            line,
+          ],
+        ),
       ),
     );
   }

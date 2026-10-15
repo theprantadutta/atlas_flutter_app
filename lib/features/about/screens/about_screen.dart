@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/about/providers/app_info_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/atlas_logo.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 /// The person behind Atlas, and which build you are holding.
 const _developerName = 'Pranta Dutta';
@@ -28,57 +22,43 @@ class AboutScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final info = ref.watch(appInfoProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.gutter,
-            AppSpacing.md,
+            AppSpacing.xs,
             AppSpacing.gutter,
-            AppSpacing.bottomNavSpace,
+            MediaQuery.paddingOf(context).bottom + AppSpacing.xxl,
           ),
           children: [
-            AtlasHeader(title: 'About', onBack: () => context.pop()),
-            AppSpacing.gapXl,
-
-            // ─── Mark, name, version ───
+            ScreenHeader(title: 'About', onBack: () => context.pop()),
+            const SizedBox(height: AppSpacing.xl),
             Center(
               child: Column(
                 children: [
-                  const AtlasAppIcon(size: 88, animated: true),
-                  AppSpacing.gapMd,
-                  Text('Atlas', style: theme.textTheme.displaySmall),
-                  AppSpacing.gapXs,
-                  _VersionPill(info: info),
+                  const AtlasAppIcon(size: 96, animated: true),
+                  const SizedBox(height: AppSpacing.lg),
+                  const AtlasLockup(height: 34),
+                  const SizedBox(height: AppSpacing.sm),
+                  _VersionChip(info: info),
                 ],
               ),
-            )
-                .animate()
-                .fadeIn(duration: AppMotion.medium)
-                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
-
-            AppSpacing.gapXl,
-            Text(
-              'A world that grows as you care for yourself. Tend your habits, '
-              'tasks and goals, and watch your horizon turn greener. Calm by '
-              'design, and yours offline.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.55,
-              ),
             ),
-
-            AppSpacing.gapXl,
-            const SectionHeader(title: 'Made by'),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Every day is a small sunrise. Tend your habits, tasks and goals, and '
+              'over time discover a whole world. Calm by design, and yours offline.',
+              textAlign: TextAlign.center,
+              style: AppTypography.body.copyWith(color: p.textBody),
+            ),
+            const SizedBox(height: AppSpacing.xl),
             const _DeveloperCard(),
-
-            AppSpacing.gapXl,
-            const SectionHeader(title: 'This build'),
+            const SizedBox(height: AppSpacing.lg),
             _BuildDetails(info: info),
           ],
         ),
@@ -87,49 +67,27 @@ class AboutScreen extends ConsumerWidget {
   }
 }
 
-// ─── Version ────────────────────────────────────────────────────────
-
-class _VersionPill extends StatelessWidget {
-  const _VersionPill({required this.info});
+class _VersionChip extends StatelessWidget {
+  const _VersionChip({required this.info});
   final AsyncValue<AppInfo> info;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final label = info.when(
       data: (i) => 'Version ${i.display}',
-      loading: () => 'Reading version…',
+      loading: () => 'Reading version',
       // A version we could not read is not worth an error state on a page
       // whose whole job is calm.
       error: (_, _) => 'Version unavailable',
     );
-
     return AnimatedSwitcher(
       duration: AppMotion.fast,
-      child: Container(
-        key: ValueKey(label),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xxs + 2,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          border: Border.all(color: theme.colorScheme.outline),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
+      child: AtlasChip(key: ValueKey(label), label: label),
     );
   }
 }
 
-// ─── Developer ──────────────────────────────────────────────────────
-
+/// The developer, in the one place a name deserves the display face.
 class _DeveloperCard extends StatelessWidget {
   const _DeveloperCard();
 
@@ -138,10 +96,7 @@ class _DeveloperCard extends StatelessWidget {
   Future<void> _openSite(BuildContext context) async {
     var opened = false;
     try {
-      opened = await launchUrl(
-        Uri.parse(_developerSite),
-        mode: LaunchMode.externalApplication,
-      );
+      opened = await launchUrl(Uri.parse(_developerSite), mode: LaunchMode.externalApplication);
     } catch (e) {
       _log.w('Could not open $_developerSite: $e');
     }
@@ -154,93 +109,34 @@ class _DeveloperCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AtlasCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+    final p = context.palette;
+    final on = p.onRaised;
+    return InkHeroCard(
+      glowLevel: .4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Developed & Maintained by',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 0.4,
+          Text('Developed and maintained by',
+              style: AppTypography.dateLine.copyWith(color: on.withValues(alpha: .7))),
+          const SizedBox(height: AppSpacing.xs),
+          GradientText(_developerName, style: AppTypography.display(size: 32)),
+          const SizedBox(height: AppSpacing.lg),
+          Semantics(
+            link: true,
+            child: PillButton(
+              label: 'pranta.dev',
+              icon: Symbols.north_east_rounded,
+              variant: PillVariant.onRaised,
+              height: 44,
+              haptic: PressHaptic.selection,
+              onTap: () => _openSite(context),
             ),
           ),
-          const SizedBox(height: AppSpacing.xxs),
-          // The one place a name deserves the display face.
-          Text(
-            _developerName,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              foreground: Paint()
-                ..shader = AppColors.auroraGradient.createShader(
-                  const Rect.fromLTWH(0, 0, 260, 40),
-                ),
-            ),
-          ),
-          AppSpacing.gapMd,
-          _SiteLink(onTap: () => _openSite(context)),
         ],
       ),
     );
   }
 }
-
-/// The website, as an obviously tappable link rather than decorated text.
-class _SiteLink extends StatelessWidget {
-  const _SiteLink({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      link: true,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs + 2,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.auroraLilac.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              border: Border.all(
-                color: AppColors.auroraLilac.withValues(alpha: 0.38),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.language_rounded,
-                    size: 18, color: AppColors.auroraLilac),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'pranta.dev',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppColors.auroraLilac,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xxs),
-                const Icon(Icons.north_east_rounded,
-                    size: 15, color: AppColors.auroraLilac),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Build details ──────────────────────────────────────────────────
 
 /// The details you would be asked for in a bug report, in one place.
 class _BuildDetails extends StatelessWidget {
@@ -249,82 +145,41 @@ class _BuildDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
+    Widget row(String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(children: [
+            Text(label, style: AppTypography.sans(size: 14, weight: FontWeight.w600, color: p.textMuted)),
+            const Spacer(),
+            Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.end,
+                  style: AppTypography.sans(
+                      size: 14, weight: FontWeight.w700, tabular: true, color: p.textPrimary)),
+            ),
+          ]),
+        );
     return info.when(
-      loading: () => const AtlasCard(
-        padding: EdgeInsets.all(AppSpacing.md),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      ),
-      error: (_, _) => const AtlasCard(
-        padding: EdgeInsets.all(AppSpacing.md),
-        child: Text('Build details are unavailable on this device.'),
-      ),
-      data: (i) => AtlasCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        child: Column(
-          children: [
-            _DetailRow(label: 'Version', value: i.version),
-            if (i.buildNumber.isNotEmpty)
-              _DetailRow(label: 'Build', value: i.buildNumber),
-            _DetailRow(label: 'Package', value: i.packageName, last: true),
-          ],
-        ),
+      loading: () => const Skeleton(height: 150),
+      error: (_, _) => const _InfoBox(text: 'Build details are unavailable on this device.'),
+      data: (i) => RowGroup(
+        title: 'This build',
+        children: [
+          row('Version', i.version),
+          if (i.buildNumber.isNotEmpty) row('Build', i.buildNumber),
+          row('Package', i.packageName),
+        ],
       ),
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-    this.last = false,
-  });
-
-  final String label;
-  final String value;
-  final bool last;
+class _InfoBox extends StatelessWidget {
+  const _InfoBox({required this.text});
+  final String text;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(
-                bottom: BorderSide(color: theme.colorScheme.outline),
-              ),
-      ),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AtlasTile(
+        child: Text(text, style: AppTypography.body.copyWith(color: context.palette.textMuted)),
+      );
 }

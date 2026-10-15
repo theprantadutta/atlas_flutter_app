@@ -5,14 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_text_field.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -51,8 +46,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (password.length >= 8) strength += 0.25;
     if (RegExp(r'[A-Z]').hasMatch(password)) strength += 0.25;
     if (RegExp(r'[0-9]').hasMatch(password)) strength += 0.25;
-    if (RegExp(r'[!@#\$%\^&\*\(\)_\+\-=\[\]\{\};:,.<>?/\\|`~]')
-        .hasMatch(password)) {
+    if (RegExp(r'[!@#\$%\^&\*\(\)_\+\-=\[\]\{\};:,.<>?/\\|`~]').hasMatch(password)) {
       strength += 0.25;
     }
     setState(() => _passwordStrength = strength);
@@ -73,7 +67,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final authState = ref.watch(authProvider);
 
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -83,210 +76,129 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     });
 
     return AuthScaffold(
-      title: 'Begin your world',
-      subtitle: 'A calmer way to grow, one day at a time.',
+      title: 'Make your Atlas',
+      subtitle: 'A kinder way to grow, one small day at a time.',
       isBusy: authState.isLoading,
       children: [
-        Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppTextField(
-                controller: _fullNameController,
-                label: 'Name',
-                hint: 'What should we call you?',
-                prefixIcon: Icons.person_outline_rounded,
-                textInputAction: TextInputAction.next,
-                textCapitalization: TextCapitalization.words,
-                validator: Validators.validateFullName,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-              ),
-              AppSpacing.gapMd,
-              AppTextField(
-                controller: _emailController,
-                label: 'Email',
-                hint: 'you@example.com',
-                prefixIcon: Icons.alternate_email_rounded,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                validator: Validators.validateEmail,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-              ),
-              AppSpacing.gapMd,
-              AppTextField(
-                controller: _passwordController,
-                label: 'Password',
-                hint: 'Create a strong password',
-                prefixIcon: Icons.lock_outline_rounded,
-                isPassword: true,
-                textInputAction: TextInputAction.next,
-                validator: Validators.validatePassword,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-              ),
-              if (_passwordController.text.isNotEmpty) ...[
-                AppSpacing.gapXs,
-                _PasswordStrengthBar(strength: _passwordStrength),
+        AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AuthField(
+                  controller: _fullNameController,
+                  label: 'Name',
+                  hint: 'What should we call you?',
+                  icon: Symbols.person_rounded,
+                  textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.words,
+                  autofillHints: const [AutofillHints.name],
+                  validator: Validators.validateFullName,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AuthField(
+                  controller: _emailController,
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  icon: Symbols.alternate_email_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: Validators.validateEmail,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AuthField(
+                  controller: _passwordController,
+                  label: 'Password',
+                  hint: 'Create a password',
+                  icon: Symbols.lock_rounded,
+                  isPassword: true,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.newPassword],
+                  validator: Validators.validatePassword,
+                ),
+                AnimatedSize(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.standard,
+                  child: _passwordController.text.isEmpty
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(4, AppSpacing.sm, 4, 0),
+                          child: _PasswordStrengthBar(strength: _passwordStrength),
+                        ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AuthField(
+                  controller: _confirmPasswordController,
+                  label: 'Confirm password',
+                  hint: 'Type it once more',
+                  icon: Symbols.lock_rounded,
+                  isPassword: true,
+                  textInputAction: TextInputAction.done,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                  onSubmitted: (_) => _onCreateAccount(),
+                ),
               ],
-              AppSpacing.gapMd,
-              AppTextField(
-                controller: _confirmPasswordController,
-                label: 'Confirm password',
-                hint: 'Re-enter your password',
-                prefixIcon: Icons.lock_outline_rounded,
-                isPassword: true,
-                textInputAction: TextInputAction.done,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please confirm your password';
-                  }
-                  if (value != _passwordController.text) {
-                    return 'Passwords do not match';
-                  }
-                  return null;
-                },
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                onSubmitted: (_) => _onCreateAccount(),
-              ),
-            ],
+            ),
           ),
         ),
-        AppSpacing.gapLg,
-        AppButton(
+        const SizedBox(height: AppSpacing.lg),
+        PillButton(
           label: 'Create account',
-          onPressed: authState.isLoading ? null : _onCreateAccount,
-          isLoading: authState.isLoading,
+          height: 56,
+          expand: true,
+          busy: authState.isLoading,
+          onTap: authState.isLoading ? null : _onCreateAccount,
         ),
-        AppSpacing.gapLg,
-        _OrDivider(theme: theme),
-        AppSpacing.gapLg,
+        const SizedBox(height: AppSpacing.lg),
+        const AuthDivider(),
+        const SizedBox(height: AppSpacing.lg),
         // Apple requires Sign in with Apple to appear at least as prominently
         // as other third-party sign-in options (Guideline 4.8), so it leads.
         if (AppleSignInButton.isSupported) ...[
-          AppleSignInButton(
-            onPressed: authState.isLoading ? null : _onAppleSignUp,
-          ),
-          AppSpacing.gapMd,
+          AppleSignInButton(onPressed: authState.isLoading ? null : _onAppleSignUp),
+          const SizedBox(height: AppSpacing.xs),
         ],
-        AppButton(
-          label: 'Continue with Google',
-          variant: AppButtonVariant.outline,
-          icon: Icons.g_mobiledata_rounded,
-          onPressed: authState.isLoading ? null : _onGoogleSignUp,
-        ),
-        AppSpacing.gapXl,
-        _FooterLink(
+        GoogleSignInButton(onPressed: authState.isLoading ? null : _onGoogleSignUp),
+        const SizedBox(height: AppSpacing.lg),
+        AuthFooterLink(
           leading: 'Already have an account? ',
           action: 'Log in',
           onTap: () => context.goNamed(RouteNames.login),
         ),
-        AppSpacing.gapLg,
       ],
     );
   }
 }
 
+/// How sturdy the password is. A sunrise fill and a calm word; never red.
 class _PasswordStrengthBar extends StatelessWidget {
   const _PasswordStrengthBar({required this.strength});
   final double strength;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final label = switch (strength) {
-      <= 0.25 => 'Weak',
+      <= 0.25 => 'Could be stronger',
       <= 0.5 => 'Fair',
       <= 0.75 => 'Good',
       _ => 'Strong',
     };
-    final color = switch (strength) {
-      <= 0.25 => AppColors.error,
-      <= 0.5 => AppColors.warning,
-      <= 0.75 => AppColors.info,
-      _ => AppColors.success,
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: strength),
-            duration: AppMotion.fast,
-            builder: (context, value, _) => LinearProgressIndicator(
-              value: value,
-              backgroundColor: theme.colorScheme.outline.withValues(alpha: 0.3),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 5,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          label,
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: color, fontWeight: FontWeight.w700),
-        ),
-      ],
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider({required this.theme});
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Divider(color: theme.colorScheme.outline)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            'or',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ),
-        Expanded(child: Divider(color: theme.colorScheme.outline)),
-      ],
-    );
-  }
-}
-
-class _FooterLink extends StatelessWidget {
-  const _FooterLink({
-    required this.leading,
-    required this.action,
-    required this.onTap,
-  });
-  final String leading;
-  final String action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          leading,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            action,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        Expanded(child: GradientBar(value: strength, gradient: AppColors.sunriseBar)),
+        const SizedBox(width: AppSpacing.sm),
+        Text(label, style: AppTypography.metaStrong.copyWith(color: p.textMuted)),
       ],
     );
   }

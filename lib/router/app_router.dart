@@ -148,24 +148,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 name: RouteNames.home,
                 builder: (context, state) => const HomeScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'analytics',
-                    name: RouteNames.analytics,
-                    builder: (context, state) => const AnalyticsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'progress',
-                    name: RouteNames.progress,
-                    builder: (context, state) => const ProgressScreen(),
-                  ),
-                  GoRoute(
-                    path: 'notifications',
-                    name: RouteNames.notificationCenter,
-                    builder: (context, state) =>
-                        const NotificationCenterScreen(),
-                  ),
-                ],
               ),
             ],
           ),
@@ -283,6 +265,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ─── Top-level overlays (above the nav shell) ───
+      // Insights, Day by day and the notification center are reachable from
+      // Home and from Profile; as top-level routes, back always returns to
+      // wherever you came from instead of switching tabs.
+      GoRoute(
+        path: '/analytics',
+        name: RouteNames.analytics,
+        builder: (context, state) => const AnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/progress',
+        name: RouteNames.progress,
+        builder: (context, state) => const ProgressScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: RouteNames.notificationCenter,
+        builder: (context, state) => const NotificationCenterScreen(),
+      ),
       GoRoute(
         path: '/aurora-chat',
         name: RouteNames.auroraChat,

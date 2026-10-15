@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/xp_ledger_service.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
@@ -431,3 +432,17 @@ final dailyRolloverProvider = Provider<void>((ref) {
   if (!signedIn) return;
   unawaited(runDailyRollover(ref.read(databaseProvider), userId, today));
 });
+
+/// What pull-to-refresh does: re-read the day (rolling it over if needed)
+/// and, when cloud sync is on, sync now. Local data never needs a network
+/// refresh, so this is quick and works offline.
+Future<void> refreshEverything(WidgetRef ref) async {
+  ref.read(todayProvider.notifier).refresh();
+  final userId = ref.read(currentUserIdProvider);
+  await runDailyRollover(ref.read(databaseProvider), userId, ref.read(todayProvider));
+  try {
+    await ref.read(offlineManagerProvider).syncNow().timeout(const Duration(seconds: 12));
+  } catch (_) {/* offline or not entitled: nothing to do */}
+  // Let the spark turn at least once so the pull feels acknowledged.
+  await Future<void>.delayed(const Duration(milliseconds: 500));
+}

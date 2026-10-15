@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inapp_purchase/flutter_inapp_purchase.dart';
 import 'package:go_router/go_router.dart';
@@ -12,16 +11,11 @@ import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 final _log = AppLog('Billing');
 
-/// Atlas premium paywall — "Aurora & cloud sync". Calm, atmospheric, honest.
+/// Atlas premium paywall: "Aurora & cloud sync". Calm, warm, honest.
 class PaywallScreen extends ConsumerStatefulWidget {
   const PaywallScreen({super.key});
 
@@ -72,31 +66,36 @@ const _plans = <_PlanOption>[
   ),
 ];
 
-const _benefits = <(IconData, String, String)>[
+const _benefits = <(IconData, Color, String, String)>[
   (
-    Icons.auto_awesome_rounded,
+    Symbols.auto_awesome_rounded,
+    AppColors.violet,
     'Aurora, unlimited',
     'Chat as much as you like, any day of the week.',
   ),
   (
-    Icons.bolt_rounded,
+    Symbols.bolt_rounded,
+    AppColors.amber,
     'Natural-language quick-add',
     'Turn a sentence into habits, tasks and goals.',
   ),
   (
-    Icons.insights_rounded,
+    Symbols.edit_note_rounded,
+    AppColors.coral,
     'Deeper weekly reflections',
     'Richer insight from a more capable model.',
   ),
   (
-    Icons.cloud_done_rounded,
-    'Cloud sync & backup',
+    Symbols.cloud_done_rounded,
+    AppColors.sky,
+    'Cloud sync and backup',
     'Your world, safe across every device.',
   ),
   (
-    Icons.stacked_line_chart_rounded,
-    'Deep insights & export',
-    'Full history, trends and CSV / JSON export.',
+    Symbols.insights_rounded,
+    AppColors.leaf,
+    'Deep insights and export',
+    'Full history, trends and CSV or JSON export.',
   ),
 ];
 
@@ -146,11 +145,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           context,
           switched
               ? (_selected == AtlasProducts.yearly
-                  ? 'Switched to yearly ✨'
+                  ? 'Switched to yearly'
                   : 'You will move to monthly when this period ends')
               : result.isTrial
-                  ? 'Your free trial has started ✨'
-                  : 'Welcome to Atlas premium ✨',
+                  ? 'Your free trial has started'
+                  : 'Welcome to Atlas premium',
         );
         // The plan changed, so the cached purchase is stale.
         ref.invalidate(currentSubscriptionProvider);
@@ -169,7 +168,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       AtlasToast.info(
         context,
         'Your purchase is awaiting approval. Premium unlocks as soon as it '
-        'clears — no need to keep the app open.',
+        'clears. No need to keep the app open.',
       );
       context.pop();
     } on PurchaseNotYetVerifiedException {
@@ -178,7 +177,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       AtlasToast.info(
         context,
         'Payment received. We’ll unlock premium as soon as we can reach the '
-        'server — this happens automatically.',
+        'server. It happens automatically.',
       );
       context.pop();
     } on StoreException catch (e) {
@@ -200,7 +199,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       if (!mounted) return;
 
       if (ref.read(isPremiumProvider)) {
-        AtlasToast.success(context, 'Premium restored ✨');
+        AtlasToast.success(context, 'Premium restored');
         context.pop();
       } else if (restored) {
         // The store DID return a purchase — it's just no longer active (an
@@ -229,7 +228,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final offersAsync = ref.watch(offersProvider);
     final offers = offersAsync.value ?? const <String, AtlasOffer>{};
     // In debug the paywall stays usable with no store listing (the dev-bypass
@@ -265,7 +264,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
     final selectedPlan = _plans.firstWhere((p) => p.productId == _selected);
     final selectedOffer = offers[_selected];
-    // The store's price is the RECURRING one, never the trial's "$0.00" phase —
+    // The store's price is the RECURRING one, never the trial's "$0.00" phase:
     // see AtlasOffer. Fall back to the hard-coded anchor before the store answers.
     final selectedPrice = selectedOffer?.displayPrice ?? selectedPlan.fallbackPrice;
     final selectedTrialDays = selectedOffer?.trialDays ?? 0;
@@ -281,76 +280,71 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   onClose: () => context.pop(),
                   onRestore: busy ? null : _restore,
                   restoring: _restoring,
-                )
-                    .animate()
-                    .fadeIn(duration: AppMotion.medium),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                       AppSpacing.gutter, AppSpacing.lg, AppSpacing.gutter, 0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (isPremium) ...[
                         _PremiumBanner(
                           isLifetime: isLifetime,
                           currentProductId: currentProductId,
                         ),
-                        AppSpacing.gapLg,
+                        const SizedBox(height: AppSpacing.lg),
                       ],
-                      Text(
-                          isPremium
-                              ? 'What you have'
-                              : 'Everything in Aurora',
-                          style: theme.textTheme.titleLarge),
-                      AppSpacing.gapMd,
-                      ..._benefits.map((b) => Padding(
-                            padding:
-                                const EdgeInsets.only(bottom: AppSpacing.md),
-                            child: _BenefitRow(
-                                icon: b.$1, title: b.$2, subtitle: b.$3),
-                          )),
                       if (showPlans) ...[
-                        AppSpacing.gapSm,
-                        Text(
-                            canSwitchPlans
-                                ? 'Change your plan'
-                                : 'Choose your plan',
-                            style: theme.textTheme.titleLarge),
-                        AppSpacing.gapMd,
-                        ...visiblePlans.map((plan) => Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: AppSpacing.sm),
-                              child: _PlanCard(
-                                plan: plan,
-                                offer: offers[plan.productId],
-                                cadenceSuffix: _shortCadence(plan.productId),
-                                selected: _selected == plan.productId,
-                                // The plan they are on is a statement, not an
-                                // option to pick.
-                                isCurrent: plan.productId == currentProductId,
-                                onTap: () =>
-                                    setState(() => _selected = plan.productId),
-                              ),
-                            )),
+                        SectionTitle(canSwitchPlans ? 'Change your plan' : 'Choose your plan'),
+                        const SizedBox(height: AppSpacing.sm),
+                        _PlanSelector(
+                          plans: visiblePlans,
+                          offers: offers,
+                          selected: _selected,
+                          currentProductId: currentProductId,
+                          cadenceFor: _shortCadence,
+                          onSelect: (id) => setState(() => _selected = id),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
                       ],
-                      AppSpacing.gapSm,
-                      Text(
-                        isPremium
-                            ? 'Manage or cancel any time in Google Play.'
-                            : selectedTrialDays > 0
-                            ? 'Free for $selectedTrialDays days, then '
-                                '$selectedPrice${_shortCadence(_selected)}. '
-                                'Cancel anytime before it ends and you won’t be '
-                                'charged.'
-                                '${selectedOffer?.trialEligibilityKnown == false ? ' Trial available to new subscribers.' : ''}'
-                            : 'Cancel anytime. Atlas works fully offline on the '
-                                'free plan. Premium adds Aurora’s depth and '
-                                'cloud sync.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant),
+                      SectionTitle(isPremium ? 'What you have' : 'Everything in Premium'),
+                      const SizedBox(height: AppSpacing.sm),
+                      AtlasTile(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < _benefits.length; i++) ...[
+                              if (i > 0) Divider(height: 1, color: p.hairline, indent: 54),
+                              _BenefitRow(
+                                icon: _benefits[i].$1,
+                                color: _benefits[i].$2,
+                                title: _benefits[i].$3,
+                                subtitle: _benefits[i].$4,
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                      AppSpacing.gapMd,
+                      const SizedBox(height: AppSpacing.md),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                        child: Text(
+                          isPremium
+                              ? 'Manage or cancel any time in Google Play.'
+                              : selectedTrialDays > 0
+                                  ? 'Free for $selectedTrialDays days, then '
+                                      '$selectedPrice${_shortCadence(_selected)}. '
+                                      'Cancel anytime before it ends and you won’t be '
+                                      'charged.'
+                                      '${selectedOffer?.trialEligibilityKnown == false ? ' Trial available to new subscribers.' : ''}'
+                                  : 'Cancel anytime. Atlas works fully offline on the '
+                                      'free plan. Premium adds Aurora’s depth and '
+                                      'cloud sync.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.meta.copyWith(color: p.textMuted, height: 1.45),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                     ],
                   ),
                 ),
@@ -362,29 +356,29 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           // nothing.
           if (showPlans)
             _StickyCta(
-            label: busy
-                ? 'Please wait…'
-                : onSelectedPlan
-                        ? 'Your current plan'
-                        : currentProductId != null
-                            ? (_selected == AtlasProducts.yearly
-                                ? 'Switch to yearly · $selectedPrice'
-                                : 'Switch to monthly · $selectedPrice')
-                            : selectedTrialDays > 0 && !isPremium
-                                ? 'Start your $selectedTrialDays-day free trial'
-                                : 'Continue · $selectedPrice${_shortCadence(_selected)}',
-            trialDays: isPremium ? 0 : selectedTrialDays,
-            trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
-            purchasing: busy,
-            // Buying before the store has answered would hand purchase() a null
-            // offer, which in release reads as "that plan isn't available" —
-            // a confusing error for a store that is merely slow.
-            // Nothing to do on a plan you already hold, and a Founder has
-            // nothing left to buy at all.
-            onContinue: busy || offersLoading || isLifetime || onSelectedPlan
-                ? null
-                : _purchase,
-          ),
+              label: busy
+                  ? 'Please wait'
+                  : onSelectedPlan
+                      ? 'Your current plan'
+                      : currentProductId != null
+                          ? (_selected == AtlasProducts.yearly
+                              ? 'Switch to yearly · $selectedPrice'
+                              : 'Switch to monthly · $selectedPrice')
+                          : selectedTrialDays > 0 && !isPremium
+                              ? 'Start your $selectedTrialDays-day free trial'
+                              : 'Continue · $selectedPrice${_shortCadence(_selected)}',
+              trialDays: isPremium ? 0 : selectedTrialDays,
+              trialEligibilityKnown: selectedOffer?.trialEligibilityKnown ?? true,
+              purchasing: busy,
+              // Buying before the store has answered would hand purchase() a null
+              // offer, which in release reads as "that plan isn't available":
+              // a confusing error for a store that is merely slow.
+              // Nothing to do on a plan you already hold, and a Founder has
+              // nothing left to buy at all.
+              onContinue: busy || offersLoading || isLifetime || onSelectedPlan
+                  ? null
+                  : _purchase,
+            ),
         ],
       ),
     );
@@ -413,7 +407,7 @@ class _PremiumBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
 
     final line = isLifetime
         ? 'You are a Founder. Every premium feature, yours forever.'
@@ -428,42 +422,24 @@ class _PremiumBanner extends StatelessWidget {
             : 'Choose the other plan below to switch. Manage or cancel any time '
                 'in Google Play.';
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.xpPrimary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.xpPrimary.withValues(alpha: 0.35)),
-      ),
+    return AtlasTile(
+      color: p.successBg,
+      radius: AppSpacing.radiusRow,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle_rounded,
-              color: AppColors.xpPrimary, size: 22),
+          AtlasIcon(Symbols.check_circle_rounded, filled: true, size: 24, color: p.success),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Premium active',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: AppColors.xpPrimary)),
-                Text(
-                  line,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
-                ),
+                Text('Premium active', style: AppTypography.rowTitle.copyWith(color: p.success)),
+                const SizedBox(height: 2),
+                Text(line, style: AppTypography.meta.copyWith(color: p.textPrimary, height: 1.4)),
                 if (hint != null) ...[
-                  AppSpacing.gapXs,
-                  Text(
-                    hint,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      height: 1.4,
-                    ),
-                  ),
+                  const SizedBox(height: 6),
+                  Text(hint, style: AppTypography.meta.copyWith(color: p.textMuted, height: 1.4)),
                 ],
               ],
             ),
@@ -474,7 +450,7 @@ class _PremiumBanner extends StatelessWidget {
   }
 }
 
-// ─── Hero (full-bleed, atmospheric) ─────────────────────────────────
+// ─── Hero (full-bleed letter gradient) ──────────────────────────────
 
 class _Hero extends StatelessWidget {
   const _Hero({
@@ -491,127 +467,65 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final topInset = MediaQuery.of(context).padding.top;
-    final height = topInset + 288;
-    final pageColor = theme.scaffoldBackgroundColor;
+    final p = context.palette;
+    final topInset = MediaQuery.paddingOf(context).top;
 
-    return SizedBox(
-      height: height,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: p.letter,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppSpacing.radiusXl)),
+      ),
       child: Stack(
-        fit: StackFit.expand,
         children: [
-          const LivingHorizon(
-            height: double.infinity,
-            progress: 1,
-            brightness: Brightness.dark,
-            borderRadius: BorderRadius.zero,
+          const Positioned(
+            right: -78,
+            bottom: 18,
+            child: Opacity(opacity: .5, child: AtlasSpark(size: 170, animated: true)),
           ),
-          // Scrim for headline legibility + a soft melt into the page below.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.28),
-                  Colors.transparent,
-                  AppColors.surfaceDark.withValues(alpha: 0.55),
-                  pageColor,
-                ],
-                stops: const [0.0, 0.32, 0.82, 1.0],
-              ),
-            ),
-          ),
-          Positioned(
-            top: topInset + AppSpacing.xxs,
-            left: AppSpacing.xs,
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.22),
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onClose,
-                child: const Padding(
-                  padding: EdgeInsets.all(AppSpacing.xs),
-                  child: Icon(Icons.close_rounded, color: Colors.white),
-                ),
-              ),
-            ),
-          ),
-          // Restore sits opposite the close button rather than under the CTA.
-          // It is a rare, recovery-shaped action: people who already paid come
-          // looking for it, and everyone else should not have to scroll past it
-          // to read what they are buying.
-          Positioned(
-            top: topInset + AppSpacing.xxs,
-            right: AppSpacing.xs,
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onRestore,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-                  child: restoring
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(
-                          'Restore',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: Colors.white
-                                .withValues(alpha: onRestore == null ? 0.5 : 1),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: AppSpacing.gutter,
-            right: AppSpacing.gutter,
-            bottom: AppSpacing.lg,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                AppSpacing.gutter, topInset + AppSpacing.xs, AppSpacing.gutter, AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.auto_awesome_rounded,
-                          size: 14, color: Colors.white),
-                      const SizedBox(width: 6),
-                      Text('Atlas Aurora',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    CircleIconButton(
+                      icon: Symbols.close_rounded,
+                      semanticLabel: 'Close',
+                      background: p.letterSecondaryButton,
+                      onTap: onClose,
+                    ),
+                    const Spacer(),
+                    // Restore sits opposite the close button rather than under the
+                    // CTA. It is a rare, recovery-shaped action: people who already
+                    // paid come looking for it, and everyone else should not have
+                    // to scroll past it to read what they are buying.
+                    PillButton(
+                      label: 'Restore',
+                      variant: PillVariant.letter,
+                      height: 40,
+                      busy: restoring,
+                      haptic: PressHaptic.selection,
+                      onTap: onRestore,
+                    ),
+                  ],
                 ),
+                const SizedBox(height: AppSpacing.xl),
+                Text('ATLAS PREMIUM', style: AppTypography.kicker.copyWith(color: p.textPrimary)),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Tend your world,\nwith Aurora by your side',
-                  style: theme.textTheme.displaySmall
-                      ?.copyWith(color: Colors.white, height: 1.1),
+                  'Tend your days\nwith Aurora beside you',
+                  style: AppTypography.subScreenTitle.copyWith(height: 1.08, color: p.textPrimary),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Premium unlocks the full companion and keeps your world in sync.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.88)),
+                const SizedBox(height: AppSpacing.sm),
+                Padding(
+                  padding: const EdgeInsets.only(right: 72),
+                  child: Text(
+                    'The whole companion, and your world kept safe in the cloud.',
+                    style: AppTypography.body.copyWith(color: p.textBody),
+                  ),
                 ),
               ],
             ),
@@ -641,33 +555,29 @@ class _StickyCta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outline)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(
-                alpha: theme.brightness == Brightness.dark ? 0.3 : 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        color: p.canvas,
+        border: Border(top: BorderSide(color: p.hairline)),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.sm,
-              AppSpacing.gutter, AppSpacing.xs),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, AppSpacing.xs),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppButton(
+              PillButton(
                 label: label,
-                icon: Icons.auto_awesome_rounded,
-                isLoading: purchasing,
-                onPressed: onContinue,
+                icon: purchasing ? null : Symbols.auto_awesome_rounded,
+                variant: PillVariant.gradient,
+                height: 56,
+                expand: true,
+                busy: purchasing,
+                haptic: PressHaptic.medium,
+                onTap: onContinue,
               ),
               // Guideline 3.1.2 requires the renewal terms plus links to the
               // terms/EULA and privacy policy on the purchase screen itself.
@@ -684,7 +594,7 @@ class _StickyCta extends StatelessWidget {
   }
 }
 
-/// Auto-renewal disclosure + the two legal links App Review looks for.
+/// Auto-renewal disclosure and the two legal links App Review looks for.
 class _LegalFooter extends StatelessWidget {
   const _LegalFooter({
     required this.trialDays,
@@ -700,16 +610,13 @@ class _LegalFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-      fontSize: 11,
-      height: 1.35,
-    );
-    final link = muted?.copyWith(
-      color: theme.colorScheme.primary,
+    final p = context.palette;
+    final muted = AppTypography.sans(size: 11, weight: FontWeight.w500, height: 1.35, color: p.textMuted);
+    final link = muted.copyWith(
+      color: p.textPrimary,
+      fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
-      decorationColor: theme.colorScheme.primary,
+      decorationColor: p.textMuted,
     );
 
     return Padding(
@@ -724,19 +631,26 @@ class _LegalFooter extends StatelessWidget {
             textAlign: TextAlign.center,
             style: muted,
           ),
-          const SizedBox(height: AppSpacing.xs),
           Wrap(
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              GestureDetector(
+              Pressable(
                 onTap: () => _open(LegalConfig.termsOfUseUrl),
-                child: Text('Terms of Use', style: link),
+                semanticLabel: 'Terms of Use',
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text('Terms of Use', style: link),
+                ),
               ),
-              Text('   ·   ', style: muted),
-              GestureDetector(
+              Text('·', style: muted),
+              Pressable(
                 onTap: () => _open(LegalConfig.privacyPolicyUrl),
-                child: Text('Privacy Policy', style: link),
+                semanticLabel: 'Privacy Policy',
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text('Privacy Policy', style: link),
+                ),
               ),
             ],
           ),
@@ -749,50 +663,89 @@ class _LegalFooter extends StatelessWidget {
 class _BenefitRow extends StatelessWidget {
   const _BenefitRow({
     required this.icon,
+    required this.color,
     required this.title,
     required this.subtitle,
   });
 
   final IconData icon;
+  final Color color;
   final String title;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: AppColors.auroraGradient,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          IconTile(style: CategoryStyle(icon, color), size: 40),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
+                const SizedBox(height: 1),
+                Text(subtitle, style: AppTypography.meta.copyWith(color: p.textMuted)),
+              ],
+            ),
           ),
-          child: Icon(icon, size: 22, color: const Color(0xFF10243B)),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 1),
-              Text(subtitle,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
+/// The plans in one raised ink card. The chosen one is a cream pill; the
+/// plan you're already on is marked, not offered.
+class _PlanSelector extends StatelessWidget {
+  const _PlanSelector({
+    required this.plans,
+    required this.offers,
+    required this.selected,
+    required this.currentProductId,
+    required this.cadenceFor,
+    required this.onSelect,
+  });
+
+  final List<_PlanOption> plans;
+  final Map<String, AtlasOffer> offers;
+  final String selected;
+  final String? currentProductId;
+  final String Function(String productId) cadenceFor;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: p.raised,
+        border: p.raisedBorderSide,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusTile),
+      ),
+      child: Column(
+        children: [
+          for (final plan in plans)
+            _PlanRow(
+              plan: plan,
+              offer: offers[plan.productId],
+              cadenceSuffix: cadenceFor(plan.productId),
+              selected: selected == plan.productId,
+              isCurrent: plan.productId == currentProductId,
+              onTap: () => onSelect(plan.productId),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanRow extends StatelessWidget {
+  const _PlanRow({
     required this.plan,
     required this.offer,
     required this.cadenceSuffix,
@@ -817,139 +770,102 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
-
-    // Always the recurring price — the trial's free phase is never the headline.
+    final p = context.palette;
+    // Always the recurring price: the trial's free phase is never the headline.
     final price = offer?.displayPrice ?? plan.fallbackPrice;
 
     // Only the store knows whether THIS user still has a trial left; Play omits
     // offers you're no longer eligible for. So an absent offer means no promise.
     final trialDays = offer?.trialDays ?? 0;
 
-    return GestureDetector(
+    final fg = selected ? AppColors.ink : p.onRaised;
+    final sub = selected ? AppColors.ink.withValues(alpha: .6) : p.onRaised.withValues(alpha: .6);
+
+    return Pressable(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.standard,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.10)
-              : theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: selected ? accent : theme.colorScheme.outline,
-            width: selected ? 2 : 1,
+      haptic: PressHaptic.selection,
+      scale: .98,
+      semanticLabel: '${plan.title}, $price ${plan.cadence}',
+      child: Semantics(
+        selected: selected,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: selected ? p.navPill : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusButton),
           ),
-        ),
-        child: Row(
-          children: [
-            _RadioDot(selected: selected),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(plan.title, style: theme.textTheme.titleLarge),
-                      if (isCurrent) ...[
-                      const SizedBox(width: AppSpacing.xs),
-                      const _Badge('Current', tone: AppColors.xpPrimary),
-                    ] else if (plan.badge != null) ...[
-                        const SizedBox(width: AppSpacing.xs),
-                        _Badge(plan.badge!),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(plan.title, style: AppTypography.rowTitle.copyWith(color: fg)),
+                        if (isCurrent) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          _Badge('Current', flat: true, onSelected: selected),
+                        ] else if (plan.badge != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          _Badge(plan.badge!),
+                        ],
                       ],
-                    ],
-                  ),
-                  if (trialDays > 0)
-                    Text(
-                      '$trialDays days free, then $price$cadenceSuffix',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    )
-                  else if (plan.subtitle != null)
-                    Text(plan.subtitle!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    ),
+                    const SizedBox(height: 2),
+                    if (trialDays > 0)
+                      Text('$trialDays days free, then $price$cadenceSuffix',
+                          style: AppTypography.metaStrong.copyWith(
+                              color: selected ? AtlasPalette.accent : AppColors.sunriseA))
+                    else if (plan.subtitle != null)
+                      Text(plan.subtitle!, style: AppTypography.meta.copyWith(color: sub)),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(price, style: AppTypography.display(size: 21, color: fg)),
+                  Text(plan.cadence, style: AppTypography.tiny.copyWith(color: sub)),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(price,
-                    style: theme.textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                Text(plan.cadence,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _RadioDot extends StatelessWidget {
-  const _RadioDot({required this.selected});
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AnimatedContainer(
-      duration: AppMotion.fast,
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: selected ? theme.colorScheme.primary : Colors.transparent,
-        border: Border.all(
-          color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
-          width: 2,
-        ),
-      ),
-      child: selected
-          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-          : null,
     );
   }
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.label, {this.tone});
+  const _Badge(this.label, {this.flat = false, this.onSelected = false});
   final String label;
 
-  /// Gold by default, since these are sales labels. A flat [tone] marks a
-  /// statement of fact instead, like the plan the user is already on.
-  final Color? tone;
+  /// Sales labels wear the sunrise; a flat badge marks a statement of fact
+  /// instead, like the plan the user is already on.
+  final bool flat;
+  final bool onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final flat = tone != null;
+    final p = context.palette;
     return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        gradient: flat ? null : AppColors.goldGradient,
-        color: flat ? tone!.withValues(alpha: 0.18) : null,
+        gradient: flat ? null : AppColors.sunrise,
+        color: flat ? (onSelected ? AppColors.ink.withValues(alpha: .1) : p.onRaised.withValues(alpha: .14)) : null,
         borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-        border: flat
-            ? Border.all(color: tone!.withValues(alpha: 0.45))
-            : null,
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: flat ? tone : const Color(0xFF3A2A00),
-              fontWeight: FontWeight.w700,
-            ),
+        style: AppTypography.sans(
+          size: 11,
+          weight: FontWeight.w800,
+          height: 1.2,
+          color: flat ? (onSelected ? AppColors.ink : p.onRaised) : AppColors.white,
+        ),
       ),
     );
   }

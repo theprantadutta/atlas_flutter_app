@@ -53,7 +53,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_starterAsked) return;
     final starter = ref.read(starterDataProvider);
     final onboarding = ref.read(onboardingProvider);
-    if (!starter.loaded || starter.choiceMade || !onboarding.setupComplete) return;
+    if (!starter.loaded || starter.choiceMade || !onboarding.setupComplete) {
+      return;
+    }
     _starterAsked = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) showStarterChoiceSheet(context, ref);
@@ -62,7 +64,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _leave(TodayItem item, {required bool tended}) async {
     setState(() => _leaving[item.id] = (item: item, tended: tended));
-    await Future<void>.delayed(tended ? const Duration(milliseconds: 400) : AppMotion.instant);
+    await Future<void>.delayed(
+      tended ? const Duration(milliseconds: 400) : AppMotion.instant,
+    );
     if (!mounted) return;
     setState(() => _collapsing.add(item.id));
     await Future<void>.delayed(AppMotion.fast);
@@ -86,7 +90,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final level = outcome.leveledUpTo;
     AtlasToast.undo(
       context,
-      level != null ? 'Level $level. +${outcome.xp} XP' : 'Tended · +${outcome.xp} XP',
+      level != null
+          ? 'Level $level. +${outcome.xp} XP'
+          : 'Tended · +${outcome.xp} XP',
       onUndo: outcome.undo,
     );
     if (level != null) HapticFeedback.mediumImpact();
@@ -99,14 +105,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final until = ref.read(snoozeProvider)[item.id];
     AtlasToast.undo(
       context,
-      until == null ? 'Later' : 'Back at ${clockLabel(until.hour, until.minute)}',
+      until == null
+          ? 'Later'
+          : 'Back at ${clockLabel(until.hour, until.minute)}',
       onUndo: () => ref.read(snoozeProvider.notifier).clear(item.id),
     );
   }
 
   void _maybeCelebrate(HomeView view) {
     final notifier = ref.read(dayCompleteProvider.notifier);
-    if (!view.dayComplete || !notifier.loaded || notifier.celebratedOn(view.today)) return;
+    if (!view.dayComplete ||
+        !notifier.loaded ||
+        notifier.celebratedOn(view.today)) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await notifier.markCelebrated(view.today);
@@ -139,7 +151,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final coachKeys = ref.watch(coachMarkKeysProvider);
 
     // Up next: what's leaving stays in place while it animates out.
-    final remaining = view.remaining.where((i) => !_leaving.containsKey(i.id)).toList();
+    final remaining = view.remaining
+        .where((i) => !_leaving.containsKey(i.id))
+        .toList();
     final shown = <({TodayItem item, bool tended})>[
       ..._leaving.values,
       for (final i in remaining) (item: i, tended: false),
@@ -148,99 +162,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          controller: ref.watch(tabScrollControllersProvider).of(0),
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.gutter,
-            AppSpacing.sm,
-            AppSpacing.gutter,
-            navScrollPadding(context),
-          ),
-          children: [
-            _Header(
-              date: longDate(view.today),
-              name: view.firstName,
-              unread: unread > 0,
-              onBell: () => context.push('/notifications'),
-              onAvatar: () => context.go('/profile'),
+        child: SparkRefresh(
+          onRefresh: () => refreshEverything(ref),
+          child: ListView(
+            physics: sparkRefreshPhysics,
+            controller: ref.watch(tabScrollControllersProvider).of(0),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.gutter,
+              AppSpacing.sm,
+              AppSpacing.gutter,
+              navScrollPadding(context),
             ),
-            const SizedBox(height: 14),
-            const UpdateBanner(),
-            _Hero(
-              key: coachKeys.hero,
-              view: view,
-              celebrating: _celebrating,
-              burst: _burst,
-              streakPulse: _streakPulse,
-              onTap: () => context.push('/progress'),
-            ),
-            const SizedBox(height: 14),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _XpTile(
-                      stats: view.stats,
-                      onTap: () => context.push('/analytics'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _LetterTile(
-                      state: view.letter,
-                      onTap: () => context.go('/aurora'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const AuroraNudgeCard(),
-            const SizedBox(height: 14),
-            if (view.total == 0)
-              EmptyState(
-                title: 'Nothing planned for today.',
-                body: 'Add one small thing you’d like to tend.',
-                actionLabel: 'Add something',
-                onAction: () => showQuickAddSheet(context),
-              )
-            else if (shown.isEmpty)
-              _DayDone(onAdd: () => showQuickAddSheet(context))
-            else ...[
-              SectionTitle(
-                'Up next',
-                action: 'See all ${view.remaining.length}',
-                onAction: () => context.go('/grow'),
+            children: [
+              _Header(
+                date: longDate(view.today),
+                name: view.firstName,
+                unread: unread > 0,
+                onBell: () => context.push('/notifications'),
+                onAvatar: () => context.go('/profile'),
               ),
               const SizedBox(height: 14),
-              for (var i = 0; i < shown.length; i++)
-                CollapseOut(
-                  key: ValueKey('upnext-${shown[i].item.id}'),
-                  collapsed: _collapsing.contains(shown[i].item.id),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: EntryFade(
-                      id: 'home-${shown[i].item.id}',
-                      index: i,
-                      child: _UpNextRow(
-                        key: _keyFor(shown[i].item.id),
-                        item: shown[i].item,
-                        primary: i == 0,
-                        tended: shown[i].tended,
-                        onTend: () => _tend(shown[i].item),
-                        onLater: () => _later(shown[i].item),
-                        onLongPress: () => showItemMenu(
-                          context,
-                          ref,
-                          task: shown[i].item.task,
-                          habit: shown[i].item.habit,
+              const UpdateBanner(),
+              _Hero(
+                key: coachKeys.hero,
+                view: view,
+                celebrating: _celebrating,
+                burst: _burst,
+                streakPulse: _streakPulse,
+                onTap: () => context.push('/progress'),
+              ),
+              const SizedBox(height: 14),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _XpTile(
+                        stats: view.stats,
+                        onTap: () => context.push('/analytics'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _LetterTile(
+                        state: view.letter,
+                        onTap: () => context.go('/aurora'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const AuroraNudgeCard(),
+              const SizedBox(height: 14),
+              if (view.total == 0)
+                EmptyState(
+                  title: 'Nothing planned for today.',
+                  body: 'Add one small thing you’d like to tend.',
+                  actionLabel: 'Add something',
+                  onAction: () => showQuickAddSheet(context),
+                )
+              else if (shown.isEmpty)
+                _DayDone(onAdd: () => showQuickAddSheet(context))
+              else ...[
+                SectionTitle(
+                  'Up next',
+                  action: 'See all ${view.remaining.length}',
+                  onAction: () => context.go('/grow'),
+                ),
+                const SizedBox(height: 14),
+                for (var i = 0; i < shown.length; i++)
+                  CollapseOut(
+                    key: ValueKey('upnext-${shown[i].item.id}'),
+                    collapsed: _collapsing.contains(shown[i].item.id),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: EntryFade(
+                        id: 'home-${shown[i].item.id}',
+                        index: i,
+                        child: _UpNextRow(
+                          key: _keyFor(shown[i].item.id),
+                          item: shown[i].item,
+                          primary: i == 0,
+                          tended: shown[i].tended,
+                          onTend: () => _tend(shown[i].item),
+                          onLater: () => _later(shown[i].item),
+                          onLongPress: () => showItemMenu(
+                            context,
+                            ref,
+                            task: shown[i].item.task,
+                            habit: shown[i].item.habit,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -275,7 +293,10 @@ class _Header extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(date, style: AppTypography.dateLine.copyWith(color: p.textMuted)),
+                Text(
+                  date,
+                  style: AppTypography.dateLine.copyWith(color: p.textMuted),
+                ),
                 const SizedBox(height: 2),
                 Semantics(
                   header: true,
@@ -283,7 +304,9 @@ class _Header extends ConsumerWidget {
                     'Hey $name',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.greeting.copyWith(color: p.textPrimary),
+                    style: AppTypography.greeting.copyWith(
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -346,8 +369,12 @@ class _Hero extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text('Today',
-                        style: AppTypography.dateLine.copyWith(color: on.withValues(alpha: .7))),
+                    Text(
+                      'Today',
+                      style: AppTypography.dateLine.copyWith(
+                        color: on.withValues(alpha: .7),
+                      ),
+                    ),
                     const Spacer(),
                     if (streak > 0)
                       _Pulse(
@@ -367,11 +394,17 @@ class _Hero extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('A fresh day.',
-                          style: AppTypography.display(size: 40, color: on)),
+                      Text(
+                        'A fresh day.',
+                        style: AppTypography.display(size: 40, color: on),
+                      ),
                       const SizedBox(height: 8),
-                      Text('Add one small thing to tend.',
-                          style: AppTypography.subtitle.copyWith(color: on.withValues(alpha: .75))),
+                      Text(
+                        'Add one small thing to tend.',
+                        style: AppTypography.subtitle.copyWith(
+                          color: on.withValues(alpha: .75),
+                        ),
+                      ),
                     ],
                   )
                 else
@@ -386,9 +419,14 @@ class _Hero extends StatelessWidget {
                             children: [
                               CountUpText(
                                 value: view.percent,
-                                style: AppTypography.heroNumber.copyWith(color: on),
+                                style: AppTypography.heroNumber.copyWith(
+                                  color: on,
+                                ),
                               ),
-                              GradientText('%', style: AppTypography.heroNumber),
+                              GradientText(
+                                '%',
+                                style: AppTypography.heroNumber,
+                              ),
                               const SizedBox(width: 10),
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 4),
@@ -472,11 +510,13 @@ class _XpTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Text('Level ${lvl.level}', style: meta),
-            const Spacer(),
-            Text('${lvl.xpInLevel}/${lvl.xpForLevel}', style: meta),
-          ]),
+          Row(
+            children: [
+              Text('Level ${lvl.level}', style: meta),
+              const Spacer(),
+              Text('${lvl.xpInLevel}/${lvl.xpForLevel}', style: meta),
+            ],
+          ),
           const SizedBox(height: 10),
           FittedBox(
             alignment: Alignment.centerLeft,
@@ -520,9 +560,15 @@ class _LetterTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: AppTypography.sans(
-                      size: 15, weight: FontWeight.w700, height: 1.2, color: p.textPrimary)),
+              Text(
+                title,
+                style: AppTypography.sans(
+                  size: 15,
+                  weight: FontWeight.w700,
+                  height: 1.2,
+                  color: p.textPrimary,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(sub, style: AppTypography.meta.copyWith(color: p.textMuted)),
             ],
@@ -559,7 +605,11 @@ class _UpNextRow extends StatelessWidget {
     if (tended) {
       trailing = const _TendedCheck();
     } else if (primary) {
-      trailing = PillButton(label: 'Tend', onTap: onTend, haptic: PressHaptic.light);
+      trailing = PillButton(
+        label: 'Tend',
+        onTap: onTend,
+        haptic: PressHaptic.light,
+      );
     } else {
       trailing = PillButton(
         label: 'Later',
@@ -576,8 +626,12 @@ class _UpNextRow extends StatelessWidget {
       trailing: AnimatedSwitcher(
         duration: AppMotion.fast,
         switchInCurve: AppMotion.emphasized,
-        transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
-        child: KeyedSubtree(key: ValueKey(tended ? 'done' : 'todo'), child: trailing),
+        transitionBuilder: (child, a) =>
+            ScaleTransition(scale: a, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(tended ? 'done' : 'todo'),
+          child: trailing,
+        ),
       ),
       onSwipeRight: tended ? null : onTend,
       onSwipeLeft: tended ? null : onLater,
@@ -591,11 +645,19 @@ class _TendedCheck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 40,
-        height: 40,
-        decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.sunrise),
-        child: const AtlasIcon(Symbols.check_rounded, color: AppColors.white, size: 22, weight: 600),
-      );
+    width: 40,
+    height: 40,
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: AppColors.sunrise,
+    ),
+    child: const AtlasIcon(
+      Symbols.check_rounded,
+      color: AppColors.white,
+      size: 22,
+      weight: 600,
+    ),
+  );
 }
 
 class _DayDone extends StatelessWidget {
@@ -611,9 +673,11 @@ class _DayDone extends StatelessWidget {
         children: [
           const AtlasSpark(size: 72, animated: true),
           const SizedBox(height: AppSpacing.md),
-          Text('That’s everything for today.',
-              textAlign: TextAlign.center,
-              style: AppTypography.section.copyWith(color: p.textPrimary)),
+          Text(
+            'That’s everything for today.',
+            textAlign: TextAlign.center,
+            style: AppTypography.section.copyWith(color: p.textPrimary),
+          ),
           const SizedBox(height: AppSpacing.md),
           PillButton(
             label: 'Add something',

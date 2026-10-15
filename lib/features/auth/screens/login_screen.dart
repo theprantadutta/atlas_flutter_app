@@ -5,12 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_text_field.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -45,7 +42,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final authState = ref.watch(authProvider);
 
     ref.listen<AuthState>(authProvider, (previous, next) {
@@ -56,135 +52,116 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return AuthScaffold(
       title: 'Welcome back',
-      subtitle: "Let's tend to your world.",
+      subtitle: 'Pick up where you left off.',
       isBusy: authState.isLoading,
       children: [
-        Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              AppTextField(
-                controller: _emailController,
-                label: 'Email',
-                hint: 'you@example.com',
-                prefixIcon: Icons.alternate_email_rounded,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                validator: Validators.validateEmail,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-              ),
-              AppSpacing.gapMd,
-              AppTextField(
-                controller: _passwordController,
-                label: 'Password',
-                hint: 'Enter your password',
-                prefixIcon: Icons.lock_outline_rounded,
-                isPassword: true,
-                textInputAction: TextInputAction.done,
-                validator: Validators.validatePassword,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                onSubmitted: (_) => _onLogin(),
-              ),
-            ],
+        AutofillGroup(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                AuthField(
+                  controller: _emailController,
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  icon: Symbols.alternate_email_rounded,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  validator: Validators.validateEmail,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AuthField(
+                  controller: _passwordController,
+                  label: 'Password',
+                  hint: 'Your password',
+                  icon: Symbols.lock_rounded,
+                  isPassword: true,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  validator: Validators.validatePassword,
+                  onSubmitted: (_) => _onLogin(),
+                ),
+              ],
+            ),
           ),
         ),
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {},
-            child: const Text('Forgot password?'),
-          ),
-        ),
-        AppSpacing.gapXs,
-        AppButton(
-          label: 'Log in',
-          onPressed: authState.isLoading ? null : _onLogin,
-          isLoading: authState.isLoading,
-        ),
-        AppSpacing.gapLg,
-        _OrDivider(theme: theme),
-        AppSpacing.gapLg,
-        // Apple requires Sign in with Apple to appear at least as prominently
-        // as other third-party sign-in options (Guideline 4.8), so it leads.
-        if (AppleSignInButton.isSupported) ...[
-          AppleSignInButton(
-            onPressed: authState.isLoading ? null : _onAppleSignIn,
-          ),
-          AppSpacing.gapMd,
-        ],
-        AppButton(
-          label: 'Continue with Google',
-          variant: AppButtonVariant.outline,
-          icon: Icons.g_mobiledata_rounded,
-          onPressed: authState.isLoading ? null : _onGoogleSignIn,
-        ),
-        AppSpacing.gapXl,
-        _FooterLink(
-          leading: "New here? ",
-          action: 'Create an account',
-          onTap: () => context.goNamed(RouteNames.signup),
-        ),
-        AppSpacing.gapLg,
-      ],
-    );
-  }
-}
-
-class _OrDivider extends StatelessWidget {
-  const _OrDivider({required this.theme});
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Divider(color: theme.colorScheme.outline)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            'or',
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ),
-        Expanded(child: Divider(color: theme.colorScheme.outline)),
-      ],
-    );
-  }
-}
-
-class _FooterLink extends StatelessWidget {
-  const _FooterLink({
-    required this.leading,
-    required this.action,
-    required this.onTap,
-  });
-  final String leading;
-  final String action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          leading,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            action,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
+          child: Pressable(
+            onTap: () => _showForgotPassword(context),
+            haptic: PressHaptic.selection,
+            semanticLabel: 'Forgot password?',
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 14, 4, 14),
+              child: Text('Forgot password?',
+                  style: AppTypography.chip.copyWith(color: context.palette.textMuted)),
             ),
           ),
         ),
+        const SizedBox(height: AppSpacing.xs),
+        PillButton(
+          label: 'Log in',
+          height: 56,
+          expand: true,
+          busy: authState.isLoading,
+          onTap: authState.isLoading ? null : _onLogin,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const AuthDivider(),
+        const SizedBox(height: AppSpacing.lg),
+        // Apple requires Sign in with Apple to appear at least as prominently
+        // as other third-party sign-in options (Guideline 4.8), so it leads.
+        if (AppleSignInButton.isSupported) ...[
+          AppleSignInButton(onPressed: authState.isLoading ? null : _onAppleSignIn),
+          const SizedBox(height: AppSpacing.xs),
+        ],
+        GoogleSignInButton(onPressed: authState.isLoading ? null : _onGoogleSignIn),
+        const SizedBox(height: AppSpacing.lg),
+        AuthFooterLink(
+          leading: 'New here? ',
+          action: 'Create an account',
+          onTap: () => context.goNamed(RouteNames.signup),
+        ),
       ],
     );
   }
 }
+
+/// Password resets need a backend endpoint (and an email sender) that Atlas
+/// doesn't have yet, so instead of a button that silently does nothing this
+/// explains honestly what still works.
+Future<void> _showForgotPassword(BuildContext context) => showAtlasSheet<void>(
+      context,
+      builder: (context) {
+        final p = context.palette;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AtlasSpark(size: 36, animated: true),
+              const SizedBox(height: AppSpacing.md),
+              Text('Forgot your password?',
+                  style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Resetting it from the app isn’t ready yet. If you first signed up with Google '
+                'or Apple, use that button and you’ll go straight in. Your data on this phone '
+                'is safe either way.',
+                style: AppTypography.body.copyWith(color: p.textBody),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              PillButton(
+                label: 'Got it',
+                height: 56,
+                expand: true,
+                haptic: PressHaptic.selection,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );

@@ -5,16 +5,12 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// The pre-auth introduction — Atlas's pitch, shown before we ask for anything.
-/// Three calm pages set up the living-world metaphor and introduce Aurora, and
-/// the horizon behind the copy grows richer with each one: the promise,
-/// demonstrated. Ends at the sign-up, which is the point.
+/// The pre-auth introduction: Atlas's pitch, shown before we ask for anything.
+/// Three calm pages, each with a small piece of the real app as its picture
+/// (the spark, today's card filling, Aurora's letter). Ends at sign-up, which
+/// is the point.
 class IntroScreen extends ConsumerStatefulWidget {
   const IntroScreen({super.key});
 
@@ -29,21 +25,21 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
   static const _pages = <(String, String, String)>[
     (
       'Welcome to Atlas',
-      'A world that grows\nas you care for yourself',
-      'Every habit you tend, every small step you take, brings your world a '
-          'little more to life. No pressure, just gentle progress.',
+      'Every day is a\nsmall sunrise',
+      'Tend the habits and tasks that matter to you, and watch a whole world '
+          'of places open up over time. No pressure, just gentle progress.',
     ),
     (
       'Tend your days',
       'Small things,\nkept kindly',
-      'Add the habits, tasks and goals that matter to you. Check them off and '
-          'watch your horizon turn greener. Miss a day? Nothing is lost.',
+      'Add what matters, tap Tend when it’s done, and watch today fill with '
+          'light. Miss a day? Nothing is lost.',
     ),
     (
       'Meet Aurora',
       'A companion\nwho notices',
-      'Aurora reflects on your week in your own words, talks things through '
-          'when it helps, and can turn “read before bed” into a habit for you.',
+      'Aurora writes you a letter about your week, talks things through when '
+          'it helps, and can turn “read before bed” into a habit for you.',
     ),
   ];
 
@@ -64,8 +60,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
 
   void _next() {
     if (_page < _pages.length - 1) {
-      _controller.nextPage(
-          duration: AppMotion.medium, curve: AppMotion.standard);
+      _controller.nextPage(duration: AppMotion.medium, curve: AppMotion.standard);
     } else {
       _leave('/signup');
     }
@@ -73,131 +68,99 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final isLast = _page == _pages.length - 1;
     final signedIn = ref.watch(authProvider).isAuthenticated;
-    final horizonProgress = 0.25 + (_page / (_pages.length - 1)) * 0.65;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.46,
-              child: Stack(
-                fit: StackFit.expand,
+      body: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(
+              height: 52,
+              child: Row(
                 children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.25, end: horizonProgress),
-                    duration: AppMotion.slow,
-                    curve: AppMotion.standard,
-                    builder: (context, value, _) => LivingHorizon(
-                      height: double.infinity,
-                      progress: value,
-                      brightness: Brightness.dark,
-                      borderRadius: BorderRadius.zero,
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          theme.scaffoldBackgroundColor.withValues(alpha: 0.0),
-                          theme.scaffoldBackgroundColor,
-                        ],
-                        stops: const [0.0, 0.55, 1.0],
+                  const SizedBox(width: AppSpacing.gutter + AppSpacing.headerInset),
+                  const AtlasLockup(height: 22),
+                  const Spacer(),
+                  AnimatedOpacity(
+                    duration: AppMotion.fast,
+                    opacity: isLast ? 0 : 1,
+                    child: IgnorePointer(
+                      ignoring: isLast,
+                      child: Pressable(
+                        onTap: () => _leave('/login'),
+                        haptic: PressHaptic.selection,
+                        semanticLabel: 'Skip',
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.gutter, vertical: 14),
+                          child: Text('Skip',
+                              style: AppTypography.chip.copyWith(color: p.textMuted)),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: AnimatedOpacity(
-                    duration: AppMotion.fast,
-                    opacity: isLast ? 0 : 1,
-                    child: IgnorePointer(
-                      ignoring: isLast,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: AppSpacing.xs),
-                        child: TextButton(
-                          onPressed: () => _leave('/login'),
-                          child: Text(
-                            'Skip',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.w600,
+            Expanded(
+              child: PageView(
+                controller: _controller,
+                onPageChanged: (i) => setState(() => _page = i),
+                children: [
+                  for (var i = 0; i < _pages.length; i++)
+                    _IntroPage(
+                      index: i,
+                      eyebrow: _pages[i].$1,
+                      title: _pages[i].$2,
+                      body: _pages[i].$3,
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, AppSpacing.md),
+              child: Column(
+                children: [
+                  _Dots(count: _pages.length, index: _page),
+                  const SizedBox(height: AppSpacing.lg),
+                  PillButton(
+                    label: isLast ? (signedIn ? 'Continue' : 'Create your account') : 'Continue',
+                    icon: isLast ? Symbols.auto_awesome_rounded : null,
+                    height: 56,
+                    expand: true,
+                    onTap: _next,
+                  ),
+                  // The quiet path for people who already have an account.
+                  SizedBox(
+                    height: 48,
+                    child: AnimatedOpacity(
+                      duration: AppMotion.fast,
+                      opacity: isLast && !signedIn ? 1 : 0,
+                      child: IgnorePointer(
+                        ignoring: !isLast || signedIn,
+                        child: Center(
+                          child: Pressable(
+                            onTap: () => _leave('/login'),
+                            haptic: PressHaptic.selection,
+                            semanticLabel: 'I already have an account',
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text('I already have an account',
+                                  style: AppTypography.chip.copyWith(color: p.textMuted)),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: PageView(
-                    controller: _controller,
-                    onPageChanged: (i) => setState(() => _page = i),
-                    children: [
-                      for (final (eyebrow, title, body) in _pages)
-                        _IntroPage(eyebrow: eyebrow, title: title, body: body),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.gutter,
-                      AppSpacing.sm, AppSpacing.gutter, AppSpacing.md),
-                  child: Column(
-                    children: [
-                      _Dots(count: _pages.length, index: _page),
-                      AppSpacing.gapMd,
-                      AppButton(
-                        label: isLast
-                            ? (signedIn ? 'Continue' : 'Create your account')
-                            : 'Continue',
-                        icon: isLast
-                            ? Icons.auto_awesome_rounded
-                            : Icons.arrow_forward_rounded,
-                        onPressed: _next,
-                      ),
-                      // The quiet path for people who already have an account.
-                      SizedBox(
-                        height: 44,
-                        child: AnimatedOpacity(
-                          duration: AppMotion.fast,
-                          opacity: isLast && !signedIn ? 1 : 0,
-                          child: IgnorePointer(
-                            ignoring: !isLast || signedIn,
-                            child: TextButton(
-                              onPressed: () => _leave('/login'),
-                              child: Text(
-                                'I already have an account',
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -205,19 +168,21 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
 
 class _IntroPage extends StatelessWidget {
   const _IntroPage({
+    required this.index,
     required this.eyebrow,
     required this.title,
     required this.body,
   });
 
+  final int index;
   final String eyebrow;
   final String title;
   final String body;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return LayoutBuilder(
+    final p = context.palette;
+    final page = LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -227,33 +192,139 @@ class _IntroPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  eyebrow.toUpperCase(),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppColors.auroraLilac,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
+                SizedBox(
+                  height: (constraints.maxHeight * .5).clamp(200.0, 320.0),
+                  child: Center(
+                    child: IgnorePointer(child: ExcludeSemantics(child: _Picture(index: index))),
                   ),
                 ),
-                AppSpacing.gapSm,
-                Text(title,
-                    style: theme.textTheme.displaySmall?.copyWith(height: 1.12)),
-                AppSpacing.gapMd,
-                Text(
-                  body,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.55,
+                const SizedBox(height: AppSpacing.lg),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.headerInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(eyebrow.toUpperCase(),
+                          style: AppTypography.kicker.copyWith(color: AtlasPalette.accent)),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(title,
+                          style: AppTypography.display(size: 36, height: 1.05, color: p.textPrimary)),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(body, style: AppTypography.body.copyWith(color: p.textBody)),
+                    ],
                   ),
                 ),
-                AppSpacing.gapLg,
+                const SizedBox(height: AppSpacing.md),
               ],
             ),
           ),
         ),
       ),
-    ).animate(key: ValueKey(title)).fadeIn(duration: AppMotion.medium).slideY(
-        begin: 0.05, end: 0, curve: AppMotion.standard);
+    );
+    if (AppMotion.reduceMotion(context)) return page;
+    return page
+        .animate(key: ValueKey(title))
+        .fadeIn(duration: AppMotion.medium)
+        .slideY(begin: 0.04, end: 0, curve: AppMotion.standard);
+  }
+}
+
+/// The small piece of the app each page shows.
+class _Picture extends StatelessWidget {
+  const _Picture({required this.index});
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    switch (index) {
+      case 0:
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(shape: BoxShape.circle, gradient: p.letter),
+            ),
+            const AtlasSpark(size: 128, animated: true),
+          ],
+        );
+      case 1:
+        return SizedBox(
+          width: 300,
+          child: InkHeroCard(
+            height: 190,
+            glowLevel: .75,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Today',
+                    style: AppTypography.dateLine.copyWith(color: p.onRaised.withValues(alpha: .7))),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        CountUpText(
+                          value: 75,
+                          animateFromZero: true,
+                          style: AppTypography.display(size: 72, height: .8, color: p.onRaised),
+                        ),
+                        GradientText('%', style: AppTypography.display(size: 72, height: .8)),
+                        const SizedBox(width: 10),
+                        Text('3 of 4\ntended',
+                            style: AppTypography.sans(
+                                size: 14,
+                                weight: FontWeight.w600,
+                                color: p.onRaised.withValues(alpha: .75))),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const ProgressSegments(total: 4, done: 3),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      default:
+        return Container(
+          width: 300,
+          clipBehavior: Clip.antiAlias,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: p.letter,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Positioned(
+                right: -50,
+                top: -50,
+                child: Opacity(opacity: .5, child: AtlasSpark(size: 120, animated: true)),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('SUNDAY LETTER', style: AppTypography.kicker.copyWith(color: p.textPrimary)),
+                  const SizedBox(height: AppSpacing.md),
+                  Text('You moved at your own pace, and it counted.',
+                      style: AppTypography.display(
+                          size: 26, weight: FontWeight.w600, height: 1.08, color: p.textPrimary)),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(children: [
+                    PillButton(label: 'Listen', icon: Symbols.play_arrow_rounded, onTap: () {}),
+                  ]),
+                ],
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
 
@@ -264,26 +335,27 @@ class _Dots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < count; i++)
-          AnimatedContainer(
-            duration: AppMotion.fast,
-            curve: AppMotion.standard,
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: i == index ? 22 : 7,
-            height: 7,
-            decoration: BoxDecoration(
-              gradient: i == index ? AppColors.auroraGradient : null,
-              color: i == index
-                  ? null
-                  : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+    final p = context.palette;
+    return Semantics(
+      label: 'Page ${index + 1} of $count',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < count; i++)
+            AnimatedContainer(
+              duration: AppMotion.fast,
+              curve: AppMotion.standard,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: i == index ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                gradient: i == index ? AppColors.sunriseBar : null,
+                color: i == index ? null : p.outline,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
