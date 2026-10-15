@@ -56,14 +56,24 @@ class AvatarDao extends DatabaseAccessor<AtlasDatabase>
         .get();
   }
 
-  Future<void> markSynced(List<String> ids, DateTime syncedAt) async {
-    if (ids.isEmpty) return;
-    await (update(avatars)..where((a) => a.id.isIn(ids))).write(
-      AvatarsCompanion(
-        isDirty: const Value(false),
-        lastSyncedAt: Value(syncedAt),
-      ),
-    );
+  /// Clears the dirty flag for pushed rows, keyed by id with the `updatedAt`
+  /// that was sent. A row whose `updatedAt` changed while the push was in
+  /// flight (edited mid-sync) is left dirty so that edit goes out next sync.
+  Future<void> markSynced(
+      Map<String, DateTime> pushedUpdatedAt, DateTime syncedAt) async {
+    if (pushedUpdatedAt.isEmpty) return;
+    await transaction(() async {
+      for (final e in pushedUpdatedAt.entries) {
+        await (update(avatars)
+              ..where((a) => a.id.equals(e.key) & a.updatedAt.equals(e.value)))
+            .write(
+          AvatarsCompanion(
+            isDirty: const Value(false),
+            lastSyncedAt: Value(syncedAt),
+          ),
+        );
+      }
+    });
   }
 
   Future<int> purgeSyncedTombstones() {

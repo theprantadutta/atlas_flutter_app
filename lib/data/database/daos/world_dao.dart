@@ -45,7 +45,10 @@ class WorldDao extends DatabaseAccessor<AtlasDatabase>
               w.userId.equals(userId) &
               w.positionX.equals(x) &
               w.positionY.equals(y) &
-              w.isDeleted.equals(false)))
+              w.isDeleted.equals(false))
+          // Duplicate positions must not throw and abort a sync.
+          ..orderBy([(w) => OrderingTerm.desc(w.updatedAt)])
+          ..limit(1))
         .getSingleOrNull();
   }
 
@@ -90,14 +93,24 @@ class WorldDao extends DatabaseAccessor<AtlasDatabase>
         .get();
   }
 
-  Future<void> markSynced(List<String> ids, DateTime syncedAt) async {
-    if (ids.isEmpty) return;
-    await (update(worldTiles)..where((w) => w.id.isIn(ids))).write(
-      WorldTilesCompanion(
-        isDirty: const Value(false),
-        lastSyncedAt: Value(syncedAt),
-      ),
-    );
+  /// Clears the dirty flag for pushed rows, keyed by id with the `updatedAt`
+  /// that was sent. A row whose `updatedAt` changed while the push was in
+  /// flight (edited mid-sync) is left dirty so that edit goes out next sync.
+  Future<void> markSynced(
+      Map<String, DateTime> pushedUpdatedAt, DateTime syncedAt) async {
+    if (pushedUpdatedAt.isEmpty) return;
+    await transaction(() async {
+      for (final e in pushedUpdatedAt.entries) {
+        await (update(worldTiles)
+              ..where((w) => w.id.equals(e.key) & w.updatedAt.equals(e.value)))
+            .write(
+          WorldTilesCompanion(
+            isDirty: const Value(false),
+            lastSyncedAt: Value(syncedAt),
+          ),
+        );
+      }
+    });
   }
 
   Future<int> purgeSyncedTombstones() {

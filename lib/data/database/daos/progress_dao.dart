@@ -40,8 +40,10 @@ class ProgressDao extends DatabaseAccessor<AtlasDatabase>
         .getSingleOrNull();
   }
 
-  /// The calendar day is the natural key — one entry per day per user.
-  /// Entries are seeded independently per device, so sync matches on day.
+  /// The entry for a calendar day (one per day per user by convention).
+  /// Duplicates can exist (e.g. legacy rows from before deterministic ids), so
+  /// this returns the most recently updated one instead of throwing. Sync
+  /// matches pulled entries by id, not by this lookup.
   Future<ProgressEntry?> getEntryForDay(String userId, DateTime date) {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -50,7 +52,9 @@ class ProgressDao extends DatabaseAccessor<AtlasDatabase>
               p.userId.equals(userId) &
               p.isDeleted.equals(false) &
               p.date.isBiggerOrEqualValue(startOfDay) &
-              p.date.isSmallerThanValue(endOfDay)))
+              p.date.isSmallerThanValue(endOfDay))
+          ..orderBy([(p) => OrderingTerm.desc(p.updatedAt)])
+          ..limit(1))
         .getSingleOrNull();
   }
 
@@ -96,14 +100,24 @@ class ProgressDao extends DatabaseAccessor<AtlasDatabase>
         .get();
   }
 
-  Future<void> markSynced(List<String> ids, DateTime syncedAt) async {
-    if (ids.isEmpty) return;
-    await (update(progressEntries)..where((p) => p.id.isIn(ids))).write(
-      ProgressEntriesCompanion(
-        isDirty: const Value(false),
-        lastSyncedAt: Value(syncedAt),
-      ),
-    );
+  /// Clears the dirty flag for pushed rows, keyed by id with the `updatedAt`
+  /// that was sent. A row whose `updatedAt` changed while the push was in
+  /// flight (edited mid-sync) is left dirty so that edit goes out next sync.
+  Future<void> markSynced(
+      Map<String, DateTime> pushedUpdatedAt, DateTime syncedAt) async {
+    if (pushedUpdatedAt.isEmpty) return;
+    await transaction(() async {
+      for (final e in pushedUpdatedAt.entries) {
+        await (update(progressEntries)
+              ..where((p) => p.id.equals(e.key) & p.updatedAt.equals(e.value)))
+            .write(
+          ProgressEntriesCompanion(
+            isDirty: const Value(false),
+            lastSyncedAt: Value(syncedAt),
+          ),
+        );
+      }
+    });
   }
 
   Future<int> purgeSyncedTombstones() {
