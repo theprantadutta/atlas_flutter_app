@@ -165,3 +165,27 @@ List<WorldTile> sampleTiles({int unlocked = 12}) => [
           isDeleted: false,
         ),
     ];
+
+/// The Insights mock's week (Mon..Sun = 120, 85, 160, 95, 200, 140, 175 XP;
+/// 975 in all, Friday best) plus a lighter previous week.
+List<LedgerDay> sampleLedgerWeek() {
+  const xp = [120, 85, 160, 95, 200, 140, 175];
+  const prev = [100, 90, 120, 80, 150, 110, 175];
+  final monday = startOfWeek(kToday);
+  LedgerDay day(DateTime d, int x, int n) => LedgerDay(
+        date: d,
+        xp: x,
+        count: n,
+        items: {for (var i = 0; i < n; i++) 'h:$i': 10},
+        categories: {
+          'health': (x * .47).round(),
+          'mindfulness': (x * .31).round(),
+          'learning': x - (x * .47).round() - (x * .31).round(),
+        },
+        types: const {},
+      );
+  return [
+    for (var i = 0; i < 7; i++) day(addDays(monday, i), xp[i], i == 4 ? 5 : 4),
+    for (var i = 0; i < 7; i++) day(addDays(monday, i - 7), prev[i], 3),
+  ];
+}
