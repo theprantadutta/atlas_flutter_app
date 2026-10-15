@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
@@ -8,6 +9,9 @@ import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 final _log = AppLog('Auth');
@@ -232,7 +236,7 @@ class AuthNotifier extends Notifier<AuthState> {
       // Purge the local database — deletion must leave nothing behind, and the
       // next account on this device must not inherit the old one's data.
       // (syncDao.clearAll() only drains the pending-operation queue.)
-      await ref.read(databaseProvider).wipeAllLocalData();
+      await _clearUserScopedState(wipeDatabase: true);
       await _tokenService.clearUser();
 
       state = const AuthState(
@@ -256,6 +260,12 @@ class AuthNotifier extends Notifier<AuthState> {
     if (!state.isAuthenticated && !state.isInitializing) return;
     _tokenService.clearUser();
     ref.read(signalRServiceProvider).disconnect();
+    // The session ended involuntarily (expired refresh token), so local data
+    // is kept — it may hold unsynced edits. Only the pull cursor is reset, so
+    // whoever signs in next gets a full pull instead of a stale delta.
+    ref.read(offlineManagerProvider).resetSyncState().catchError((Object e) {
+      _log.e('Resetting sync state failed', error: e);
+    });
     state = const AuthState(
       isInitializing: false,
       isAuthenticated: false,
@@ -263,9 +273,25 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// Log out and clear auth state.
+  ///
+  /// Logging out leaves nothing of the account on this device: the sync cursor
+  /// is reset, the local database is wiped and user-scoped prefs are removed
+  /// (see [userScopedPrefKeys]). Before that, entitled users get a best-effort
+  /// final sync so unsynced edits reach the server. For users without cloud
+  /// sync the local data is the only copy, so the UI must warn before calling
+  /// this.
   Future<void> logout() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      // Push pending edits while the tokens are still valid. No-op when sync
+      // is off/unentitled/offline; bounded so logout never hangs.
+      try {
+        await ref
+            .read(offlineManagerProvider)
+            .flush()
+            .timeout(const Duration(seconds: 15));
+      } catch (_) {/* best-effort */}
+
       // Unregister FCM token before logout
       try {
         await ref.read(fcmServiceProvider).unregisterToken();
@@ -281,12 +307,71 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (_) {
       // Continue logout regardless of errors
     } finally {
+      await _clearUserScopedState(wipeDatabase: true);
       await _tokenService.clearUser();
       state = const AuthState(
         isInitializing: false,
         isAuthenticated: false,
       );
     }
+  }
+
+  // ─── Session teardown ───
+
+  /// SharedPreferences keys that belong to the signed-in account and must not
+  /// leak into the next one. Everything else (theme, refresh rate, intro /
+  /// legal / notification-primer flags, coach marks, pending store
+  /// verifications) is device-level and survives logout.
+  static const userScopedPrefKeys = <String>{
+    'offline_manager_last_sync',
+    'atlas_setup_complete',
+    'atlas.snoozed.v1',
+    'atlas.dayComplete.lastDate',
+    'atlas.letter.lastReadId',
+    'atlas.discovered.celebrated',
+  };
+
+  /// Key prefixes for user-scoped prefs (starter-data choice, Aurora's
+  /// personal preferences such as the preferred name and intention).
+  static const userScopedPrefPrefixes = <String>[
+    'atlas_starter_',
+    'atlas_aurora_',
+  ];
+
+  static bool isUserScopedPrefKey(String key) =>
+      userScopedPrefKeys.contains(key) ||
+      userScopedPrefPrefixes.any(key.startsWith);
+
+  /// Stops sync, resets its cursor, optionally hard-wipes the local database,
+  /// and removes user-scoped prefs. Each step is best-effort so one failure
+  /// never leaves the user stuck signed in.
+  Future<void> _clearUserScopedState({required bool wipeDatabase}) async {
+    try {
+      // Waits for an in-flight sync so it can't write rows back after the wipe.
+      await ref.read(offlineManagerProvider).resetSyncState();
+    } catch (e, s) {
+      _log.e('Resetting sync state failed', error: e, stackTrace: s);
+    }
+    if (wipeDatabase) {
+      try {
+        await ref.read(databaseProvider).wipeAllLocalData();
+      } catch (e, s) {
+        _log.e('Wiping local data failed', error: e, stackTrace: s);
+      }
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final key in prefs.getKeys().where(isUserScopedPrefKey).toList()) {
+        await prefs.remove(key);
+      }
+    } catch (e, s) {
+      _log.e('Clearing user prefs failed', error: e, stackTrace: s);
+    }
+    // These notifiers cache prefs in memory; rebuild them from the now-clean
+    // store so the next account starts from first-run state.
+    ref.invalidate(onboardingProvider);
+    ref.invalidate(starterDataProvider);
+    ref.invalidate(auroraPreferencesProvider);
   }
 }
 

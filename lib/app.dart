@@ -66,11 +66,12 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       }
     });
 
-    // Cloud sync is premium — drive the engine's per-user gate from the
-    // expiry-aware entitlement snapshot (falls back to the cached user profile
-    // before the first `/entitlements` fetch resolves).
+    // Cloud sync is premium — drive the engine's per-user gate from the same
+    // `cloud_sync` entitlement the sync UI uses (falls back to premium status
+    // before the first `/entitlements` fetch resolves), so the engine never
+    // runs while the UI says sync is unavailable, or vice versa.
     ref.listenManual<bool>(
-      isPremiumProvider,
+      canSyncProvider,
       (prev, next) => offlineManager.setEntitled(next),
       fireImmediately: true,
     );

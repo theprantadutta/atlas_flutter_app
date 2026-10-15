@@ -50,6 +50,7 @@ class OfflineManager {
   DateTime? _lastSyncTime;
   StreamSubscription<bool>? _connectivitySubscription;
   StreamSubscription<void>? _tableUpdatesSubscription;
+  Future<void>? _inFlightSync;
 
   // ─── Streams ────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ class OfflineManager {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_lastSyncKey);
     if (stored != null) {
-      _lastSyncTime = DateTime.tryParse(stored);
+      _lastSyncTime = DateTime.tryParse(stored)?.toLocal();
       _lastSyncTimeController.add(_lastSyncTime);
     }
 
@@ -188,6 +189,9 @@ class OfflineManager {
 
     _isSyncing = true;
     _syncStatusController.add(SyncStatus.syncing);
+    final done = Completer<void>();
+    _inFlightSync = done.future;
+    final userId = _currentUserId;
 
     try {
       // Row-based, dirty-flag sync for all migrated entities.
@@ -199,23 +203,68 @@ class OfflineManager {
       await _pushAchievements();
       await _pushProgress();
       await _pushNotifications();
-      await _pullRows();
+      final serverCursor = await _pullRows();
 
-      // Persist last sync time
-      _lastSyncTime = DateTime.now();
-      _lastSyncTimeController.add(_lastSyncTime);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-          _lastSyncKey, _lastSyncTime!.toIso8601String());
+      // The session changed (logout / account switch) mid-sync: don't persist
+      // a cursor that belongs to the previous user.
+      if (userId == null || _currentUserId != userId) {
+        _syncStatusController.add(SyncStatus.idle);
+        return;
+      }
+
+      // Advance the cursor to the SERVER's clock (`sync_timestamp`), never the
+      // device clock: a device running ahead would otherwise skip rows written
+      // on the server in between. Keep the previous cursor if it's absent.
+      if (serverCursor != null) {
+        _lastSyncTime = serverCursor.toLocal();
+        _lastSyncTimeController.add(_lastSyncTime);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            _lastSyncKey, serverCursor.toUtc().toIso8601String());
+      }
 
       _syncStatusController.add(SyncStatus.idle);
-      _log.i('OfflineManager: Sync completed at $_lastSyncTime');
+      _log.i('OfflineManager: Sync completed (cursor $_lastSyncTime)');
     } catch (e) {
       _syncStatusController.add(SyncStatus.error);
       _log.e('OfflineManager: Sync failed', error: e);
     } finally {
       _isSyncing = false;
+      _inFlightSync = null;
+      done.complete();
     }
+  }
+
+  /// Forget everything sync knows about the current session: stops the
+  /// timers, waits for an in-flight sync to finish, and clears the pull
+  /// cursor (memory + `offline_manager_last_sync` pref). Call on logout,
+  /// before wiping local data, so the next account starts with a full pull.
+  Future<void> resetSyncState() async {
+    _isAuthenticated = false;
+    _currentUserId = null;
+    _cancelPeriodicSync();
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = null;
+    final inFlight = _inFlightSync;
+    if (inFlight != null) {
+      try {
+        await inFlight;
+      } catch (_) {/* sync errors are already logged */}
+    }
+    _lastSyncTime = null;
+    _lastSyncTimeController.add(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastSyncKey);
+  }
+
+  /// Best-effort final push+pull, e.g. before logout so unsynced edits of an
+  /// entitled user reach the server. A no-op whenever sync wouldn't run.
+  Future<void> flush() async {
+    final inFlight = _inFlightSync;
+    if (inFlight != null) {
+      await inFlight;
+    }
+    await syncNow();
   }
 
   // ─── Conflict handling ──────────────────────────────────────
@@ -263,7 +312,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'task');
-    final synced = [for (final t in dirty) if (!conflicts.contains(t.id)) t.id];
+    final synced = {
+      for (final t in dirty)
+        if (!conflicts.contains(t.id)) t.id: t.updatedAt
+    };
     await _taskDao.markSynced(synced, DateTime.now());
     await _taskDao.purgeSyncedTombstones();
     _log.d(
@@ -271,16 +323,20 @@ class OfflineManager {
   }
 
   /// Pull deltas (incl. tombstones) since the cursor and apply each migrated
-  /// entity with LWW (local wins ties).
-  Future<void> _pullRows() async {
+  /// entity with LWW (local wins ties). Returns the server's `sync_timestamp`
+  /// (the next cursor), or null when the response didn't carry one.
+  Future<DateTime?> _pullRows() async {
     final userId = _currentUserId;
-    if (userId == null) return;
+    if (userId == null) return null;
 
     final resp = await _syncRepository.pullSync(
       lastSyncTimestamp: _lastSyncTime?.toUtc().toIso8601String(),
     );
     final list = (resp['entities'] as List?) ?? const [];
     for (final e in list) {
+      // Logged out mid-pull: never write the old account's rows back into a
+      // database that is being (or has been) wiped.
+      if (_currentUserId != userId) return null;
       final m = (e as Map).cast<String, dynamic>();
       final raw = m['data'];
       final remote = raw is String
@@ -305,6 +361,22 @@ class OfflineManager {
           await _applyRemoteNotification(userId, remote);
       }
     }
+    return parseSyncTimestamp(resp['sync_timestamp']);
+  }
+
+  /// Parses the pull response's `sync_timestamp`. The backend serialises a UTC
+  /// `DateTime`, which may arrive without a zone designator; treat a zoneless
+  /// value as UTC rather than device-local.
+  static DateTime? parseSyncTimestamp(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty) return null;
+    final hasZone = s.endsWith('Z') ||
+        s.endsWith('z') ||
+        RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(s);
+    final parsed = DateTime.tryParse(hasZone ? s : '${s}Z');
+    if (parsed == null || parsed.year < 2000) return null;
+    return parsed.toUtc();
   }
 
   /// Apply a remote task using last-write-wins with local winning ties.
@@ -396,7 +468,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'habit');
-    final synced = [for (final h in dirty) if (!conflicts.contains(h.id)) h.id];
+    final synced = {
+      for (final h in dirty)
+        if (!conflicts.contains(h.id)) h.id: h.updatedAt
+    };
     await _habitDao.markSynced(synced, DateTime.now());
     await _habitDao.purgeSyncedTombstones();
     _log.d(
@@ -491,7 +566,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'goal');
-    final synced = [for (final g in dirty) if (!conflicts.contains(g.id)) g.id];
+    final synced = {
+      for (final g in dirty)
+        if (!conflicts.contains(g.id)) g.id: g.updatedAt
+    };
     await _goalDao.markSynced(synced, DateTime.now());
     await _goalDao.purgeSyncedTombstones();
     _log.d(
@@ -590,7 +668,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'avatar');
-    final synced = [for (final a in dirty) if (!conflicts.contains(a.id)) a.id];
+    final synced = {
+      for (final a in dirty)
+        if (!conflicts.contains(a.id)) a.id: a.updatedAt
+    };
     await _avatarDao.markSynced(synced, DateTime.now());
     await _avatarDao.purgeSyncedTombstones();
     _log.d(
@@ -712,7 +793,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'world_tile');
-    final synced = [for (final w in dirty) if (!conflicts.contains(w.id)) w.id];
+    final synced = {
+      for (final w in dirty)
+        if (!conflicts.contains(w.id)) w.id: w.updatedAt
+    };
     await _worldDao.markSynced(synced, DateTime.now());
     await _worldDao.purgeSyncedTombstones();
     _log.d(
@@ -810,7 +894,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'achievement');
-    final synced = [for (final a in dirty) if (!conflicts.contains(a.id)) a.id];
+    final synced = {
+      for (final a in dirty)
+        if (!conflicts.contains(a.id)) a.id: a.updatedAt
+    };
     await _achievementDao.markSynced(synced, DateTime.now());
     await _achievementDao.purgeSyncedTombstones();
     _log.d(
@@ -928,24 +1015,31 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'progress_entry');
-    final synced = [for (final p in dirty) if (!conflicts.contains(p.id)) p.id];
+    final synced = {
+      for (final p in dirty)
+        if (!conflicts.contains(p.id)) p.id: p.updatedAt
+    };
     await _progressDao.markSynced(synced, DateTime.now());
     await _progressDao.purgeSyncedTombstones();
     _log.d(
         'OfflineManager: Pushed ${ops.length} progress rows (${conflicts.length} conflicts kept dirty)');
   }
 
-  /// Daily entries are keyed by calendar day (one per day), seeded
-  /// independently per device — match on the day to avoid duplicates.
+  /// Progress entries are the XP ledger: one row per user per local day with a
+  /// deterministic id (UUIDv5 of user id + `yyyy-MM-dd`), so every device
+  /// derives the same id for the same day. Match on **id**, never on the day:
+  /// a day match would merge two different rows (e.g. across time zones) and
+  /// lose one device's ledger keys.
   Future<void> _applyRemoteProgress(
       String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
     final date =
         DateTime.tryParse(r['date']?.toString() ?? '')?.toLocal() ??
             DateTime.now();
     final remoteUpdated =
         DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
     final isDeleted = r['is_deleted'] == true;
-    final local = await _progressDao.getEntryForDay(userId, date);
+    final local = await _progressDao.getEntryById(id);
 
     // Local wins ties: only apply when the server copy is strictly newer.
     if (local != null &&
@@ -1042,7 +1136,10 @@ class OfflineManager {
 
     final resp = await _syncRepository.pushSync(ops);
     final conflicts = _conflictedIds(resp, 'notification');
-    final synced = [for (final n in dirty) if (!conflicts.contains(n.id)) n.id];
+    final synced = {
+      for (final n in dirty)
+        if (!conflicts.contains(n.id)) n.id: n.updatedAt
+    };
     await _notificationDao.markSynced(synced, DateTime.now());
     await _notificationDao.purgeSyncedTombstones();
     _log.d(
