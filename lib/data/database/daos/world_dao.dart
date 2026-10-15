@@ -5,6 +5,17 @@ import 'package:atlas_flutter_app/data/database/tables/world_tiles_table.dart';
 
 part 'world_dao.g.dart';
 
+/// The world is [kWorldSize] places on a [kWorldCols]-wide grid, filled row
+/// by row.
+const kWorldCols = 5;
+const kWorldSize = 30;
+
+/// Whether ([x], [y]) is one of the app's places. Anything else came from
+/// elsewhere (the server once seeded its own 8x8 map at sign-up) and is not
+/// part of the world.
+bool isWorldPlace(int x, int y) =>
+    x >= 0 && x < kWorldCols && y >= 0 && y * kWorldCols + x < kWorldSize;
+
 @DriftAccessor(tables: [WorldTiles])
 class WorldDao extends DatabaseAccessor<AtlasDatabase>
     with _$WorldDaoMixin {

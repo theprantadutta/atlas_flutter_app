@@ -848,6 +848,9 @@ class OfflineManager {
     final isDeleted = r['is_deleted'] == true;
     final posX = (r['position_x'] as num?)?.toInt() ?? 0;
     final posY = (r['position_y'] as num?)?.toInt() ?? 0;
+    // Not one of the app's places (the server's old 8x8 sign-up map): never
+    // let it into the world. Local strays are removed by WorldActions.
+    if (!isWorldPlace(posX, posY)) return;
     final local = await _worldDao.getTileByPosition(userId, posX, posY);
 
     // Local wins ties: only apply when the server copy is strictly newer.
