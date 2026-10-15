@@ -165,43 +165,4 @@ class AppColors {
   static const globeShadow = [
     BoxShadow(color: Color(0x595B3CC4), blurRadius: 80, offset: Offset(0, 40)),
   ];
-
-  // ─── LEGACY (temporary): old names mapped to Daylight so screens compile
-  // while they are rebuilt one by one. Deleted at the end of the redesign. ───
-  static const auroraTeal = sunriseA;
-  static const auroraLilac = sunriseC;
-  static const auroraRose = sunriseB;
-  static const primary = ink;
-  static const primaryLight = sunriseC;
-  static const primaryDark = ink;
-  static const secondary = leaf;
-  static const secondaryLight = leaf;
-  static const secondaryDark = pine;
-  static const tertiary = amber;
-  static const tertiaryLight = sunriseA;
-  static const tertiaryDark = amber;
-  static const xpPrimary = sunriseB;
-  static const streakFlame = sunriseA;
-  static const streakGlow = sunriseA;
-  static const badgeBronze = Color(0xFFC0855A);
-  static const badgeCommon = Color(0xFF98A2B8);
-  static const badgeRare = sky;
-  static const badgeEpic = violet;
-  static const badgeLegendary = amber;
-  static const surfaceLight = canvas;
-  static const cardLight = paper;
-  static const cardBorderLight = hairline;
-  static const surfaceDark = canvasDark;
-  static const surfaceHighDark = raisedDark;
-  static const cardDark = paperDark;
-  static const cardBorderDark = borderDark;
-  static const textPrimaryLight = ink;
-  static const textSecondaryLight = textMuted;
-  static const textPrimaryDark = cream;
-  static const auroraGradient = sunrise;
-  static const primaryGradient = sunrise;
-  static const secondaryGradient = sunrise;
-  static const goldGradient = sunriseText;
-  static List<Color> skyForHour(int hour) => _sunriseColors;
-  static List<Color> skyForHourLight(int hour) => _sunriseColors;
 }
