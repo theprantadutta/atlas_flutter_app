@@ -139,3 +139,29 @@ List<LedgerDay> sampleLedger() {
   }
   return out;
 }
+
+const _tileTypes = ['grass', 'forest', 'mountain', 'water', 'desert', 'city', 'building', 'special'];
+const _tileNames = {
+  'grass': 'Meadow', 'forest': 'Forest', 'mountain': 'Mountain', 'water': 'Lake',
+  'desert': 'Dunes', 'city': 'Town', 'building': 'Cottage', 'special': 'Wonder',
+};
+
+/// The seeded 5×6 world with the first [unlocked] places discovered.
+List<WorldTile> sampleTiles({int unlocked = 12}) => [
+      for (var i = 0; i < 30; i++)
+        WorldTile(
+          id: 'w$i',
+          userId: 'u',
+          name: _tileNames[_tileTypes[i % 8]]!,
+          tileType: _tileTypes[i % 8],
+          isUnlocked: i < unlocked,
+          unlockRequirement: i == 0 ? 0 : 50 + (i - 1) * 25,
+          positionX: i % 5,
+          positionY: i ~/ 5,
+          unlockedAt: i < unlocked ? addDays(kToday, -(unlocked - i) * 3) : null,
+          createdAt: _created,
+          updatedAt: _created,
+          isDirty: false,
+          isDeleted: false,
+        ),
+    ];

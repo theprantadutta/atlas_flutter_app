@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/updates/providers/app_update_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
@@ -84,6 +85,8 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        // A new day may have started while we were away.
+        ref.read(todayProvider.notifier).refresh();
         ref.read(offlineManagerProvider).onAppResumed();
         // Re-check entitlement on resume so renewals / lapses / expiry are
         // picked up without a restart.

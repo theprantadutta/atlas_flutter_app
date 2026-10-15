@@ -9,7 +9,7 @@ Owner "redesign" = fixed as part of the screen/data work on `redesign/daylight`;
 | 1 | Critical | Habits never reset `isCompletedToday`; streak only ever increments | redesign | fixed (ledger + rollover; UI wiring in screens) |
 | 2 | Critical | `seed-*` ids are not Guids; server mints new ids on every push, duplicating rows | redesign (client) + sync (server) | server fixed (rejects non-UUID); client seeds pending |
 | 3 | Critical | No local XP / progress ledger; level/streak read from stale server user; `xp % 1000` | redesign | fixed (ledger); UI wiring in screens |
-| 4 | High | World tiles unlock for free on tap, never from XP | redesign | open |
+| 4 | High | World tiles unlock for free on tap, never from XP | redesign | fixed (XP-driven discovery; taps only open the place) |
 | 5 | High | Achievements never progress or unlock | redesign | open |
 | 6 | High | Server awards XP on every toggle re-push; never recomputes TotalXp/streak | sync | fixed (sync pass) |
 | 7 | High | Logout leaves sync cursor and user-scoped prefs; next account misses data | sync | fixed (sync pass) |

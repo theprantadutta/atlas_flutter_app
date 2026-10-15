@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/notifications/widgets/notification_primer.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
+import 'package:atlas_flutter_app/features/world/providers/world_view.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
@@ -152,6 +154,23 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     final tabIndex = shell.currentIndex == kProfileBranch ? -1 : shell.currentIndex;
 
     _considerNotificationPrimer(ref.watch(onboardingProvider), shell.currentIndex);
+
+    // Keep the day rolling over and discoveries happening wherever you are.
+    ref.watch(dailyRolloverProvider);
+    ref.watch(worldDiscoveryProvider);
+    ref.listen<List<String>>(pendingDiscoveriesProvider, (prev, next) {
+      final fresh = next.where((id) => !(prev ?? const []).contains(id)).toList();
+      if (fresh.isEmpty || shell.currentIndex == 3) return;
+      final place = ref.read(worldViewProvider)?.places.where((p) => p.id == fresh.first).firstOrNull;
+      if (place == null) return;
+      HapticFeedback.heavyImpact();
+      AtlasToast.undo(
+        context,
+        'You discovered ${place.name}',
+        actionLabel: 'Visit',
+        onUndo: () => shell.goBranch(3),
+      );
+    });
 
     final fab = AtlasFab(
       key: coachKeys.fab,
