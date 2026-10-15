@@ -181,9 +181,10 @@ search, so it exists purely to convert, but the copy already does both jobs.
 ## 4. What still needs doing outside this file
 
 - [ ] **Screenshots.** Caption the first two, since those are the only ones most people see. Lead
-      with the living world and the habit list, not the login screen. Assets live in
-      `play_store_screenshots/` and `android_screenshots/`.
-- [ ] **Feature graphic** (Play, 1024x500). Should read at thumbnail size.
+      with the living world and the habit list, not the login screen. Phone shots live in
+      `screenshots/`, tablet shots in `tablet_screenshots/`. Play icon (512x512):
+      `assets/brand/atlas_512x512.png`.
+- [ ] **Feature graphic** (Play, 1024x500), in the Daylight style. Should read at thumbnail size.
 - [ ] **Localisation.** Even translating just the name, subtitle and short description into the top
       three non-English markets typically outperforms any amount of English keyword tuning.
 - [ ] **Category.** Health & Fitness converts better than Productivity for this positioning, but
