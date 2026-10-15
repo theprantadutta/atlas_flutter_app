@@ -35,6 +35,11 @@ class AppColors {
   static const sunriseB = Color(0xFFFF5E62);
   static const sunriseC = Color(0xFF8E6CFF);
 
+  /// The launch ground, native splash and in-app splash alike: a deeper,
+  /// calmer coral than [sunriseB] so a full screen of it never glares. The
+  /// same in light and dark.
+  static const splash = Color(0xFFD9504F);
+
   // ─── Soft letter tints ───
   static const letterA = Color(0xFFFFE7D6);
   static const letterB = Color(0xFFFFDDE3);

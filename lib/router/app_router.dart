@@ -103,7 +103,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const SplashScreen(),
+        // The launch screen holds perfectly still while the first real screen
+        // arrives over it; the app-wide transition would slide it off to the
+        // left, dragging the centered spark with it.
+        pageBuilder: (context, state) => CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const SplashScreen(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+        ),
       ),
       GoRoute(
         path: '/login',

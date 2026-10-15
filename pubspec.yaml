@@ -139,13 +139,15 @@ flutter_launcher_icons:
 
 # ─── Native splash ───
 flutter_native_splash:
-  color: "#F4F1EA"
-  color_dark: "#0F0E0B"
-  image: "assets/brand/atlas_splash.png"
-  image_dark: "assets/brand/atlas_splash.png"
+  color: "#D9504F"
+  color_dark: "#D9504F"
+  image: "assets/brand/splash_spark.png"
+  image_dark: "assets/brand/splash_spark.png"
   android_12:
-    color: "#F4F1EA"
-    color_dark: "#0F0E0B"
-    image: "assets/brand/atlas_splash.png"
-    image_dark: "assets/brand/atlas_splash.png"
+    color: "#D9504F"
+    color_dark: "#D9504F"
+    image: "assets/brand/splash_spark_android12.png"
+    image_dark: "assets/brand/splash_spark_android12.png"
+    icon_background_color: "#D9504F"
+    icon_background_color_dark: "#D9504F"
   fullscreen: false
