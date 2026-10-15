@@ -423,7 +423,7 @@ class OfflineManager {
         v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
     // Backend lowercases enum names; restore the only camelCase one.
     var type = (r['type'] ?? 'daily').toString();
-    if (type == 'longterm') type = 'longTerm';
+    if (type == 'longterm' || type == 'long_term') type = 'longTerm';
     return TasksCompanion(
       id: Value(r['id'].toString()),
       userId: Value((r['user_id'] ?? userId).toString()),
@@ -533,7 +533,11 @@ class OfflineManager {
       longestStreak: Value((r['longest_streak'] as num?)?.toInt() ?? 0),
       completionRate: Value((r['completion_rate'] as num?)?.toDouble() ?? 0.0),
       totalCompletions: Value((r['total_completions'] as num?)?.toInt() ?? 0),
-      reminderTime: Value(r['reminder_time']?.toString()),
+      // Stored as "HH:mm"; the server may send "HH:mm:ss".
+      reminderTime: Value(() {
+        final t = r['reminder_time']?.toString();
+        return t == null || t.length < 5 ? t : t.substring(0, 5);
+      }()),
       lastCompletedDate: Value(parse(r['last_completed_date'])),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
