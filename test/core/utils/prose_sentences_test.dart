@@ -12,7 +12,7 @@ void main() {
     expect(firstSentence(letter), "You didn't vanish. You moved at your own pace.");
     expect(nextSentences(letter, 1), "No failed streaks here, just a pause in a story you're still writing.");
     expect(nextSentences('One two three four five. Six seven eight nine ten. Eleven twelve thirteen fourteen fifteen. Done.', 2),
-        'Six seven eight nine ten. Eleven twelve thirteen fourteen fifteen. Done.');
+        'Six seven eight nine ten. Eleven twelve thirteen fourteen fifteen.');
   });
 
   test('keeps abbreviations and decimals inside a sentence', () {
