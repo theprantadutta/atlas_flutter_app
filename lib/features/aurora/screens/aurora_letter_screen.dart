@@ -58,7 +58,7 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
                       context.pop();
                     }),
                     const Spacer(),
-                    if (reflection.modelTier == 'paid')
+                    if (reflection.modelTier.startsWith('paid'))
                       AtlasChip(
                         label: 'Deep',
                         icon: Symbols.auto_awesome_rounded,

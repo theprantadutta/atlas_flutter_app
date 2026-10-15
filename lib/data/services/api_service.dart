@@ -184,6 +184,30 @@ class ApiService {
     }
   }
 
+  /// POST and read the response body as it arrives (server-sent events).
+  /// Non-2xx responses still throw [AppException] with the status code.
+  Future<Response<ResponseBody>> postStream(
+    String path, {
+    dynamic data,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await _dio.post<ResponseBody>(
+        path,
+        data: data,
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {'Accept': 'text/event-stream'},
+          // Premium replies can take a while to start and keep arriving.
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+    } on DioException catch (e) {
+      throw ErrorHandler.handleDioError(e);
+    }
+  }
+
   Future<Response> put(
     String path, {
     dynamic data,

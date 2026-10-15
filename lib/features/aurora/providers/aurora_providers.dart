@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/errors/app_exception.dart';
+import 'package:atlas_flutter_app/core/utils/prose.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
+import 'package:atlas_flutter_app/features/aurora/data/aurora_repository.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
@@ -273,21 +275,43 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
       clearPaywall: true,
     );
 
+    final repo = ref.read(auroraRepositoryProvider);
+    final prefs = ref.read(auroraPreferencesProvider).toWire();
     try {
-      final result = await ref.read(auroraRepositoryProvider).chat(
-            message,
-            trimmedHistory,
-            preferences: ref.read(auroraPreferencesProvider).toWire(),
-          );
+      AuroraChatResult? result;
+      var streamed = false;
+      try {
+        // Stream so words appear as Aurora writes them.
+        var text = '';
+        await for (final e in repo.chatStream(message, trimmedHistory, preferences: prefs)) {
+          switch (e) {
+            case AuroraStreamDelta(text: final chunk):
+              text += chunk;
+              streamed = true;
+              _updatePending(stripLongDashes(text));
+            case AuroraStreamDone(result: final r):
+              result = r;
+          }
+        }
+      } on AppException catch (e) {
+        // Servers without the stream endpoint (404/405): use the one-shot call.
+        if (!streamed && (e.statusCode == 404 || e.statusCode == 405)) {
+          result = await repo.chat(message, trimmedHistory, preferences: prefs);
+        } else {
+          rethrow;
+        }
+      }
+      final done = result!;
       // Create any parsed entities in local Drift (offline-first source of truth).
-      await applyAuroraCreations(ref, result.created);
+      await applyAuroraCreations(ref, done.created);
       _replacePending(ChatMessage(
         role: ChatRole.aurora,
-        content: result.reply,
-        created: result.created,
-        suggestions: result.suggestions,
-        followUps: result.followUps,
-        fresh: true,
+        content: done.reply,
+        created: done.created,
+        suggestions: done.suggestions,
+        followUps: done.followUps,
+        // A streamed reply was already revealed word by word.
+        fresh: !streamed,
       ));
       state = state.copyWith(sending: false);
     } catch (e) {
@@ -301,6 +325,15 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
       // A chat turn consumes weekly quota — refresh the usage meter.
       ref.read(entitlementsProvider.notifier).refresh();
     }
+  }
+
+  /// Show the reply so far in the pending bubble.
+  void _updatePending(String text) {
+    final next = [...state.messages];
+    final idx = next.lastIndexWhere((m) => m.pending);
+    if (idx < 0) return;
+    next[idx] = ChatMessage(role: ChatRole.aurora, content: text, pending: true);
+    state = state.copyWith(messages: next);
   }
 
   void _replacePending(ChatMessage replacement) {

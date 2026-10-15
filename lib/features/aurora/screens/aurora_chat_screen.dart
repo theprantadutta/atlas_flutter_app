@@ -223,7 +223,22 @@ class _MessageView extends ConsumerWidget {
     }
 
     if (message.pending) {
-      return const Align(alignment: Alignment.centerLeft, child: _AuroraBubble(child: _TypingDots()));
+      // Dots until the first words arrive, then the reply as it streams in.
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: _AuroraBubble(
+          child: AnimatedSize(
+            duration: AppMotion.instant,
+            alignment: Alignment.topLeft,
+            child: message.content.isEmpty
+                ? const _TypingDots()
+                : GptMarkdown(
+                    message.content,
+                    style: AppTypography.body.copyWith(color: p.textPrimary),
+                  ),
+          ),
+        ),
+      );
     }
 
     return Column(
