@@ -79,6 +79,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       title: 'Make your Atlas',
       subtitle: 'A kinder way to grow, one small day at a time.',
       isBusy: authState.isLoading,
+      busyLabel: 'Creating your account…',
       children: [
         AutofillGroup(
           child: Form(

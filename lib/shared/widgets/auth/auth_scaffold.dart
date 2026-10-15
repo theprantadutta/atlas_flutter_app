@@ -12,12 +12,17 @@ class AuthScaffold extends StatelessWidget {
     required this.subtitle,
     required this.children,
     this.isBusy = false,
+    this.busyLabel = 'Signing you in…',
   });
 
   final String title;
   final String subtitle;
   final List<Widget> children;
   final bool isBusy;
+
+  /// Said under the spinning spark while [isBusy], so a sign-in that waits on
+  /// Google and the server reads as progress rather than a frozen screen.
+  final String busyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +77,24 @@ class AuthScaffold extends StatelessWidget {
           if (isBusy)
             Positioned.fill(
               child: AbsorbPointer(
-                child: ColoredBox(color: p.canvas.withValues(alpha: .35)),
+                child: ColoredBox(
+                  color: p.canvas.withValues(alpha: .86),
+                  child: Center(
+                    child: Semantics(
+                      liveRegion: true,
+                      label: busyLabel,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const AtlasSpark(size: 56, busy: true),
+                          const SizedBox(height: AppSpacing.md),
+                          Text(busyLabel,
+                              style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
         ],
