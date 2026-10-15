@@ -81,6 +81,26 @@ class WorldDao extends DatabaseAccessor<AtlasDatabase>
     await (update(worldTiles)..where((w) => w.id.equals(id))).write(patch);
   }
 
+  /// Takes back "World Builder" (unlock 30 places) when it was earned on a
+  /// world the repair just shrank: the server's old 64-place map let it
+  /// unlock without 30 real places. The evaluator then recomputes its
+  /// progress from the places that remain.
+  Future<void> relockWorldBuilder(String userId, DateTime now) async {
+    final db = attachedDatabase;
+    await (db.update(db.achievements)
+          ..where((a) =>
+              a.userId.equals(userId) &
+              a.title.equals('World Builder') &
+              a.isUnlocked.equals(true)))
+        .write(AchievementsCompanion(
+      isUnlocked: const Value(false),
+      progress: const Value(0.0),
+      unlockedAt: const Value(null),
+      updatedAt: Value(now),
+      isDirty: const Value(true),
+    ));
+  }
+
   Future<void> softDeleteTile(String id, DateTime now) async {
     await (update(worldTiles)..where((w) => w.id.equals(id))).write(
       WorldTilesCompanion(

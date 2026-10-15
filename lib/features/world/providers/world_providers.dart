@@ -81,14 +81,17 @@ class WorldActions {
   Future<void> _rebalance(String userId) async {
     final tiles = await _dao.getAllTiles(userId);
     final now = DateTime.now();
+    var foreign = false;
     for (final t in tiles) {
       if (!isWorldPlace(t.positionX, t.positionY)) {
         await _dao.softDeleteTile(t.id, now);
+        foreign = true;
         continue;
       }
       final i = t.positionY * kWorldCols + t.positionX;
       final type = _tileTypes[i % _tileTypes.length];
       if (t.tileType != type || t.name != _nameFor(type)) {
+        foreign = true;
         final origin = i == 0;
         await _dao.updateFields(
           t.id,
@@ -117,6 +120,7 @@ class WorldActions {
         ),
       );
     }
+    if (foreign) await _dao.relockWorldBuilder(userId, now);
   }
 
   Future<void> ensureSeeded(String userId) async {

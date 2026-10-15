@@ -38,7 +38,27 @@ void main() {
       }
     }
 
+    // ...and a badge it handed out: 30 "places" unlocked on that map.
+    Future<void> badge(String title) => db.into(db.achievements).insert(AchievementsCompanion(
+          id: Value(title),
+          userId: const Value('u1'),
+          title: Value(title),
+          achievementType: const Value('milestone'),
+          isUnlocked: const Value(true),
+          progress: const Value(1.0),
+          unlockedAt: Value(t0),
+          createdAt: Value(t0),
+          updatedAt: Value(t0),
+        ));
+    await badge('World Builder');
+    await badge('First Light');
+
     await WorldActions(dao).ensureSeeded('u1');
+
+    final badges = {for (final a in await db.select(db.achievements).get()) a.title: a};
+    expect(badges['World Builder']!.isUnlocked, isFalse);
+    expect(badges['World Builder']!.isDirty, isTrue);
+    expect(badges['First Light']!.isUnlocked, isTrue, reason: 'other badges are untouched');
 
     final live = await dao.getAllTiles('u1');
     expect(live, hasLength(kWorldSize));
