@@ -105,16 +105,17 @@ class CategoryStyle {
     // Match at word starts, so "rest" doesn't fire on "interest".
     bool has(List<String> words) =>
         words.any((w) => RegExp(r'\b' + RegExp.escape(w)).hasMatch(t));
-    if (has(['water', 'hydrat', 'drink'])) return Symbols.water_drop_rounded;
+    if (has(['coffee', 'tea', 'warm drink', 'hot drink'])) return Symbols.coffee_rounded;
+    if (has(['water', 'hydrat'])) return Symbols.water_drop_rounded;
     if (has(['read', 'book', 'pages', 'study'])) return Symbols.menu_book_rounded;
     if (has(['meditat', 'breath', 'calm', 'mindful'])) {
       return Symbols.self_improvement_rounded;
     }
-    if (has(['rest', 'nap'])) return Symbols.hotel_rounded;
-    if (has(['wind down', 'sleep', 'bed', 'night'])) return Symbols.bedtime_rounded;
     if (has(['stretch', 'yoga', 'mobility'])) {
       return Symbols.accessibility_new_rounded;
     }
+    if (has(['rest', 'nap'])) return Symbols.hotel_rounded;
+    if (has(['wind down', 'sleep', 'bed', 'night'])) return Symbols.bedtime_rounded;
     if (has(['walk', 'steps', 'outside'])) return Symbols.directions_walk_rounded;
     if (has(['run', 'jog', 'move', 'cardio'])) return Symbols.directions_run_rounded;
     if (has(['gym', 'lift', 'workout', 'push-up', 'pushup', 'squat'])) {
@@ -135,7 +136,6 @@ class CategoryStyle {
     if (has(['cook', 'meal', 'eat', 'breakfast', 'lunch', 'dinner', 'veg'])) {
       return Symbols.restaurant_rounded;
     }
-    if (has(['coffee', 'tea'])) return Symbols.coffee_rounded;
     if (has(['clean', 'tidy', 'laundry'])) return Symbols.cleaning_services_rounded;
     if (has(['budget', 'save', 'money', 'pay', 'bill'])) return Symbols.savings_rounded;
     if (has(['music', 'guitar', 'piano', 'practice'])) return Symbols.music_note_rounded;

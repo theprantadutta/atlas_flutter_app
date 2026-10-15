@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_letter_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_settings_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
@@ -187,6 +188,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/aurora',
                 name: RouteNames.aurora,
                 builder: (context, state) => const AuroraScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'letter',
+                    name: RouteNames.auroraLetter,
+                    builder: (context, state) => const AuroraLetterScreen(),
+                  ),
+                  // The same voice settings as Profile, reachable without
+                  // leaving the Aurora tab.
+                  GoRoute(
+                    path: 'settings',
+                    name: RouteNames.auroraVoice,
+                    builder: (context, state) => const AuroraSettingsScreen(),
+                  ),
+                ],
               ),
             ],
           ),

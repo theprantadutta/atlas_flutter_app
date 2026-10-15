@@ -28,5 +28,7 @@ class RouteNames {
   static const aurora = 'aurora';
   static const auroraChat = 'auroraChat';
   static const auroraSettings = 'auroraSettings';
+  static const auroraVoice = 'auroraVoice';
+  static const auroraLetter = 'auroraLetter';
   static const paywall = 'paywall';
 }

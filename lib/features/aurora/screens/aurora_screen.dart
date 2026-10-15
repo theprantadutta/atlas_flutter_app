@@ -1,32 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gpt_markdown/gpt_markdown.dart';
 
+import 'package:atlas_flutter_app/core/utils/prose.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
-import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart';
+import 'package:atlas_flutter_app/features/aurora/providers/letter_tts_provider.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/letter_widgets.dart';
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// Aurora — the AI companion's home. A calm landing that surfaces the weekly
-/// reflection over your real progress and gentle ways in; the focused
-/// conversation opens full-screen from here.
-class AuroraScreen extends ConsumerStatefulWidget {
+/// A way into a conversation: tapping sends the label as the first message.
+class _Starter {
+  const _Starter(this.label, this.icon, this.color);
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+const _starters = [
+  _Starter('Tell it the way it is', Symbols.edit_note_rounded, AppColors.coral),
+  _Starter('Plan my week', Symbols.calendar_month_rounded, AppColors.violet),
+  _Starter('Celebrate a small win', Symbols.celebration_rounded, AppColors.amber),
+  _Starter('I feel stuck', Symbols.cloud_rounded, AppColors.sky),
+];
+
+/// Aurora: her weekly letter, and ways to start a conversation.
+class AuroraScreen extends ConsumerWidget {
   const AuroraScreen({super.key});
 
   @override
-  ConsumerState<AuroraScreen> createState() => _AuroraScreenState();
-}
-
-class _AuroraScreenState extends ConsumerState<AuroraScreen> {
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     // Route reflection over-limit to the paywall.
     ref.listen(reflectionGenProvider.select((s) => s.needsPaywall), (_, hit) {
       if (hit == true) {
@@ -34,37 +39,58 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
         context.push('/paywall');
       }
     });
+    ref.listen(reflectionGenProvider.select((s) => s.error), (_, err) {
+      if (err != null) AtlasToast.error(context, err);
+    });
+
+    final gen = ref.watch(reflectionGenProvider);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.gutter, AppSpacing.md,
-              AppSpacing.gutter, AppSpacing.bottomNavSpace),
+          controller: ref.watch(tabScrollControllersProvider).of(2),
+          padding: EdgeInsets.fromLTRB(
+              AppSpacing.gutter, AppSpacing.sm, AppSpacing.gutter, navScrollPadding(context)),
           children: [
-            const AtlasHeader(
+            ScreenHeader(
               title: 'Aurora',
-              subtitle: 'Your gentle companion',
-              trailing: _AuroraMark(),
+              leading: AtlasSpark(size: 40, animated: true, busy: gen.generating),
+              trailing: CircleIconButton(
+                icon: Symbols.tune_rounded,
+                semanticLabel: 'Aurora’s voice',
+                onTap: () => context.push('/aurora/settings'),
+              ),
             ),
-            const AuroraNudgeCard(),
-            AppSpacing.gapLg,
-            const _ReflectionCard()
-                .animate()
-                .fadeIn(duration: AppMotion.medium)
-                .slideY(begin: 0.05, end: 0, curve: AppMotion.standard),
-            AppSpacing.gapLg,
-            _TalkCard(onOpen: () => context.push('/aurora-chat'))
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 80.ms),
-            AppSpacing.gapMd,
-            Text('Ways in', style: Theme.of(context).textTheme.titleMedium),
-            AppSpacing.gapSm,
-            _PromptWrap(
-              onPrompt: (p) => context.push('/aurora-chat', extra: p),
-            ).animate().fadeIn(duration: AppMotion.medium, delay: 140.ms),
-            AppSpacing.gapMd,
-            const AuroraUsageMeter(),
+            const SizedBox(height: AppSpacing.md),
+            const _LetterCard(),
+            const SizedBox(height: AppSpacing.md),
+            const SectionTitle('Start a conversation'),
+            const SizedBox(height: AppSpacing.md),
+            for (var i = 0; i < _starters.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: EntryFade(
+                  id: 'starter-$i',
+                  index: i,
+                  child: LinkRow(
+                    icon: _starters[i].icon,
+                    iconColor: _starters[i].color,
+                    label: _starters[i].label,
+                    onTap: () => context.push('/aurora-chat', extra: _starters[i].label),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: LinkRow(
+                icon: Symbols.forum_rounded,
+                label: 'Just talk',
+                onTap: () => context.push('/aurora-chat'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const AuroraUsageMeter(padding: EdgeInsets.symmetric(horizontal: 4)),
           ],
         ),
       ),
@@ -72,143 +98,137 @@ class _AuroraScreenState extends ConsumerState<AuroraScreen> {
   }
 }
 
-// ─── The Aurora mark (a small living orb) ───────────────────────────
-
-class _AuroraMark extends StatelessWidget {
-  const _AuroraMark();
+/// Aurora's letter: the first sentence as a headline, the next two as body,
+/// Listen and Read all. Before the first letter, an invitation to write one.
+class _LetterCard extends ConsumerWidget {
+  const _LetterCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final async = ref.watch(latestReflectionProvider);
+    final gen = ref.watch(reflectionGenProvider);
+    final reflection = async.value;
+
+    if (async.isLoading && reflection == null) {
+      return const Skeleton(height: 300, radius: AppSpacing.radiusXl);
+    }
+
     return Container(
-      width: 40,
-      height: 40,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: AppColors.auroraGradient,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: p.letter,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
       ),
-      child: const Icon(Icons.auto_awesome_rounded,
-          size: 20, color: Color(0xFF10243B)),
+      child: Stack(
+        children: [
+          const Positioned(
+            right: -30,
+            top: -30,
+            child: Opacity(opacity: .5, child: AtlasSpark(size: 140, animated: true)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: reflection == null
+                ? _Invitation(generating: gen.generating)
+                : _Letter(reflection: reflection),
+          ),
+          if (reflection != null) _ListenProgress(reflection: reflection),
+        ],
+      ),
     );
   }
 }
 
-// ─── Talk-it-through entry ──────────────────────────────────────────
-
-class _TalkCard extends StatelessWidget {
-  const _TalkCard({required this.onOpen});
-  final VoidCallback onOpen;
+class _Letter extends ConsumerWidget {
+  const _Letter({required this.reflection});
+  final AuroraReflection reflection;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onOpen,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            gradient: AppColors.auroraGradient,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final tts = ref.watch(letterTtsProvider);
+    final headline = firstSentence(reflection.content);
+    final body = nextSentences(reflection.content, 2);
+    final speaking = tts.textId == reflection.id && (tts.playing || tts.offset > 0);
+    final id = 'letter-${reflection.id}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          Text(letterKicker(reflection), style: AppTypography.kicker.copyWith(color: p.textPrimary)),
+          const Spacer(),
+          Text(letterRange(reflection), style: AppTypography.metaStrong.copyWith(color: p.textMuted)),
+        ]),
+        const SizedBox(height: AppSpacing.md),
+        EntryFade(
+          id: '$id-h',
+          index: 0,
+          duration: AppMotion.fast,
+          child: SpokenHeadline(
+            text: headline,
+            spokenUpTo: speaking ? tts.offset : null,
+            style: AppTypography.letterHeadline.copyWith(color: p.textPrimary),
           ),
-          child: Row(
+        ),
+        if (body.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          EntryFade(
+            id: '$id-b',
+            index: 2,
+            child: Text(body, style: AppTypography.body.copyWith(color: p.textBody)),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        EntryFade(
+          id: '$id-a',
+          index: 4,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Container(
-                width: 46,
+              ListenButton(reflection: reflection),
+              PillButton(
+                label: 'Read all',
+                variant: PillVariant.letter,
                 height: 46,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.22),
-                ),
-                child: const Icon(Icons.forum_rounded,
-                    color: Color(0xFF10243B), size: 22),
+                haptic: PressHaptic.selection,
+                onTap: () => context.push('/aurora/letter'),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Talk it through',
-                        style: theme.textTheme.titleLarge
-                            ?.copyWith(color: const Color(0xFF10243B))),
-                    Text('A calm space to check in with Aurora',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF10243B)
-                                .withValues(alpha: 0.8))),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF10243B)),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ─── Suggested prompts ──────────────────────────────────────────────
-
-class _PromptWrap extends StatelessWidget {
-  const _PromptWrap({required this.onPrompt});
-  final ValueChanged<String> onPrompt;
-
-  static const _prompts = <(IconData, String, String)>[
-    (Icons.spa_rounded, 'How was my week?', 'How was my week?'),
-    (Icons.self_improvement_rounded, 'Help me reset gently',
-        'I’m feeling off and could use a gentle reset. Can you help?'),
-    (Icons.add_task_rounded, 'Add a habit',
-        'Add a habit to read for 20 minutes before bed'),
-    (Icons.favorite_rounded, 'A word of encouragement',
-        'Could you share a little encouragement for today?'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        for (final (icon, label, prompt) in _prompts)
-          _PromptChip(icon: icon, label: label, onTap: () => onPrompt(prompt)),
       ],
     );
   }
 }
 
-class _PromptChip extends StatelessWidget {
-  const _PromptChip(
-      {required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+/// The thin sunrise line that grows along the bottom while she reads.
+class _ListenProgress extends ConsumerWidget {
+  const _ListenProgress({required this.reflection});
+  final AuroraReflection reflection;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: theme.colorScheme.primary),
-              const SizedBox(width: AppSpacing.xs),
-              Text(label, style: theme.textTheme.labelLarge),
-            ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tts = ref.watch(letterTtsProvider);
+    final active = tts.textId == reflection.id && tts.progress > 0 && tts.progress < 1;
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 3,
+      child: AnimatedOpacity(
+        opacity: active ? 1 : 0,
+        duration: AppMotion.fast,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: AnimatedFractionallySizedBox(
+            duration: AppMotion.medium,
+            widthFactor: tts.textId == reflection.id ? tts.progress : 0,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(gradient: AppColors.sunriseBar),
+              child: SizedBox.expand(),
+            ),
           ),
         ),
       ),
@@ -216,164 +236,34 @@ class _PromptChip extends StatelessWidget {
   }
 }
 
-// ─── Reflection card ────────────────────────────────────────────────
-
-class _ReflectionCard extends ConsumerWidget {
-  const _ReflectionCard();
+class _Invitation extends ConsumerWidget {
+  const _Invitation({required this.generating});
+  final bool generating;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final reflectionAsync = ref.watch(latestReflectionProvider);
-    final gen = ref.watch(reflectionGenProvider);
-
-    return reflectionAsync.when(
-      loading: () => const _ReflectionSkeleton(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (reflection) {
-        if (reflection == null) {
-          return AtlasCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.spa_rounded,
-                        color: theme.colorScheme.primary, size: 20),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text('Weekly reflection',
-                        style: theme.textTheme.titleLarge),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'When you’re ready, Aurora can look back over your week and '
-                  'reflect with you, gently and never graded.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                AppButton(
-                  label: gen.generating ? 'Reflecting…' : 'Reflect on my week',
-                  icon: Icons.auto_awesome_rounded,
-                  isLoading: gen.generating,
-                  onPressed: gen.generating
-                      ? null
-                      : () =>
-                          ref.read(reflectionGenProvider.notifier).generate(),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return AtlasCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.spa_rounded,
-                      color: theme.colorScheme.primary, size: 20),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text('This week with Aurora',
-                        style: theme.textTheme.titleLarge),
-                  ),
-                  if (reflection.modelTier == 'paid') const _DeepBadge(),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              GptMarkdown(
-                reflection.content,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: theme.colorScheme.onSurface, height: 1.55),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Text(
-                    _periodLabel(reflection),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: gen.generating
-                        ? null
-                        : () =>
-                            ref.read(reflectionGenProvider.notifier).generate(),
-                    icon: gen.generating
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(gen.generating ? 'Reflecting…' : 'Refresh'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ).animate().fadeIn(duration: AppMotion.medium);
-      },
-    );
-  }
-
-  String _periodLabel(AuroraReflection r) {
-    String d(DateTime t) => '${t.month}/${t.day}';
-    return 'Week of ${d(r.periodStart)} to ${d(r.periodEnd)}';
-  }
-}
-
-class _DeepBadge extends StatelessWidget {
-  const _DeepBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
-      decoration: BoxDecoration(
-        gradient: AppColors.goldGradient,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text('Deep',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF3A2A00),
-                fontWeight: FontWeight.w700,
-              )),
-    );
-  }
-}
-
-class _ReflectionSkeleton extends StatelessWidget {
-  const _ReflectionSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Widget bar(double w) => Container(
-          width: w,
-          height: 12,
-          margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.outline.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          ),
-        );
-    return AtlasCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          bar(140),
-          const SizedBox(height: AppSpacing.xs),
-          bar(double.infinity),
-          bar(double.infinity),
-          bar(220),
-        ],
-      ),
+    final p = context.palette;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('YOUR LETTER', style: AppTypography.kicker.copyWith(color: p.textPrimary)),
+        const SizedBox(height: AppSpacing.md),
+        Text('Your week, in Aurora’s words.',
+            style: AppTypography.letterHeadline.copyWith(color: p.textPrimary)),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'When you’re ready, she’ll look back over your week with you. Gently, and never graded.',
+          style: AppTypography.body.copyWith(color: p.textBody),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        PillButton(
+          label: generating ? 'Writing your letter' : 'Write my letter',
+          icon: Symbols.edit_rounded,
+          height: 46,
+          busy: generating,
+          onTap: () => ref.read(reflectionGenProvider.notifier).generate(),
+        ),
+      ],
     );
   }
 }

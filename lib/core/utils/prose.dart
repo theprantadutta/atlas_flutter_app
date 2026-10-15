@@ -57,3 +57,62 @@ String stripLongDashes(String input) {
       .replaceAll(_trailingSpace, '')
       .trim();
 }
+
+/// Markdown to plain prose for headlines, previews and text-to-speech:
+/// heading lines are dropped (they label the letter rather than say
+/// anything), emphasis markers, links and list bullets are removed, and line
+/// breaks collapse to spaces.
+String plainText(String markdown) {
+  return markdown
+      .replaceAll(RegExp(r'```[\s\S]*?```'), ' ')
+      .replaceAll(RegExp(r'^\s{0,3}#{1,6}.*$', multiLine: true), '')
+      .replaceAll(RegExp(r'^\s*(?:[-*+•]|\d+[.)])\s+', multiLine: true), '')
+      .replaceAllMapped(RegExp(r'\[([^\]]+)\]\([^)]*\)'), (m) => m[1]!)
+      .replaceAll(RegExp(r'[*_`>]+'), '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+/// Splits prose into sentences, keeping the closing punctuation. Abbreviations
+/// like "e.g." and decimals stay intact because a split needs a following
+/// space and capital (or quote).
+List<String> sentences(String text) {
+  final t = plainText(text);
+  if (t.isEmpty) return const [];
+  final out = <String>[];
+  final re = RegExp(r'''(?<=[.!?…])["'”’)]?\s+(?=["'“‘(]?[A-Z0-9])''');
+  var start = 0;
+  for (final m in re.allMatches(t)) {
+    final s = t.substring(start, m.start).trim();
+    if (s.isNotEmpty) out.add(s);
+    start = m.end;
+  }
+  final rest = t.substring(start).trim();
+  if (rest.isNotEmpty) out.add(rest);
+  // Glue short fragments ("You didn't vanish.") onto the next sentence, so
+  // a headline reads as a thought rather than a word or two.
+  final merged = <String>[];
+  for (final s in out) {
+    if (merged.isNotEmpty && merged.last.split(' ').length < 5) {
+      merged[merged.length - 1] = '${merged.last} $s';
+    } else {
+      merged.add(s);
+    }
+  }
+  return merged;
+}
+
+/// The first sentence (a letter's headline).
+String firstSentence(String text) {
+  final s = sentences(text);
+  return s.isEmpty ? '' : s.first;
+}
+
+/// Up to [n] sentences after the first, cut cleanly at sentence boundaries.
+String nextSentences(String text, int n) => sentences(text).skip(1).take(n).join(' ');
+
+/// Reading time at 160 words a minute, at least one minute.
+int listenMinutes(String text) {
+  final words = plainText(text).split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  return (words / 160).ceil().clamp(1, 60);
+}

@@ -4,11 +4,15 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Hold the mic to talk to Aurora (speech to text). Asked for only when
+         the user first presses the mic. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Atlas schedules nothing on the device: every notification is pushed
-         from the backend over FCM, and the local plugin only draws one that
-         arrives while the app is foregrounded. So there is no alarm to keep,
-         exact or otherwise. Both are stripped here so they cannot arrive via a
+    <!-- Most notifications are pushed from the backend over FCM. The only
+         thing scheduled on the device is the occasional "Remind me" from an
+         Aurora suggestion, and that is inexact (AndroidScheduleMode.
+         inexactAllowWhileIdle), so no alarm permission is needed. Both exact
+         alarm permissions are stripped here so they cannot arrive via a
          dependency's merged manifest. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
         tools:node="remove" />
@@ -40,6 +44,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Delivers the inexact one-off reminders scheduled above. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+
         <!-- FCM background notifications: the spark silhouette, tinted coral. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
@@ -53,6 +62,14 @@
     </application>
 
     <queries>
+        <!-- Reading Aurora's letter aloud (flutter_tts) and voice input
+             (speech_to_text) need to see the system engines on Android 11+. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

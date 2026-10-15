@@ -192,14 +192,15 @@ class SendButton extends StatelessWidget {
   final double size;
 
   @override
+  // Always drawn at full strength (the design never greys it out); with
+  // nothing to send, a tap simply does nothing.
   Widget build(BuildContext context) => Pressable(
-        onTap: onTap,
+        onTap: onTap ?? () {},
         circle: true,
-        haptic: PressHaptic.light,
+        haptic: onTap == null ? PressHaptic.none : PressHaptic.light,
         semanticLabel: 'Send',
-        child: AnimatedOpacity(
-          duration: AppMotion.instant,
-          opacity: onTap == null ? .5 : 1,
+        child: Opacity(
+          opacity: 1,
           child: Container(
             width: size,
             height: size,

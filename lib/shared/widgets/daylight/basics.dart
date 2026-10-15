@@ -187,7 +187,9 @@ class PillButton extends StatelessWidget {
         height: height,
         width: expand ? double.infinity : null,
         padding: EdgeInsets.symmetric(horizontal: pad),
-        alignment: Alignment.center,
+        // Only center (and so fill the width) when asked to expand; a plain
+        // pill hugs its label.
+        alignment: expand ? Alignment.center : null,
         decoration: BoxDecoration(
           color: bg,
           gradient: gradient,

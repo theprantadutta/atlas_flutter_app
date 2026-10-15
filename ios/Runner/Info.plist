@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Atlas uses the microphone only while you hold the mic button, so you can talk to Aurora instead of typing.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Atlas turns what you say into text for your message to Aurora.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

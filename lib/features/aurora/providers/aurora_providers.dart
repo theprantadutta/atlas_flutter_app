@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/billing/providers/entitlement_provide
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 /// HTTP 402 from the backend means "free limit reached → show the paywall".
 const _paywallStatus = 402;
@@ -174,12 +175,20 @@ class ChatMessage {
     required this.content,
     this.pending = false,
     this.created = const [],
+    this.suggestions = const [],
+    this.followUps = const [],
+    this.fresh = false,
   });
 
   final ChatRole role;
   final String content;
   final bool pending;
   final List<AuroraCreatedEntity> created;
+  final List<AuroraSuggestion> suggestions;
+  final List<String> followUps;
+
+  /// Just arrived: reveal it in chunks and stagger its cards in.
+  final bool fresh;
 }
 
 class AuroraChatState {
@@ -188,12 +197,29 @@ class AuroraChatState {
     this.sending = false,
     this.error,
     this.needsPaywall = false,
+    this.done = const {},
   });
 
   final List<ChatMessage> messages;
   final bool sending;
   final String? error;
   final bool needsPaywall;
+
+  /// Suggestions already added or reminded, keyed by [suggestionKey].
+  final Set<String> done;
+
+  static String suggestionKey(int messageIndex, AuroraSuggestion s) =>
+      '$messageIndex:${s.title}';
+
+  /// The follow-up chips to show: the last reply's, else the defaults.
+  List<String> get quickReplies {
+    for (final m in messages.reversed) {
+      if (m.role == ChatRole.aurora && !m.pending) {
+        return m.followUps.isNotEmpty ? m.followUps : const ['Plan tomorrow', 'Why am I tired?'];
+      }
+    }
+    return const ['Plan tomorrow', 'Why am I tired?'];
+  }
 
   AuroraChatState copyWith({
     List<ChatMessage>? messages,
@@ -202,12 +228,14 @@ class AuroraChatState {
     bool? needsPaywall,
     bool clearError = false,
     bool clearPaywall = false,
+    Set<String>? done,
   }) {
     return AuroraChatState(
       messages: messages ?? this.messages,
       sending: sending ?? this.sending,
       error: clearError ? null : (error ?? this.error),
       needsPaywall: clearPaywall ? false : (needsPaywall ?? this.needsPaywall),
+      done: done ?? this.done,
     );
   }
 }
@@ -257,6 +285,9 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
         role: ChatRole.aurora,
         content: result.reply,
         created: result.created,
+        suggestions: result.suggestions,
+        followUps: result.followUps,
+        fresh: true,
       ));
       state = state.copyWith(sending: false);
     } catch (e) {
@@ -290,6 +321,65 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
 
   void clearPaywall() => state = state.copyWith(clearPaywall: true);
   void clearError() => state = state.copyWith(clearError: true);
+
+  /// Add a suggested habit or task to Grow, locally (offline-first).
+  Future<void> addSuggestion(int messageIndex, AuroraSuggestion s) async {
+    final key = AuroraChatState.suggestionKey(messageIndex, s);
+    if (state.done.contains(key)) return;
+    state = state.copyWith(done: {...state.done, key});
+    final userId = ref.read(currentUserIdProvider);
+    final category = _normCategory(s.category, 'custom');
+    if (s.kind == 'habit') {
+      await ref.read(habitActionsProvider).create(
+            userId: userId,
+            title: s.title,
+            category: category,
+            reminderTime: s.time,
+          );
+    } else {
+      await ref.read(taskActionsProvider).create(
+            userId: userId,
+            title: s.title,
+            category: category,
+            xp: s.xp ?? 15,
+            dueTime: s.time,
+          );
+    }
+  }
+
+  /// "Remind me": one gentle local notification in two hours.
+  Future<void> remind(int messageIndex, AuroraSuggestion s) async {
+    final key = AuroraChatState.suggestionKey(messageIndex, s);
+    if (state.done.contains(key)) return;
+    state = state.copyWith(done: {...state.done, key});
+    final notifications = ref.read(localNotificationServiceProvider);
+    await notifications.requestPermissions();
+    await notifications.scheduleOnce(
+      id: s.title.hashCode & 0x7fffffff,
+      title: s.title,
+      body: 'A small kindness Aurora suggested earlier.',
+      at: DateTime.now().add(const Duration(hours: 2)),
+      payload: '/aurora',
+    );
+  }
+
+  /// Start a new conversation.
+  void reset() => state = const AuroraChatState();
+
+  /// The reply at [index] has finished revealing; don't animate it again.
+  void markRevealed(int index) {
+    if (index < 0 || index >= state.messages.length || !state.messages[index].fresh) return;
+    final m = state.messages[index];
+    final next = [...state.messages];
+    next[index] = ChatMessage(
+      role: m.role,
+      content: m.content,
+      created: m.created,
+      suggestions: m.suggestions,
+      followUps: m.followUps,
+    );
+    state = state.copyWith(messages: next);
+  }
 }
 
 final auroraChatProvider =

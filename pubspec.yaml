@@ -73,6 +73,7 @@ dependencies:
   flutter_tts: ^4.2.5
   speech_to_text: ^7.5.0
   material_symbols_icons: ^4.2960.0
+  timezone: ^0.11.2
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 
 final _log = AppLog('Notify');
@@ -157,6 +158,39 @@ class LocalNotificationService {
       title: title,
       body: body,
       notificationDetails: details,
+      payload: payload,
+    );
+  }
+
+  /// One gentle reminder at [at] (Aurora's "Remind me"). Inexact on Android,
+  /// so it needs no alarm permission; Android may deliver it a little late,
+  /// which suits a nudge. Not restored after a reboot.
+  Future<void> scheduleOnce({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime at,
+    String? payload,
+  }) async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'atlas_reminders',
+        'Reminders',
+        channelDescription: 'Gentle reminders you asked Aurora for',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        icon: '@drawable/ic_stat_atlas',
+        color: Color(0xFFFF5E62),
+      ),
+      iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
+    );
+    await _plugin.zonedSchedule(
+      id: id,
+      scheduledDate: tz.TZDateTime.from(at.toUtc(), tz.UTC),
+      notificationDetails: details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      title: title,
+      body: body,
       payload: payload,
     );
   }

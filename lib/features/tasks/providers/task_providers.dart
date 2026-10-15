@@ -48,8 +48,14 @@ class TaskActions {
     String category = 'custom',
     String type = 'daily',
     int xp = 25,
+    String? dueTime,
   }) async {
     final now = DateTime.now();
+    // An "HH:mm" time puts it on today's list at that time.
+    final hm = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(dueTime ?? '');
+    final due = hm == null
+        ? null
+        : DateTime(now.year, now.month, now.day, int.parse(hm[1]!), int.parse(hm[2]!));
     await _dao.insertTask(TasksCompanion(
       id: Value(_uuid.v4()),
       userId: Value(userId),
@@ -58,6 +64,7 @@ class TaskActions {
       type: Value(type),
       category: Value(category),
       xpReward: Value(xp),
+      dueDate: Value(due),
       createdAt: Value(now),
       updatedAt: Value(now),
       isDirty: const Value(true),

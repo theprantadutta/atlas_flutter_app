@@ -39,6 +39,7 @@ class HabitActions {
     String? note,
     String category = 'custom',
     String frequency = 'daily',
+    String? reminderTime,
   }) async {
     final now = DateTime.now();
     await _dao.insertHabit(HabitsCompanion(
@@ -48,6 +49,7 @@ class HabitActions {
       description: Value(note),
       category: Value(category),
       frequency: Value(frequency),
+      reminderTime: Value(reminderTime),
       createdAt: Value(now),
       updatedAt: Value(now),
       isDirty: const Value(true),
