@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:atlas_flutter_app/features/notifications/data/inbox.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/world/providers/world_providers.dart';
@@ -212,10 +214,25 @@ final worldDiscoveryProvider = Provider<void>((ref) {
     ..sort((a, b) => a.tile.unlockRequirement.compareTo(b.tile.unlockRequirement));
   if (due.isEmpty) return;
   final actions = ref.read(worldActionsProvider);
+  final inbox = ref.read(inboxProvider);
   Future(() async {
     for (final p in due) {
       await actions.unlock(p.id);
     }
+    // One entry per discovery moment: a single place by name, a catch-up of
+    // several (sync, example data) as one line rather than a pile.
+    final userId = due.first.tile.userId;
+    await inbox.add(
+      userId: userId,
+      kind: InboxKind.place,
+      key: 'place:${due.map((p) => p.id).join(',')}',
+      title: due.length == 1 ? 'You discovered ${due.first.name}' : '${due.length} new places on your Atlas',
+      body: due.length == 1
+          ? 'A new place on your Atlas, found by the care you gave.'
+          : 'Your care opened up ${due.map((p) => p.name).take(2).join(' and ')}${due.length > 2 ? ' and more' : ''}.',
+      entityType: 'place',
+      entityId: due.first.id,
+    );
     // A place you just earned is a moment: celebrate it. Places unlocked
     // by XP that arrived through sync, example data or several at once are
     // a catch-up, not a moment, so they're recorded quietly.

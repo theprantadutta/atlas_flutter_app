@@ -62,6 +62,12 @@ class NotificationDao extends DatabaseAccessor<AtlasDatabase>
     return into(notifications).insert(entry);
   }
 
+  /// Insert unless a row with this id already exists (it may have been read
+  /// or dismissed since; that choice stands).
+  Future<int> insertIfAbsent(NotificationsCompanion entry) {
+    return into(notifications).insert(entry, mode: InsertMode.insertOrIgnore);
+  }
+
   Future<void> updateFields(String id, NotificationsCompanion patch) async {
     await (update(notifications)..where((n) => n.id.equals(id))).write(patch);
   }

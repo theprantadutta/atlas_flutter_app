@@ -48,9 +48,7 @@ final fcmServiceProvider = Provider<FcmService>((ref) {
 // ─── Local Notification Service ─────────────────────────────
 
 final localNotificationServiceProvider =
-    Provider<LocalNotificationService>((ref) {
-  return LocalNotificationService();
-});
+    Provider<LocalNotificationService>((ref) => LocalNotificationService.instance);
 
 // ─── Sync Stream Providers ───────────────────────────────────
 

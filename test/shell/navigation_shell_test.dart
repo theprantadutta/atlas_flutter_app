@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/features/achievements/providers/achievement_providers.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
@@ -85,6 +86,8 @@ void main() {
         worldDiscoveryProvider.overrideWithValue(null),
         achievementEvaluatorProvider.overrideWithValue(null),
         avatarStatsSyncProvider.overrideWithValue(null),
+        reminderSyncProvider.overrideWithValue(null),
+        inboxMomentsProvider.overrideWithValue(null),
         starterDataProvider.overrideWith(_Chosen.new),
       ],
       child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
@@ -137,6 +140,8 @@ void main() {
           worldDiscoveryProvider.overrideWithValue(null),
           achievementEvaluatorProvider.overrideWithValue(null),
           avatarStatsSyncProvider.overrideWithValue(null),
+          reminderSyncProvider.overrideWithValue(null),
+          inboxMomentsProvider.overrideWithValue(null),
           starterDataProvider.overrideWith(_Chosen.new),
         ],
         child: MaterialApp.router(

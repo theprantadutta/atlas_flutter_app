@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
+import 'package:atlas_flutter_app/features/notifications/data/inbox.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
     show currentUserIdProvider;
 
@@ -29,8 +31,8 @@ final notificationActionsProvider = Provider<NotificationActions>((ref) {
   return NotificationActions(ref.read(notificationDaoProvider));
 });
 
-/// Local-first notification mutations. Notifications are normally pushed from
-/// the server; offline we seed a few and let the user read/dismiss them.
+/// Inbox mutations. Read and dismissed state is the device's own (the inbox
+/// is never synced).
 class NotificationActions {
   NotificationActions(this._dao);
   final NotificationDao _dao;
@@ -48,21 +50,27 @@ class NotificationActions {
 
 // ─── Where a notification leads (bug: tapping one did nothing) ─────
 
-/// The in-app route a notification opens, or null to stay put. Reads, in
-/// order: an explicit `route` in its data, its linked entity, then its type.
+/// The in-app route an inbox entry opens, or null to stay put. Reads, in
+/// order: its kind, its linked entity, then its legacy type. A stored route
+/// is only trusted when the app actually has it (old server rows pointed at
+/// routes like /dashboard that never existed).
 String? notificationRoute(Notification n) {
   final data = n.data;
   if (data != null && data.isNotEmpty) {
     try {
       final m = jsonDecode(data);
       if (m is Map) {
+        final byKind = routeForInboxKind('${m['kind']}');
+        if (byKind != null) return byKind;
         final route = m['route'] ?? m['deep_link'];
-        if (route is String && route.startsWith('/')) return route;
+        if (route is String && safeNotificationRoute(route) == route) return route;
       }
     } catch (_) {
       // Not JSON: fall through to the entity and type.
     }
   }
+  final byKind = routeForInboxKind(n.type);
+  if (byKind != null) return byKind;
   final entity = (n.entityType ?? '').toLowerCase().replaceAll('_', '');
   switch (entity) {
     case 'task':
@@ -85,7 +93,7 @@ String? notificationRoute(Notification n) {
     'taskReminder' || 'task_reminder' => '/grow',
     'habitReminder' || 'habit_reminder' => '/grow',
     'goalDeadline' || 'goal_deadline' => '/grow',
-    'levelUp' || 'level_up' => '/analytics',
+    'levelUp' || 'level_up' => '/profile',
     'dailySummary' || 'daily_summary' => '/analytics',
     _ => null,
   };

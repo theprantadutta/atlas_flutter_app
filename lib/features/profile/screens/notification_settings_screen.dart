@@ -2,141 +2,186 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:atlas_flutter_app/core/gamification/days.dart';
+import 'package:atlas_flutter_app/data/services/local_notification_service.dart';
+import 'package:atlas_flutter_app/features/notifications/data/notify_prefs.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/features/profile/widgets/settings_widgets.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// Notifications: gentle control over what reaches you. Calm nudges, never
-/// nagging.
+/// Notifications: what Atlas may tell you, and when. Every switch here is
+/// real (stored, and read by the reminder planner), and Atlas only ever
+/// speaks at a time you chose.
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  ConsumerState<NotificationSettingsScreen> createState() =>
-      _NotificationSettingsScreenState();
+  ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
-class _NotifSetting {
-  _NotifSetting({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-  });
+class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen>
+    with WidgetsBindingObserver {
+  bool? _allowed;
 
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  bool value;
-}
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkPermission();
+  }
 
-class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
-  late final List<_NotifSetting> _settings = [
-    _NotifSetting(
-      icon: Symbols.task_alt_rounded,
-      color: AppColors.sky,
-      title: 'Task reminders',
-      subtitle: 'A soft nudge when something is due',
-      value: true,
-    ),
-    _NotifSetting(
-      icon: Symbols.repeat_rounded,
-      color: AppColors.leaf,
-      title: 'Habit reminders',
-      subtitle: 'Little prompts to keep your rhythm',
-      value: true,
-    ),
-    _NotifSetting(
-      icon: Symbols.flag_rounded,
-      color: AppColors.amber,
-      title: 'Goal deadlines',
-      subtitle: 'A heads-up as a goal draws near',
-      value: false,
-    ),
-    _NotifSetting(
-      icon: Symbols.trophy_rounded,
-      color: AppColors.amber,
-      title: 'Achievements',
-      subtitle: 'Celebrate the moments you earn',
-      value: true,
-    ),
-    _NotifSetting(
-      icon: Symbols.wb_twilight_rounded,
-      color: AppColors.coral,
-      title: 'Daily summary',
-      subtitle: 'A kind recap of your day',
-      value: false,
-    ),
-    _NotifSetting(
-      icon: Symbols.bedtime_rounded,
-      color: AppColors.violet,
-      title: 'Quiet hours',
-      subtitle: 'We rest while you do, 10pm to 7am',
-      value: true,
-    ),
-  ];
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
-  /// Turning a reminder on is the first moment the OS prompt has any context,
-  /// so that's where we ask, never at cold start. If the user declines at the
-  /// OS level the toggle springs back, since we couldn't honour it anyway.
-  Future<void> _onToggle(int index, bool value) async {
-    setState(() => _settings[index].value = value);
-    if (!value) return;
+  // Back from system settings: the answer may have changed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkPermission();
+  }
 
+  Future<void> _checkPermission() async {
+    final allowed = await ref.read(localNotificationServiceProvider).hasPermission();
+    if (mounted) setState(() => _allowed = allowed);
+  }
+
+  /// Turning something on is the moment the OS question makes sense, so it is
+  /// asked here and never at launch. Returns whether notifications can show.
+  Future<bool> _ensurePermission() async {
+    if (_allowed == true) return true;
     final granted = await ref.read(localNotificationServiceProvider).requestPermissions();
-
+    if (!mounted) return granted;
+    setState(() => _allowed = granted);
     if (granted) {
-      // Push stays unreachable until the token is fetched and registered, and
-      // that only happens at launch when permission already exists.
       await ref.read(fcmServiceProvider).onPermissionGranted();
-      return;
+      replanReminders(ref);
+    } else {
+      AtlasToast.warning(context, 'Notifications are off for Atlas. Turn them on in your phone’s settings.');
     }
+    return granted;
+  }
 
-    if (!mounted) return;
-    setState(() => _settings[index].value = false);
-    AtlasToast.warning(
-      context,
-      'Notifications are off for Atlas. Turn them on in Settings to get reminders.',
+  Future<void> _set(NotifyPrefs next, {required bool turningOn}) async {
+    if (turningOn && !await _ensurePermission()) return;
+    await ref.read(notifyPrefsProvider.notifier).update(next);
+  }
+
+  Future<void> _pickMorning(NotifyPrefs prefs) async {
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: prefs.morningHour, minute: prefs.morningMinute),
+      helpText: 'Your morning time',
     );
+    if (time == null) return;
+    await ref
+        .read(notifyPrefsProvider.notifier)
+        .update(prefs.copyWith(morningHour: time.hour, morningMinute: time.minute));
+  }
+
+  Future<void> _sendTest() async {
+    if (!await _ensurePermission()) return;
+    await ref.read(localNotificationServiceProvider).show(
+          id: kUnmanagedIdBase + 1,
+          title: 'A small hello from Atlas',
+          body: 'This is how a reminder will look. Nothing to do.',
+          route: '/',
+          channel: NotifyChannel.reminders,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
+    final prefs = ref.watch(notifyPrefsProvider);
+    final morning = clockLabel(prefs.morningHour, prefs.morningMinute);
+
     return SettingsPage(
       title: 'Notifications',
-      subtitle: 'Choose what reaches you',
+      subtitle: 'What Atlas may tell you, and when',
       onBack: () => context.pop(),
       children: [
+        if (_allowed == false) ...[
+          RowGroup(children: [
+            GroupRow(
+              icon: Symbols.notifications_off_rounded,
+              iconColor: AppColors.coral,
+              title: 'Notifications are off',
+              subtitle: 'Tap to allow them, so your reminders can reach you',
+              onTap: _ensurePermission,
+            ),
+          ]),
+          settingsGap,
+        ],
         RowGroup(
           title: 'Reminders',
           children: [
-            for (var i = 0; i < 3; i++) _row(i),
+            SwitchRow(
+              icon: Symbols.self_improvement_rounded,
+              iconColor: AppColors.violet,
+              title: 'Habit reminders',
+              subtitle: 'At the time you set on each habit, until it’s done for the day',
+              value: prefs.habits,
+              onChanged: (v) => _set(prefs.copyWith(habits: v), turningOn: v),
+            ),
+            SwitchRow(
+              icon: Symbols.task_alt_rounded,
+              iconColor: AppColors.sky,
+              title: 'Task reminders',
+              subtitle: 'When a task with a time is due',
+              value: prefs.tasks,
+              onChanged: (v) => _set(prefs.copyWith(tasks: v), turningOn: v),
+            ),
           ],
         ),
+        const SettingsFootnote('Set or change a habit’s time from the habit itself, in Grow.'),
         settingsGap,
         RowGroup(
-          title: 'Moments',
+          title: 'Gentle notes',
           children: [
-            for (var i = 3; i < 5; i++) _row(i),
+            SwitchRow(
+              icon: Symbols.wb_twilight_rounded,
+              iconColor: AppColors.amber,
+              title: 'Morning note',
+              subtitle: 'A calm look at your day. Skipped when the day is empty',
+              value: prefs.morning,
+              onChanged: (v) => _set(prefs.copyWith(morning: v), turningOn: v),
+            ),
+            SwitchRow(
+              icon: Symbols.mail_rounded,
+              iconColor: AppColors.rose,
+              title: 'Weekly letter',
+              subtitle: 'Sunday morning, when Aurora is ready to look back on your week',
+              value: prefs.letter,
+              onChanged: (v) => _set(prefs.copyWith(letter: v), turningOn: v),
+            ),
+            GroupRow(
+              icon: Symbols.schedule_rounded,
+              iconColor: AppColors.leaf,
+              title: 'Morning time',
+              subtitle: 'For the morning note and the Sunday letter',
+              trailing: Text(morning,
+                  style: AppTypography.rowTitle.copyWith(color: context.palette.textMuted)),
+              onTap: prefs.morning || prefs.letter ? () => _pickMorning(prefs) : null,
+            ),
           ],
         ),
         settingsGap,
-        RowGroup(children: [_row(5)]),
+        RowGroup(children: [
+          GroupRow(
+            icon: Symbols.notifications_active_rounded,
+            iconColor: AppColors.coral,
+            title: 'Send a test notification',
+            subtitle: 'See how a reminder will look',
+            onTap: _sendTest,
+          ),
+        ]),
         const SettingsFootnote(
-          'Atlas never sends streak warnings or guilt. If you go quiet, so do we.',
+          'Achievements, new places, levels and Aurora’s letters wait for you in your inbox. '
+          'Atlas only speaks at times you chose, and never about a streak or a missed day.',
         ),
       ],
     );
   }
-
-  Widget _row(int i) => SwitchRow(
-        icon: _settings[i].icon,
-        iconColor: _settings[i].color,
-        title: _settings[i].title,
-        subtitle: _settings[i].subtitle,
-        value: _settings[i].value,
-        onChanged: (v) => _onToggle(i, v),
-      );
 }

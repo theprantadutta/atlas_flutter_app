@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
@@ -31,8 +32,7 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
 
   // One OS permission covers both kinds of notification, so this single prompt
   // is the whole ask: POST_NOTIFICATIONS on Android, UNUserNotificationCenter
-  // on iOS. Local notifications go first because that call also asks for exact
-  // alarms, which the scheduled reminders need.
+  // on iOS. No exact-alarm permission: reminders are scheduled inexactly.
   final granted =
       await ref.read(localNotificationServiceProvider).requestPermissions();
   _log.i('Notification permission after primer: $granted');
@@ -42,6 +42,8 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
     // said yes but stays unreachable until the next cold start, because the
     // token is only picked up at launch when permission already exists.
     await ref.read(fcmServiceProvider).onPermissionGranted();
+    // Reminders were waiting for this; schedule them now.
+    replanReminders(ref);
     return true;
   }
 
@@ -95,26 +97,26 @@ Future<void> maybeShowNotificationPrimer(
 class _NotificationPrimerSheet extends StatelessWidget {
   const _NotificationPrimerSheet();
 
-  /// The three Atlas actually sends, in the order they matter. Deliberately not
-  /// all six from Settings: a list long enough to skim is a list nobody reads.
+  /// What Atlas actually sends, in the order it matters. Each has its own
+  /// switch in Settings.
   static const _reasons = <(IconData, Color, String, String)>[
     (
       Symbols.repeat_rounded,
       AppColors.leaf,
       'Keep your rhythm',
-      'A little prompt for the habits you chose.',
+      'A reminder at the time you set on a habit, until it’s done.',
     ),
     (
       Symbols.task_alt_rounded,
       AppColors.sky,
       'Nothing slips',
-      'A soft nudge when a task is actually due.',
+      'A soft nudge when a task with a time is due.',
     ),
     (
-      Symbols.celebration_rounded,
+      Symbols.wb_twilight_rounded,
       AppColors.amber,
-      'Celebrate the wins',
-      'The moments you earn, marked as they happen.',
+      'A calm morning',
+      'A look at your day, and Aurora’s letter on Sundays.',
     ),
   ];
 
@@ -136,8 +138,8 @@ class _NotificationPrimerSheet extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Atlas can remind you about the things you chose to tend. Quiet, '
-            'occasional, and never about a streak you broke.',
+            'Atlas only speaks at times you chose, about the things you chose to '
+            'tend. Never about a streak or a missed day.',
             textAlign: TextAlign.center,
             style: AppTypography.body.copyWith(color: p.textBody),
           ),

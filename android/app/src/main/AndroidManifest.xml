@@ -4,16 +4,18 @@
     <!-- Notification permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Put scheduled reminders back after the phone restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Hold the mic to talk to Aurora (speech to text). Asked for only when
          the user first presses the mic. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Most notifications are pushed from the backend over FCM. The only
-         thing scheduled on the device is the occasional "Remind me" from an
-         Aurora suggestion, and that is inexact (AndroidScheduleMode.
-         inexactAllowWhileIdle), so no alarm permission is needed. Both exact
-         alarm permissions are stripped here so they cannot arrive via a
-         dependency's merged manifest. -->
+    <!-- Reminders (habits, tasks, the morning note, the weekly letter,
+         Aurora's "Remind me") are scheduled on the device, inexactly
+         (AndroidScheduleMode.inexactAllowWhileIdle), so no alarm permission is
+         needed: a habit tracker is not an alarm clock. Both exact alarm
+         permissions are stripped so a dependency cannot merge them back in.
+         The server only pushes account messages over FCM. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
         tools:node="remove" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"
@@ -44,10 +46,21 @@
             </intent-filter>
         </activity>
 
-        <!-- Delivers the inexact one-off reminders scheduled above. -->
+        <!-- Delivers the reminders scheduled above. -->
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <!-- Restores them after a reboot or an app update. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <!-- FCM background notifications: the spark silhouette, tinted coral. -->
         <meta-data
@@ -56,6 +69,11 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/atlas_notification" />
+        <!-- Server pushes are account messages: they belong on that channel,
+             not FCM's generic "Miscellaneous" one. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="atlas_account" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/data/services/local_notification_service.dart';
 import 'package:atlas_flutter_app/core/errors/app_exception.dart';
 import 'package:atlas_flutter_app/core/utils/prose.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
@@ -387,12 +388,15 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
     state = state.copyWith(done: {...state.done, key});
     final notifications = ref.read(localNotificationServiceProvider);
     await notifications.requestPermissions();
-    await notifications.scheduleOnce(
-      id: s.title.hashCode & 0x7fffffff,
+    // A one-off: its id sits above the planner's range, so re-planning never
+    // cancels it, and is keyed to this suggestion so two never collide.
+    await notifications.schedule(
+      id: kUnmanagedIdBase + ('$key${DateTime.now().millisecondsSinceEpoch}'.hashCode & 0x0FFFFFFF),
       title: s.title,
       body: 'A small kindness Aurora suggested earlier.',
       at: DateTime.now().add(const Duration(hours: 2)),
-      payload: '/aurora',
+      route: '/aurora',
+      channel: NotifyChannel.reminders,
     );
   }
 

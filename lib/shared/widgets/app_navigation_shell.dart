@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/features/achievements/providers/achievement_pr
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/features/notifications/widgets/notification_primer.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
@@ -162,6 +163,19 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     ref.watch(worldDiscoveryProvider);
     ref.watch(achievementEvaluatorProvider);
     ref.watch(avatarStatsSyncProvider);
+    // Reminders follow the habits, tasks and choices; the inbox files levels
+    // and letters as they happen.
+    ref.watch(reminderSyncProvider);
+    ref.watch(inboxMomentsProvider);
+    // A notification tap waiting for the app to be ready: open it now.
+    final pendingRoute = ref.watch(pendingNotificationRouteProvider);
+    if (pendingRoute != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(pendingNotificationRouteProvider.notifier).clear();
+        context.go(pendingRoute);
+      });
+    }
     ref.listen<List<String>>(pendingDiscoveriesProvider, (prev, next) {
       final fresh = next.where((id) => !(prev ?? const []).contains(id)).toList();
       if (fresh.isEmpty || shell.currentIndex == 3) return;

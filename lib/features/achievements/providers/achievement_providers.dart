@@ -5,6 +5,8 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:atlas_flutter_app/features/notifications/data/inbox.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
@@ -292,9 +294,23 @@ final achievementEvaluatorProvider = Provider<void>((ref) {
   );
   if (updates.isEmpty) return;
   final db = ref.read(databaseProvider);
+  final inbox = ref.read(inboxProvider);
+  final byId = {for (final a in rows) a.id: a};
   unawaited(() async {
     final now = DateTime.now();
     for (final u in updates) {
+      final earned = byId[u.id];
+      if (u.unlock && earned != null) {
+        await inbox.add(
+          userId: earned.userId,
+          kind: InboxKind.achievement,
+          key: 'achievement:${earned.title}',
+          title: 'You earned ${earned.title}',
+          body: earned.description ?? 'A moment worth keeping.',
+          entityType: 'achievement',
+          entityId: earned.id,
+        );
+      }
       await (db.update(db.achievements)..where((a) => a.id.equals(u.id))).write(AchievementsCompanion(
         progress: Value(u.progress),
         isUnlocked: u.unlock ? const Value(true) : const Value.absent(),

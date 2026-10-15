@@ -134,6 +134,11 @@ String _timeAgo(DateTime t) {
 }
 
 CategoryStyle _styleFor(String type) => switch (type) {
+      'achievement' => const CategoryStyle(Symbols.trophy_rounded, AppColors.amber),
+      'place' => const CategoryStyle(Symbols.public_rounded, AppColors.leaf),
+      'level' => const CategoryStyle(Symbols.auto_awesome_rounded, AppColors.violet),
+      'letter' => const CategoryStyle(Symbols.mail_rounded, AppColors.rose),
+      'account' => const CategoryStyle(Symbols.credit_card_rounded, AppColors.sky),
       'achievementUnlocked' || 'achievement_unlocked' =>
         const CategoryStyle(Symbols.trophy_rounded, AppColors.amber),
       'levelUp' || 'level_up' => const CategoryStyle(Symbols.auto_awesome_rounded, AppColors.rose),
