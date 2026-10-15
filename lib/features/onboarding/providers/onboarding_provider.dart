@@ -154,6 +154,14 @@ class OnboardingController extends Notifier<OnboardingState> {
   @override
   OnboardingState build() {
     _load();
+    // Start over for whoever signs in (or out), re-reading the prefs that
+    // logout just cleared. A listener rather than a watch, so a failing auth
+    // provider can't take onboarding down with it.
+    ref.listen(authProvider.select((s) => s.user?.id), (previous, next) {
+      if (previous == next) return;
+      state = const OnboardingState();
+      _load();
+    });
     // An account that already existed before this sign-in (a new phone, a
     // reinstall) has been set up already: skip setup rather than add a second
     // set of starter habits that sync would then duplicate.

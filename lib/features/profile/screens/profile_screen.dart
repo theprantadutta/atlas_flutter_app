@@ -181,7 +181,7 @@ class ProfileScreen extends ConsumerWidget {
 
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     final syncing = ref.read(canSyncProvider) && SyncConfig.enabled;
-    final ok = await confirmSheet(
+    await confirmSheet(
       context,
       title: 'Sign out?',
       body: syncing
@@ -192,9 +192,9 @@ class ProfileScreen extends ConsumerWidget {
               'cloud sync, it isn’t copied anywhere else.',
       confirmLabel: 'Sign out',
       cancelLabel: 'Stay',
+      // Backs up pending edits first, which can take a few seconds.
+      onConfirm: () => ref.read(authProvider.notifier).logout(),
     );
-    if (!ok) return;
-    await ref.read(authProvider.notifier).logout();
   }
 }
 

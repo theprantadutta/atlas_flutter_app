@@ -10,8 +10,6 @@ import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
-import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
-import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 final _log = AppLog('Auth');
@@ -368,10 +366,12 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e, s) {
       _log.e('Clearing user prefs failed', error: e, stackTrace: s);
     }
-    // These notifiers cache prefs in memory; rebuild them from the now-clean
-    // store so the next account starts from first-run state.
-    ref.invalidate(onboardingProvider);
-    ref.invalidate(starterDataProvider);
+    // These notifiers cache prefs in memory and must start the next account
+    // from first-run state. Onboarding and starter data depend on this
+    // provider, so invalidating them from here is a cycle (Riverpod throws,
+    // and from a finally that skipped the rest of logout); they rebuild by
+    // themselves when the signed-in user changes. Aurora's preferences don't
+    // depend on auth and are reset here.
     ref.invalidate(auroraPreferencesProvider);
   }
 }

@@ -300,6 +300,10 @@ Future<T?> showActionSheet<T>(
 }
 
 /// A calm confirm dialog as a sheet. Returns true when confirmed.
+///
+/// With [onConfirm], confirming runs it while the sheet stays up with the
+/// button spinning (and can't be dismissed), so slow work such as signing out
+/// shows progress instead of a frozen screen.
 Future<bool> confirmSheet(
   BuildContext context, {
   required String title,
@@ -307,46 +311,62 @@ Future<bool> confirmSheet(
   required String confirmLabel,
   String cancelLabel = 'Not now',
   bool destructive = false,
+  Future<void> Function()? onConfirm,
 }) async {
+  var working = false;
   final result = await showAtlasSheet<bool>(
     context,
-    builder: (context) {
+    builder: (context) => StatefulBuilder(builder: (context, setState) {
       final p = context.palette;
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
-            if (body != null) ...[
+      Future<void> confirm() async {
+        if (onConfirm == null) return Navigator.of(context).pop(true);
+        setState(() => working = true);
+        try {
+          await onConfirm();
+        } finally {
+          if (context.mounted) Navigator.of(context).pop(true);
+        }
+      }
+
+      return PopScope(
+        canPop: !working,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
+              if (body != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(body, style: AppTypography.body.copyWith(color: p.textBody)),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              PillButton(
+                label: confirmLabel,
+                height: 56,
+                expand: true,
+                haptic: PressHaptic.medium,
+                busy: working,
+                onTap: working ? null : confirm,
+                textStyle: destructive
+                    ? AppTypography.sans(size: 15, weight: FontWeight.w700, height: 1)
+                    : null,
+              ),
               const SizedBox(height: AppSpacing.xs),
-              Text(body, style: AppTypography.body.copyWith(color: p.textBody)),
+              PillButton(
+                label: cancelLabel,
+                height: 56,
+                expand: true,
+                variant: PillVariant.track,
+                haptic: PressHaptic.selection,
+                onTap: working ? null : () => Navigator.of(context).pop(false),
+              ),
             ],
-            const SizedBox(height: AppSpacing.lg),
-            PillButton(
-              label: confirmLabel,
-              height: 56,
-              expand: true,
-              haptic: PressHaptic.medium,
-              onTap: () => Navigator.of(context).pop(true),
-              textStyle: destructive
-                  ? AppTypography.sans(size: 15, weight: FontWeight.w700, height: 1)
-                  : null,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            PillButton(
-              label: cancelLabel,
-              height: 56,
-              expand: true,
-              variant: PillVariant.track,
-              haptic: PressHaptic.selection,
-              onTap: () => Navigator.of(context).pop(false),
-            ),
-          ],
+          ),
         ),
       );
-    },
+    }),
   );
   return result ?? false;
 }
