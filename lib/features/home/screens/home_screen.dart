@@ -414,40 +414,47 @@ class _Hero extends StatelessWidget {
                       Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              CountUpText(
-                                value: view.percent,
-                                style: AppTypography.heroNumber.copyWith(
-                                  color: on,
+                          // The big number scales down rather than overflow
+                          // with large text sizes.
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.bottomLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                CountUpText(
+                                  value: view.percent,
+                                  style: AppTypography.heroNumber.copyWith(
+                                    color: on,
+                                  ),
                                 ),
-                              ),
-                              GradientText(
-                                '%',
-                                style: AppTypography.heroNumber,
-                              ),
-                              const SizedBox(width: 10),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: AnimatedSwitcher(
-                                  duration: AppMotion.fast,
-                                  child: Text(
-                                    view.dayComplete
-                                        ? 'All\ntended'
-                                        : '${view.done} of ${view.total}\ntended',
-                                    key: ValueKey(view.dayComplete),
-                                    style: AppTypography.sans(
-                                      size: 15,
-                                      weight: FontWeight.w600,
-                                      height: 1.3,
-                                      tabular: true,
-                                      color: on.withValues(alpha: .75),
+                                GradientText(
+                                  '%',
+                                  style: AppTypography.heroNumber,
+                                ),
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: AnimatedSwitcher(
+                                    duration: AppMotion.fast,
+                                    child: Text(
+                                      view.dayComplete
+                                          ? 'All\ntended'
+                                          : '${view.done} of ${view.total}\ntended',
+                                      key: ValueKey(view.dayComplete),
+                                      style: AppTypography.sans(
+                                        size: 15,
+                                        weight: FontWeight.w600,
+                                        height: 1.3,
+                                        tabular: true,
+                                        color: on.withValues(alpha: .75),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                           Positioned(
                             left: -20,

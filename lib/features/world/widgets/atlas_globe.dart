@@ -111,10 +111,11 @@ class AtlasGlobeState extends State<AtlasGlobe> with SingleTickerProviderStateMi
     _focusLength = _reduce ? Duration.zero : duration;
     _velocity = 0;
     _ambientBlend = 0;
+    _wake();
   }
 
   void _tick(Duration elapsed) {
-    final dt = (elapsed - _last).inMicroseconds / 1e6;
+    final dt = _last == Duration.zero ? 0.0 : (elapsed - _last).inMicroseconds / 1e6;
     _last = elapsed;
     _now = elapsed;
 
@@ -144,6 +145,20 @@ class AtlasGlobeState extends State<AtlasGlobe> with SingleTickerProviderStateMi
       _dropStart = null;
     }
     _repaint.value++;
+
+    // Under reduced motion there is no ambient turn or ping: stop ticking
+    // once nothing is moving, and restart on the next touch.
+    if (_reduce && !_dragging && _toTheta == null && _velocity.abs() <= .01 && _dropping == null) {
+      _ticker.stop();
+      _last = Duration.zero;
+    }
+  }
+
+  void _wake() {
+    if (!_ticker.isActive) {
+      _last = Duration.zero;
+      _ticker.start();
+    }
   }
 
   double get _dropT {
@@ -174,6 +189,7 @@ class AtlasGlobeState extends State<AtlasGlobe> with SingleTickerProviderStateMi
       child: GestureDetector(
         onTapUp: _onTapUp,
         onHorizontalDragStart: (_) {
+          _wake();
           _dragging = true;
           _toTheta = null;
           _velocity = 0;

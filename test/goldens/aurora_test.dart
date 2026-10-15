@@ -24,7 +24,7 @@ final sampleLetter = AuroraReflection(
   createdAt: DateTime(2025, 8, 3),
 );
 
-class _SampleChat extends AuroraChatNotifier {
+class SampleChat extends AuroraChatNotifier {
   @override
   AuroraChatState build() => const AuroraChatState(messages: [
         ChatMessage(role: ChatRole.user, content: 'I kept my habits this week but I still feel tired'),
@@ -71,7 +71,7 @@ void main() {
     testWidgets('aurora chat $mode', (tester) async {
       await pumpPhone(tester, const AuroraChatScreen(), dark: dark, overrides: [
         ...common(),
-        auroraChatProvider.overrideWith(_SampleChat.new),
+        auroraChatProvider.overrideWith(SampleChat.new),
       ]);
       await settle(tester);
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/aurora_chat_$mode.png'));
