@@ -130,10 +130,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SetupScreen(),
       ),
 
-      // ─── Main shell: Home · Grow · Aurora · World · You ───
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppNavigationShell(navigationShell: navigationShell),
+      // ─── Main shell: Home · Grow · Aurora · Atlas (+ You, via the avatar) ───
+      StatefulShellRoute(
+        builder: (context, state, navigationShell) => navigationShell,
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            AppNavigationShell(
+          navigationShell: navigationShell,
+          location: GoRouterState.of(context).uri.path,
+          children: children,
+        ),
         branches: [
           // Home
           StatefulShellBranch(

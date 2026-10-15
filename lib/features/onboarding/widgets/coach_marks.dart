@@ -3,9 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 /// Anchors the first-run coach marks point at. Screens attach these keys to the
 /// widgets they own; the overlay reads their positions to place the spotlight.
@@ -32,11 +30,11 @@ class _Step {
 
 const _steps = <_Step>[
   _Step(
-    title: 'Your living world',
+    title: 'Your day at a glance',
     body:
-        'This is you. It grows greener and brighter as you tend the things you '
-        'care about.',
-    radius: AppSpacing.radiusLg,
+        'This card shows how today is going. It fills with light as you tend '
+        'the things you care about.',
+    radius: AppSpacing.radiusXl,
     circle: false,
   ),
   _Step(
@@ -50,7 +48,7 @@ const _steps = <_Step>[
   _Step(
     title: 'Add anything, fast',
     body:
-        'Tap to add a habit, task or goal, or simply describe it and let Aurora '
+        'Tap to add a habit, task or goal, or just describe it and let Aurora '
         'set it up for you.',
     radius: AppSpacing.radiusPill,
     circle: true,
@@ -159,16 +157,9 @@ class _CoachMarksState extends ConsumerState<CoachMarks> {
                       borderRadius: BorderRadius.circular(
                           step.circle ? spotlight.longestSide : step.radius),
                       border: Border.all(
-                        color: AppColors.auroraLilac.withValues(alpha: 0.9),
+                        color: AppColors.sunriseB.withValues(alpha: 0.9),
                         width: 2,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.auroraLilac.withValues(alpha: 0.45),
-                          blurRadius: 22,
-                          spreadRadius: 1,
-                        ),
-                      ],
                     ),
                   ),
                 ),
@@ -210,7 +201,7 @@ class _SpotlightPainter extends CustomPainter {
       ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
     canvas.drawPath(
       Path.combine(PathOperation.difference, full, hole),
-      Paint()..color = const Color(0xFF080C1A).withValues(alpha: 0.82),
+      Paint()..color = AppColors.ink.withValues(alpha: 0.72),
     );
   }
 
@@ -236,103 +227,52 @@ class _CaptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final p = context.palette;
     final isLast = index == total - 1;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg - 4),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: theme.colorScheme.outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: p.canvas,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusTile),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(step.title, style: theme.textTheme.titleLarge),
+          Text(step.title,
+              style: AppTypography.section.copyWith(color: p.textPrimary)),
           AppSpacing.gapXs,
-          Text(
-            step.body,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
+          Text(step.body, style: AppTypography.body.copyWith(color: p.textBody)),
           AppSpacing.gapMd,
           Row(
             children: [
               for (var i = 0; i < total; i++)
-                Container(
+                AnimatedContainer(
+                  duration: AppMotion.fast,
                   margin: const EdgeInsets.only(right: 4),
                   width: i == index ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    gradient: i == index ? AppColors.auroraGradient : null,
-                    color: i == index
-                        ? null
-                        : theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.3),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
+                    gradient: i == index ? AppColors.sunriseBar : null,
+                    color: i == index ? null : p.outline,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                 ),
               const Spacer(),
               if (!isLast)
-                TextButton(
-                  onPressed: onSkip,
-                  child: Text(
-                    'Skip',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant),
-                  ),
+                PillButton(
+                  label: 'Skip',
+                  variant: PillVariant.track,
+                  haptic: PressHaptic.selection,
+                  onTap: onSkip,
                 ),
-              const SizedBox(width: AppSpacing.xxs),
-              _PillButton(label: isLast ? 'Got it' : 'Next', onTap: onNext),
+              const SizedBox(width: AppSpacing.xs),
+              PillButton(label: isLast ? 'Got it' : 'Next', onTap: onNext),
             ],
           ),
         ],
       ),
     ).animate().fadeIn(duration: AppMotion.fast).slideY(
         begin: 0.06, end: 0, curve: AppMotion.standard);
-  }
-}
-
-class _PillButton extends StatelessWidget {
-  const _PillButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
-          decoration: BoxDecoration(
-            gradient: AppColors.auroraGradient,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFF10243B),
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
@@ -13,6 +14,7 @@ import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/refresh_rate_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
 import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_palette.dart';
 import 'package:atlas_flutter_app/shared/themes/app_theme.dart';
 
 class AtlasApp extends ConsumerStatefulWidget {
@@ -173,6 +175,11 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       themeAnimationDuration: AppMotion.medium,
       themeAnimationCurve: AppMotion.standard,
       routerConfig: router,
+      // Status and navigation bars follow the palette (light icons in dark).
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(context.palette),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }
