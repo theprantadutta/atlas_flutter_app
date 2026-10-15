@@ -27,9 +27,9 @@ Owner "redesign" = fixed as part of the screen/data work on `redesign/daylight`;
 | 19 | Low | Dead `HabitRepository`/`TaskRepository` | redesign | open |
 | 20 | Low | First-run starter prompt never built | redesign | open |
 | D1 | UI | "Forgot password?" does nothing | redesign | open |
-| D2 | UI | Bell badge hard-coded on | redesign | open |
+| D2 | UI | Bell badge hard-coded on | redesign | fixed (reads unread count) |
 | D3 | UI | Tapping a notification does nothing (no markRead, no deep link) | redesign | open |
-| D4 | UI | No edit UI for tasks, habits, goals; goal progress only +25% | redesign | open |
+| D4 | UI | No edit UI for tasks, habits, goals; goal progress only +25% | redesign | editor done; goal progress in Grow |
 | D5 | UI | Avatar level/XP/stats never updated locally | redesign | open |
 
 Note on #7: logout keeps the local database (offline-first: it is the only copy for free users). It resets the sync cursor and user-scoped prefs; only Delete account wipes the database.

@@ -350,3 +350,85 @@ Future<bool> confirmSheet(
   );
   return result ?? false;
 }
+
+/// A quiet, dismissible note (an update is ready, a nudge from Aurora):
+/// a paper row with a spark or icon, one or two lines, an optional action.
+class NoticeRow extends StatelessWidget {
+  const NoticeRow({
+    super.key,
+    required this.title,
+    this.body,
+    this.icon,
+    this.iconColor,
+    this.actionLabel,
+    this.onAction,
+    this.onDismiss,
+    this.busy = false,
+  });
+
+  final String title;
+  final String? body;
+
+  /// Defaults to the Aurora spark.
+  final IconData? icon;
+  final Color? iconColor;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final VoidCallback? onDismiss;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: p.paper,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+      ),
+      child: Row(
+        children: [
+          SizedBox.square(
+            dimension: 34,
+            child: Center(
+              child: icon == null
+                  ? const AtlasSpark(size: 26, animated: true)
+                  : AtlasIcon(icon!, filled: true, size: 22, color: iconColor ?? p.textPrimary),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title,
+                    style: AppTypography.sans(
+                        size: 14, weight: FontWeight.w700, height: 1.35, color: p.textPrimary)),
+                if (body != null) ...[
+                  const SizedBox(height: 2),
+                  Text(body!, style: AppTypography.meta.copyWith(color: p.textMuted)),
+                ],
+              ],
+            ),
+          ),
+          if (actionLabel != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            PillButton(label: actionLabel!, height: 36, onTap: onAction, busy: busy),
+          ],
+          if (onDismiss != null)
+            Pressable(
+              onTap: onDismiss,
+              circle: true,
+              haptic: PressHaptic.selection,
+              semanticLabel: 'Dismiss',
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: AtlasIcon(Symbols.close_rounded, size: 18, color: p.textMuted),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

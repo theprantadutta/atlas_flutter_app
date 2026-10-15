@@ -1,175 +1,194 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
+import 'package:atlas_flutter_app/core/gamification/days.dart';
+import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
-import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
-import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/category_style.dart';
 
-// ─── Home view-models ───────────────────────────────────────────────
+// ─── Home view-model ────────────────────────────────────────────────
 //
-// The home screen is derived entirely from the local Drift database (the
-// source of truth) plus the cached auth user. Nothing here touches the
-// network — it recomputes reactively whenever a local table changes.
+// Derived entirely from local Drift (the source of truth) plus a few device
+// prefs. Recomputes reactively whenever a table changes or the day rolls.
 
-/// One thing to tend today (a real task row), shown on the home screen.
+enum TodayKind { task, habit }
+
+/// One thing to tend today: a task due today or a habit scheduled today.
 class TodayItem {
   const TodayItem({
     required this.id,
+    required this.kind,
     required this.title,
-    required this.note,
-    required this.color,
-    required this.icon,
+    required this.style,
     required this.xp,
-    this.done = false,
+    required this.done,
+    required this.createdAt,
+    this.minuteOfDay,
+    this.snoozed = false,
+    this.task,
+    this.habit,
   });
 
   final String id;
+  final TodayKind kind;
   final String title;
-  final String note;
-  final Color color;
-  final IconData icon;
+  final CategoryStyle style;
   final int xp;
   final bool done;
+  final DateTime createdAt;
+
+  /// Scheduled time, in minutes after midnight, if it has one.
+  final int? minuteOfDay;
+  final bool snoozed;
+  final Task? task;
+  final Habit? habit;
+
+  String get timeLabel => minuteOfDay == null
+      ? 'Anytime'
+      : clockLabel(minuteOfDay! ~/ 60, minuteOfDay! % 60);
+
+  String get meta => '$timeLabel · +$xp XP';
 }
 
-/// Aggregate state powering the home screen.
-class HomeState {
-  const HomeState({
-    required this.greetingName,
-    required this.level,
-    required this.xp,
-    required this.xpForNext,
-    required this.streak,
-    required this.worldProgress,
+/// What the letter tile shows.
+enum LetterTileState { unread, talk }
+
+class HomeView {
+  const HomeView({
     required this.today,
+    required this.firstName,
+    required this.items,
+    required this.stats,
+    required this.letter,
+    required this.letterId,
   });
 
-  final String greetingName;
-  final int level;
-  final int xp;
-  final int xpForNext;
-  final int streak;
-  final double worldProgress; // 0..1, how lush the world is
-  final List<TodayItem> today;
+  final DateTime today;
+  final String firstName;
+  final List<TodayItem> items;
+  final PlayerStats stats;
+  final LetterTileState letter;
+  final String? letterId;
 
-  int get doneCount => today.where((t) => t.done).length;
-  int get dueCount => today.where((t) => !t.done).length;
-  double get dayProgress => today.isEmpty ? 0 : doneCount / today.length;
-  int get xpToday => today.where((t) => t.done).fold(0, (s, t) => s + t.xp);
+  int get total => items.length;
+  int get done => items.where((i) => i.done).length;
+  double get progress => total == 0 ? 0 : done / total;
+  int get percent => (progress * 100).round();
+  bool get dayComplete => total > 0 && done == total;
 
-  static const empty = HomeState(
-    greetingName: 'friend',
-    level: 1,
-    xp: 0,
-    xpForNext: 1000,
-    streak: 0,
-    worldProgress: 0,
-    today: [],
-  );
-}
-
-/// The visual identity (colour + icon) for a task category.
-({Color color, IconData icon}) categoryVisual(String category) {
-  switch (category.toLowerCase()) {
-    case 'mindfulness':
-      return (
-        color: AppColors.categoryMindfulness,
-        icon: Icons.self_improvement_rounded,
-      );
-    case 'fitness':
-      return (
-        color: AppColors.categoryFitness,
-        icon: Icons.directions_run_rounded,
-      );
-    case 'health':
-      return (color: AppColors.categoryHealth, icon: Icons.favorite_rounded);
-    case 'learning':
-      return (color: AppColors.categoryLearning, icon: Icons.menu_book_rounded);
-    case 'creative':
-      return (color: AppColors.categoryCreative, icon: Icons.brush_rounded);
-    case 'social':
-      return (color: AppColors.categorySocial, icon: Icons.people_alt_rounded);
-    case 'finance':
-      return (
-        color: AppColors.categoryFinance,
-        icon: Icons.account_balance_wallet_rounded,
-      );
-    case 'work':
-      return (color: AppColors.categoryWork, icon: Icons.work_outline_rounded);
-    default:
-      return (color: AppColors.primary, icon: Icons.check_circle_outline_rounded);
+  /// Not-done items: by scheduled time (untimed last), then creation date;
+  /// snoozed ones sink to the end.
+  List<TodayItem> get remaining {
+    final list = items.where((i) => !i.done).toList()
+      ..sort((a, b) {
+        if (a.snoozed != b.snoozed) return a.snoozed ? 1 : -1;
+        final at = a.minuteOfDay, bt = b.minuteOfDay;
+        if (at != bt) {
+          if (at == null) return 1;
+          if (bt == null) return -1;
+          return at.compareTo(bt);
+        }
+        return a.createdAt.compareTo(b.createdAt);
+      });
+    return list;
   }
 }
 
-bool _isSameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+int? _minuteOf(DateTime? d) {
+  if (d == null) return null;
+  final m = d.hour * 60 + d.minute;
+  return m == 0 ? null : m; // a date without a time
+}
 
-/// Home, derived from Drift + the cached auth user. Returns synchronously,
-/// falling back to sensible defaults while the local streams warm up.
-final homeProvider = Provider.autoDispose<HomeState>((ref) {
-  final user = ref.watch(authProvider).user;
+int? _minuteOfHm(String? hm) {
+  final t = parseHm(hm);
+  return t == null ? null : t.hour * 60 + t.minute;
+}
+
+/// Whether a task belongs on today's list: recurring daily tasks, anything
+/// due today or overdue and still open, and anything finished today.
+bool _taskIsToday(Task t, DateTime today) {
+  final done = t.isCompleted && TaskSchedule.doneInPeriod(t.type, t.lastCompletedDate, today);
+  if (done) {
+    final last = t.lastCompletedDate;
+    return last != null && isSameDay(last, today);
+  }
+  final due = t.dueDate;
+  if (due != null) return !dateOnly(due).isAfter(today);
+  return t.type == 'daily';
+}
+
+final homeProvider = Provider.autoDispose<HomeView>((ref) {
+  final today = ref.watch(todayProvider);
+  final user = ref.watch(authProvider.select((s) => s.user));
   final tasks = ref.watch(tasksStreamProvider).value ?? const <Task>[];
-  final progress =
-      ref.watch(progressEntriesStreamProvider).value ??
-          const <ProgressEntry>[];
-  // Watched so the avatar's existence keeps the stream (and its seed) alive.
-  ref.watch(avatarStreamProvider);
-
+  final habits = ref.watch(habitsStreamProvider).value ?? const <Habit>[];
+  final stats = ref.watch(playerStatsProvider);
+  final snoozed = ref.watch(snoozeProvider);
+  final reflection = ref.watch(latestReflectionProvider).value;
+  final lastRead = ref.watch(letterReadProvider);
   final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+  bool isSnoozed(String id) => snoozed[id]?.isAfter(now) ?? false;
 
-  // "Today" = tasks still to do, plus anything finished today.
-  final todayTasks = tasks.where((t) {
-    if (!t.isCompleted) return true;
-    final done = t.lastCompletedDate;
-    return done != null && _isSameDay(done, today);
-  }).toList()
-    ..sort((a, b) {
-      // Unfinished first, then most-recently-created.
-      if (a.isCompleted != b.isCompleted) return a.isCompleted ? 1 : -1;
-      return b.createdAt.compareTo(a.createdAt);
-    });
+  final items = <TodayItem>[
+    for (final t in tasks)
+      if (_taskIsToday(t, today))
+        TodayItem(
+          id: t.id,
+          kind: TodayKind.task,
+          title: t.title,
+          style: CategoryStyle.forItem(title: t.title, category: t.category),
+          xp: t.xpReward,
+          done: t.isCompleted && TaskSchedule.doneInPeriod(t.type, t.lastCompletedDate, today),
+          createdAt: t.createdAt,
+          minuteOfDay: _minuteOf(t.dueDate),
+          snoozed: isSnoozed(t.id),
+          task: t,
+        ),
+    for (final h in habits)
+      if (HabitSchedule.isScheduledOn(h.frequency, today) &&
+          // A weekly habit already done this week isn't "today's" any more,
+          // unless it was done today.
+          (!HabitSchedule.isWeekly(h.frequency) ||
+              !HabitSchedule.doneInPeriod(h.frequency, h.lastCompletedDate, today) ||
+              isSameDay(h.lastCompletedDate ?? DateTime(0), today)))
+        TodayItem(
+          id: h.id,
+          kind: TodayKind.habit,
+          title: h.title,
+          style: CategoryStyle.forItem(title: h.title, category: h.category),
+          xp: GamificationConstants.calculateHabitXp(
+            difficulty: h.difficulty,
+            streakCount: HabitSchedule.nextStreak(
+                    h.frequency, h.lastCompletedDate, h.streakCount, today) -
+                1,
+          ),
+          done: h.isCompletedToday &&
+              HabitSchedule.doneInPeriod(h.frequency, h.lastCompletedDate, today),
+          createdAt: h.createdAt,
+          minuteOfDay: _minuteOfHm(h.reminderTime),
+          snoozed: isSnoozed(h.id),
+          habit: h,
+        ),
+  ];
 
-  final todayItems = todayTasks.map((t) {
-    final visual = categoryVisual(t.category);
-    return TodayItem(
-      id: t.id,
-      title: t.title,
-      note: (t.description == null || t.description!.isEmpty)
-          ? 'Tap to tend'
-          : t.description!,
-      color: visual.color,
-      icon: visual.icon,
-      xp: t.xpReward,
-      done: t.isCompleted,
-    );
-  }).toList();
+  final name = user?.fullName.trim() ?? '';
+  final firstName = name.isEmpty ? 'there' : name.split(RegExp(r'\s+')).first;
 
-  // World lushness = how many of the last 7 days you showed up.
-  var activeDays = 0;
-  for (var i = 0; i < 7; i++) {
-    final day = today.subtract(Duration(days: i));
-    final hit =
-        progress.any((p) => _isSameDay(p.date, day) && p.xpGained > 0);
-    if (hit) activeDays++;
-  }
-  final worldProgress = activeDays / 7.0;
+  final unread = reflection != null && lastRead != null && reflection.id != lastRead;
 
-  final firstName = (user?.fullName.trim().isNotEmpty ?? false)
-      ? user!.fullName.trim().split(RegExp(r'\s+')).first
-      : 'friend';
-  final totalXp = user?.totalXp ?? 0;
-
-  return HomeState(
-    greetingName: firstName,
-    level: user?.level ?? 1,
-    xp: totalXp % 1000,
-    xpForNext: 1000,
-    streak: user?.currentStreak ?? 0,
-    worldProgress: worldProgress.clamp(0.0, 1.0),
-    today: todayItems,
+  return HomeView(
+    today: today,
+    firstName: firstName,
+    items: items,
+    stats: stats,
+    letter: unread ? LetterTileState.unread : LetterTileState.talk,
+    letterId: reflection?.id,
   );
 });

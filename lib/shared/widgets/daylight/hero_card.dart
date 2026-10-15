@@ -100,7 +100,7 @@ class _HeroGlowState extends State<HeroGlow>
 
   @override
   Widget build(BuildContext context) {
-    final opacity = .6 + .4 * widget.level.clamp(0.0, 1.0);
+    final opacity = .7 + .3 * widget.level.clamp(0.0, 1.0);
     final blob = ImageFiltered(
       imageFilter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
       child: const DecoratedBox(
@@ -117,7 +117,7 @@ class _HeroGlowState extends State<HeroGlow>
         curve: AppMotion.emphasized,
         builder: (context, boost, child) => AnimatedOpacity(
           duration: AppMotion.slow,
-          opacity: (opacity + .2 * boost).clamp(0.0, 1.0) * .9,
+          opacity: (opacity + .2 * boost).clamp(0.0, 1.0),
           child: AnimatedBuilder(
             animation: _drift,
             child: child,

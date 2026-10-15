@@ -136,15 +136,19 @@ class AppColors {
     stops: [0, .5, 1],
   );
 
+  // CSS radial gradients default to "farthest-corner" sizing; these radii
+  // are that distance as a fraction of the box, so the glow and the globe
+  // match the reference at the same size.
   static const heroGlow = RadialGradient(
     center: Alignment(-0.2, -0.1),
+    radius: 0.81,
     colors: [sunriseA, sunriseB, sunriseC, Color(0x008E6CFF)],
     stops: [0, .38, .62, .72],
   );
 
   static const globe = RadialGradient(
     center: Alignment(-0.32, -0.44),
-    radius: 0.9,
+    radius: 0.98,
     colors: [
       Color(0xFFFFF4E8),
       Color(0xFFFFC79A),

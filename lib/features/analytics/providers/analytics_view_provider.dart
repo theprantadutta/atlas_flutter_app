@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
-import 'package:atlas_flutter_app/features/home/providers/home_provider.dart'
-    show categoryVisual;
+import 'package:atlas_flutter_app/shared/widgets/daylight/category_style.dart';
 import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 
@@ -104,7 +103,7 @@ final analyticsProvider = Provider.autoDispose<AnalyticsData>((ref) {
       .map((e) => CategorySlice(
             _titleCase(e.key),
             e.value,
-            categoryVisual(e.key).color,
+            CategoryStyle.forCategory(e.key).color,
           ))
       .toList()
     ..sort((a, b) => b.value.compareTo(a.value));

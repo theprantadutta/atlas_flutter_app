@@ -1,107 +1,226 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
+import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/grow/widgets/item_actions.dart';
+import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_providers.dart';
 import 'package:atlas_flutter_app/features/onboarding/widgets/coach_marks.dart';
-import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/features/updates/widgets/update_banner.dart';
-import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
+import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// Home — the showpiece. A time-aware greeting, the living-world hero that
-/// flourishes as you tend to today, and a gentle list of today's rituals.
-class HomeScreen extends ConsumerWidget {
+/// Home: how today is going, and the next thing to tend.
+///
+/// One ink hero card with a drifting glow, XP and Aurora's letter side by
+/// side, then only what's up next, each with a one-tap Tend.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final home = ref.watch(homeProvider);
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
 
-    // Checking off today's rituals visibly greens your world.
-    final worldProgress =
-        (home.worldProgress * 0.7 + home.dayProgress * 0.3).clamp(0.0, 1.0);
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  /// Items mid-exit from "Up next": shown done (tended) or plain (later),
+  /// then collapsed, then dropped.
+  final Map<String, ({TodayItem item, bool tended})> _leaving = {};
+  final Set<String> _collapsing = {};
+  final Map<String, GlobalKey> _rowKeys = {};
+
+  bool _celebrating = false;
+  int _burst = 0;
+  int _streakPulse = 0;
+  int? _lastTended;
+
+  GlobalKey _keyFor(String id) => _rowKeys.putIfAbsent(id, GlobalKey.new);
+
+  Future<void> _leave(TodayItem item, {required bool tended}) async {
+    setState(() => _leaving[item.id] = (item: item, tended: tended));
+    await Future<void>.delayed(tended ? const Duration(milliseconds: 400) : AppMotion.instant);
+    if (!mounted) return;
+    setState(() => _collapsing.add(item.id));
+    await Future<void>.delayed(AppMotion.fast);
+    if (!mounted) return;
+    setState(() {
+      _leaving.remove(item.id);
+      _collapsing.remove(item.id);
+    });
+  }
+
+  Future<void> _tend(TodayItem item) async {
+    final tend = ref.read(tendControllerProvider);
+    final key = _keyFor(item.id);
+    XpFloat.fromKey(context, key, item.xp);
+    unawaited(_leave(item, tended: true));
+    final outcome = item.task != null
+        ? await tend.tendTask(item.task!)
+        : await tend.tendHabit(item.habit!);
+    await ref.read(snoozeProvider.notifier).clear(item.id);
+    if (!mounted || outcome == null) return;
+    final level = outcome.leveledUpTo;
+    AtlasToast.undo(
+      context,
+      level != null ? 'Level $level. +${outcome.xp} XP' : 'Tended · +${outcome.xp} XP',
+      onUndo: outcome.undo,
+    );
+    if (level != null) HapticFeedback.mediumImpact();
+  }
+
+  Future<void> _later(TodayItem item) async {
+    unawaited(_leave(item, tended: false));
+    await ref.read(snoozeProvider.notifier).snooze(item.id);
+    if (!mounted) return;
+    final until = ref.read(snoozeProvider)[item.id];
+    AtlasToast.undo(
+      context,
+      until == null ? 'Later' : 'Back at ${clockLabel(until.hour, until.minute)}',
+      onUndo: () => ref.read(snoozeProvider.notifier).clear(item.id),
+    );
+  }
+
+  void _maybeCelebrate(HomeView view) {
+    final notifier = ref.read(dayCompleteProvider.notifier);
+    if (!view.dayComplete || !notifier.loaded || notifier.celebratedOn(view.today)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await notifier.markCelebrated(view.today);
+      HapticFeedback.heavyImpact();
+      setState(() {
+        _celebrating = true;
+        _burst++;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 2600));
+      if (mounted) setState(() => _celebrating = false);
+    });
+  }
+
+  void _maybePulseStreak(HomeView view) {
+    final n = view.stats.tendedToday;
+    if (_lastTended == 0 && n > 0) _streakPulse++;
+    _lastTended = n;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final view = ref.watch(homeProvider);
+    ref.watch(dayCompleteProvider);
+    ref.watch(dailyRolloverProvider);
+    _maybeCelebrate(view);
+    _maybePulseStreak(view);
+    final unread = ref.watch(unreadNotificationCountProvider).value ?? 0;
+    final coachKeys = ref.watch(coachMarkKeysProvider);
+
+    // Up next: what's leaving stays in place while it animates out.
+    final remaining = view.remaining.where((i) => !_leaving.containsKey(i.id)).toList();
+    final shown = <({TodayItem item, bool tended})>[
+      ..._leaving.values,
+      for (final i in remaining) (item: i, tended: false),
+    ].take(2 + _leaving.length).toList();
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.gutter, AppSpacing.md, AppSpacing.gutter, AppSpacing.bottomNavSpace),
+          controller: ref.watch(tabScrollControllersProvider).of(0),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.gutter,
+            AppSpacing.sm,
+            AppSpacing.gutter,
+            navScrollPadding(context),
+          ),
           children: [
-            _GreetingHeader(name: home.greetingName, isDark: isDark)
-                .animate()
-                .fadeIn(duration: AppMotion.medium),
-            const UpdateBanner(),
-            const AuroraNudgeCard(),
-            AppSpacing.gapLg,
-            _Hero(
-              key: ref.watch(coachMarkKeysProvider).hero,
-              home: home,
-              worldProgress: worldProgress,
-            )
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 80.ms)
-                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
-            AppSpacing.gapMd,
-            _StatStrip(home: home)
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 160.ms),
-            AppSpacing.gapMd,
-            _AuroraHomeHero(streak: home.streak)
-                .animate()
-                .fadeIn(duration: AppMotion.medium, delay: 200.ms)
-                .slideY(begin: 0.06, end: 0, curve: AppMotion.standard),
-            AppSpacing.gapMd,
-            Row(
-              children: [
-                Expanded(
-                  child: _HomeLink(
-                    icon: Icons.insights_rounded,
-                    label: 'Insights',
-                    onTap: () => context.push('/analytics'),
-                  ),
-                ),
-                AppSpacing.hGapSm,
-                Expanded(
-                  child: _HomeLink(
-                    icon: Icons.calendar_today_rounded,
-                    label: 'Progress',
-                    onTap: () => context.push('/progress'),
-                  ),
-                ),
-              ],
+            _Header(
+              date: longDate(view.today),
+              name: view.firstName,
+              unread: unread > 0,
+              onBell: () => context.push('/notifications'),
+              onAvatar: () => context.go('/profile'),
             ),
-            AppSpacing.gapXl,
-            _TodayHeader(done: home.doneCount, total: home.today.length),
-            AppSpacing.gapMd,
-            if (home.today.isEmpty)
-              _TodayEmpty(onTap: () => context.go('/grow')),
-            ...List.generate(home.today.length, (i) {
-              final item = home.today[i];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _TodayTile(
-                  item: item,
-                  onTap: () =>
-                      ref.read(taskActionsProvider).toggleById(item.id),
-                )
-                    .animate()
-                    .fadeIn(
-                        duration: AppMotion.medium, delay: (220 + i * 60).ms)
-                    .slideY(begin: 0.08, end: 0, curve: AppMotion.standard),
-              );
-            }),
-            AppSpacing.gapMd,
-            _WorldNudge(progress: worldProgress, onTap: () => context.go('/world')),
+            const SizedBox(height: 14),
+            const UpdateBanner(),
+            _Hero(
+              key: coachKeys.hero,
+              view: view,
+              celebrating: _celebrating,
+              burst: _burst,
+              streakPulse: _streakPulse,
+              onTap: () => context.push('/progress'),
+            ),
+            const SizedBox(height: 14),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _XpTile(
+                      stats: view.stats,
+                      onTap: () => context.push('/analytics'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _LetterTile(
+                      state: view.letter,
+                      onTap: () => context.go('/aurora'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const AuroraNudgeCard(),
+            const SizedBox(height: 14),
+            if (view.total == 0)
+              EmptyState(
+                title: 'Nothing planned for today.',
+                body: 'Add one small thing you’d like to tend.',
+                actionLabel: 'Add something',
+                onAction: () => showQuickAddSheet(context),
+              )
+            else if (shown.isEmpty)
+              _DayDone(onAdd: () => showQuickAddSheet(context))
+            else ...[
+              SectionTitle(
+                'Up next',
+                action: 'See all ${view.remaining.length}',
+                onAction: () => context.go('/grow'),
+              ),
+              const SizedBox(height: 14),
+              for (var i = 0; i < shown.length; i++)
+                CollapseOut(
+                  key: ValueKey('upnext-${shown[i].item.id}'),
+                  collapsed: _collapsing.contains(shown[i].item.id),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: EntryFade(
+                      id: 'home-${shown[i].item.id}',
+                      index: i,
+                      child: _UpNextRow(
+                        key: _keyFor(shown[i].item.id),
+                        item: shown[i].item,
+                        primary: i == 0,
+                        tended: shown[i].tended,
+                        onTend: () => _tend(shown[i].item),
+                        onLater: () => _later(shown[i].item),
+                        onLongPress: () => showItemMenu(
+                          context,
+                          ref,
+                          task: shown[i].item.task,
+                          habit: shown[i].item.habit,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -109,752 +228,381 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ─── Greeting header ────────────────────────────────────────────────
+// ─── Header ─────────────────────────────────────────────────────────
 
-class _GreetingHeader extends ConsumerWidget {
-  const _GreetingHeader({required this.name, required this.isDark});
+class _Header extends ConsumerWidget {
+  const _Header({
+    required this.date,
+    required this.name,
+    required this.unread,
+    required this.onBell,
+    required this.onAvatar,
+  });
+
+  final String date;
   final String name;
-  final bool isDark;
-
-  String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 5) return 'Rest well';
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    if (h < 21) return 'Good evening';
-    return 'Good night';
-  }
+  final bool unread;
+  final VoidCallback onBell;
+  final VoidCallback onAvatar;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _greeting,
-                style: theme.textTheme.labelLarge
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 2),
-              Text(name, style: theme.textTheme.displaySmall),
-            ],
-          ),
-        ),
-        _CircleButton(
-          icon: Icons.notifications_none_rounded,
-          badge: true,
-          onTap: () => context.push('/notifications'),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        _CircleButton(
-          icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-          onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
-        ),
-      ],
-    );
-  }
-}
-
-class _CircleButton extends StatelessWidget {
-  const _CircleButton({required this.icon, required this.onTap, this.badge = false});
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool badge;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Material(
-          color: theme.colorScheme.surfaceContainerHighest,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Icon(icon, size: 22, color: theme.colorScheme.onSurface),
-            ),
-          ),
-        ),
-        if (badge)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: AppColors.streakFlame,
-                shape: BoxShape.circle,
-                border: Border.all(color: theme.colorScheme.surface, width: 1.5),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ─── Hero: the living world + level/XP ──────────────────────────────
-
-class _Hero extends StatelessWidget {
-  const _Hero({super.key, required this.home, required this.worldProgress});
-  final HomeState home;
-  final double worldProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final xpFrac = (home.xp / home.xpForNext).clamp(0.0, 1.0);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: Stack(
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.headerInset),
+      child: Row(
         children: [
-          LivingHorizon(
-            height: 260,
-            progress: worldProgress,
-            borderRadius: BorderRadius.zero,
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppColors.surfaceDark.withValues(alpha: 0.66),
-                  ],
-                  stops: const [0.45, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: AppSpacing.md,
-            right: AppSpacing.md,
-            bottom: AppSpacing.md,
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _GoldChip('Level ${home.level}'),
-                    const Spacer(),
-                    Text(
-                      'Lvl ${home.level + 1}',
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: Colors.white.withValues(alpha: 0.7)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                _XpBar(fraction: xpFrac),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${home.xp} / ${home.xpForNext} XP · ${home.xpForNext - home.xp} to go',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
+                Text(date, style: AppTypography.dateLine.copyWith(color: p.textMuted)),
+                const SizedBox(height: 2),
+                Semantics(
+                  header: true,
+                  child: Text(
+                    'Hey $name',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.greeting.copyWith(color: p.textPrimary),
+                  ),
                 ),
               ],
             ),
           ),
+          CircleIconButton(
+            icon: Symbols.notifications_rounded,
+            badge: unread,
+            semanticLabel: unread ? 'Notifications, unread' : 'Notifications',
+            onTap: onBell,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          AvatarRing(name: name, onTap: onAvatar),
         ],
       ),
     );
   }
 }
 
-class _GoldChip extends StatelessWidget {
-  const _GoldChip(this.label);
-  final String label;
+// ─── Hero ───────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xxs + 2),
-      decoration: BoxDecoration(
-        gradient: AppColors.goldGradient,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.auto_awesome_rounded,
-              size: 13, color: Color(0xFF3A2A00)),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xFF3A2A00),
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _XpBar extends StatelessWidget {
-  const _XpBar({required this.fraction});
-  final double fraction;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      child: Stack(
-        children: [
-          Container(height: 10, color: Colors.white.withValues(alpha: 0.22)),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: fraction),
-            duration: AppMotion.slow,
-            curve: AppMotion.standard,
-            builder: (context, value, _) => FractionallySizedBox(
-              widthFactor: value == 0 ? 0.001 : value,
-              child: Container(
-                height: 10,
-                decoration: const BoxDecoration(gradient: AppColors.auroraGradient),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Quiet stat strip ───────────────────────────────────────────────
-
-class _StatStrip extends StatelessWidget {
-  const _StatStrip({required this.home});
-  final HomeState home;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatPill(
-            icon: Icons.local_fire_department_rounded,
-            color: AppColors.streakFlame,
-            value: '${home.streak}',
-            label: 'day streak',
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatPill(
-            icon: Icons.bolt_rounded,
-            color: AppColors.xpPrimary,
-            value: '+${home.xpToday}',
-            label: 'XP today',
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _StatPill(
-            icon: Icons.spa_rounded,
-            color: AppColors.secondary,
-            value: '${home.dueCount}',
-            label: 'to tend',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatPill extends StatelessWidget {
-  const _StatPill({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-  });
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.sm, horizontal: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: theme.colorScheme.outline),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: AppSpacing.xs),
-          Text(value,
-              style: theme.textTheme.titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          Text(label,
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Today ──────────────────────────────────────────────────────────
-
-class _TodayHeader extends StatelessWidget {
-  const _TodayHeader({required this.done, required this.total});
-  final int done;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text('Today', style: theme.textTheme.headlineSmall),
-        const Spacer(),
-        Text(
-          '$done of $total tended',
-          style: theme.textTheme.labelLarge
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-}
-
-class _TodayTile extends StatelessWidget {
-  const _TodayTile({required this.item, required this.onTap});
-  final TodayItem item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final done = item.done;
-
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm + 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: done ? 0.10 : 0.16),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Icon(item.icon,
-                    color: item.color.withValues(alpha: done ? 0.6 : 1), size: 22),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        decoration: done ? TextDecoration.lineThrough : null,
-                        color: done
-                            ? theme.colorScheme.onSurfaceVariant
-                            : theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      done ? 'Tended · +${item.xp} XP' : item.note,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              _CheckCircle(done: done, color: item.color),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CheckCircle extends StatelessWidget {
-  const _CheckCircle({required this.done, required this.color});
-  final bool done;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.standard,
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: done ? color : Colors.transparent,
-        border: Border.all(
-          color: done ? color : theme.colorScheme.outline,
-          width: 2,
-        ),
-      ),
-      child: done
-          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-          : null,
-    );
-  }
-}
-
-// ─── Quick links (Insights / Progress) ─────────────────────────────
-
-class _HomeLink extends StatelessWidget {
-  const _HomeLink({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: theme.colorScheme.primary),
-              const SizedBox(width: AppSpacing.xs),
-              Text(label, style: theme.textTheme.titleSmall),
-              const Spacer(),
-              Icon(Icons.chevron_right_rounded,
-                  size: 20, color: theme.colorScheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Aurora home hero (living AI presence) ──────────────────────────
-
-/// A living Aurora moment on Home: a gentle check-in and, when it exists, a
-/// snippet of this week's reflection. Sourced from real cached data. The card
-/// opens the Aurora tab; the inline "Chat" opens the conversation.
-class _AuroraHomeHero extends ConsumerWidget {
-  const _AuroraHomeHero({required this.streak});
-  final int streak;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final reflection = ref.watch(latestReflectionProvider).value;
-    const ink = Color(0xFF10243B);
-
-    final hasReflection = reflection != null;
-    final snippet = hasReflection ? _plainSnippet(reflection.content) : null;
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.go('/aurora'),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            gradient: AppColors.auroraGradient,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.24),
-                    ),
-                    child: const Icon(Icons.auto_awesome_rounded,
-                        color: ink, size: 20),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text('Aurora',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                            color: ink, fontWeight: FontWeight.w700)),
-                  ),
-                  if (hasReflection)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs + 2, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.28),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusPill),
-                      ),
-                      child: Text('This week',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                              color: ink, fontWeight: FontWeight.w700)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                snippet ?? _checkIn(streak),
-                maxLines: snippet != null ? 3 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: ink, height: 1.45),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: _HeroAction(
-                      icon: Icons.spa_rounded,
-                      label: hasReflection ? 'Read reflection' : 'Reflect',
-                      filled: true,
-                      onTap: () => context.go('/aurora'),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _HeroAction(
-                      icon: Icons.forum_rounded,
-                      label: 'Chat',
-                      filled: false,
-                      onTap: () => context.push('/aurora-chat'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _checkIn(int streak) {
-    if (streak >= 3) {
-      return 'You’re on a $streak-day streak, a lovely moment to pause and '
-          'reflect on how it’s going.';
-    }
-    return 'How are you feeling today? I can reflect on your week or just '
-        'talk it through.';
-  }
-
-  /// Turn markdown into a short, clean plain-text snippet for the card.
-  static String _plainSnippet(String md) {
-    final plain = md
-        .replaceAll(RegExp(r'[#>*_`~\-]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    return plain.length > 150 ? '${plain.substring(0, 150).trim()}…' : plain;
-  }
-}
-
-class _HeroAction extends StatelessWidget {
-  const _HeroAction({
-    required this.icon,
-    required this.label,
-    required this.filled,
+class _Hero extends StatelessWidget {
+  const _Hero({
+    super.key,
+    required this.view,
+    required this.celebrating,
+    required this.burst,
+    required this.streakPulse,
     required this.onTap,
   });
-  final IconData icon;
-  final String label;
-  final bool filled;
+
+  final HomeView view;
+  final bool celebrating;
+  final int burst;
+  final int streakPulse;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xFF10243B);
-    return Material(
-      color: filled ? Colors.white.withValues(alpha: 0.9) : Colors.transparent,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-            border: filled
-                ? null
-                : Border.all(color: ink.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: ink),
-              const SizedBox(width: AppSpacing.xs),
-              Text(label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: ink, fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+    final p = context.palette;
+    final on = p.onRaised;
+    final streak = view.stats.streak;
 
-// ─── Today empty state ──────────────────────────────────────────────
-
-class _TodayEmpty extends StatelessWidget {
-  const _TodayEmpty({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: const Icon(Icons.add_rounded,
-                    color: AppColors.secondary, size: 24),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Pressable(
+      onTap: onTap,
+      scale: .98,
+      semanticLabel: view.total == 0
+          ? 'Today, nothing planned yet'
+          : 'Today, ${view.percent} percent, ${view.done} of ${view.total} tended',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 236),
+        child: InkHeroCard(
+          glowLevel: view.progress,
+          celebrate: celebrating,
+          child: SizedBox(
+            height: 236 - 44,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
                   children: [
-                    Text('Nothing to tend yet',
-                        style: theme.textTheme.titleMedium),
-                    Text('Add a task or habit in Grow to begin',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    Text('Today',
+                        style: AppTypography.dateLine.copyWith(color: on.withValues(alpha: .7))),
+                    const Spacer(),
+                    if (streak > 0)
+                      _Pulse(
+                        trigger: streakPulse,
+                        child: AtlasChip(
+                          label: '$streak ${streak == 1 ? 'day' : 'days'}',
+                          icon: Symbols.local_fire_department_rounded,
+                          iconColor: AppColors.sunriseA,
+                          background: on.withValues(alpha: .12),
+                          foreground: on,
+                          dense: true,
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  color: theme.colorScheme.onSurfaceVariant),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── World nudge ────────────────────────────────────────────────────
-
-class _WorldNudge extends StatelessWidget {
-  const _WorldNudge({required this.progress, required this.onTap});
-  final double progress;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final pct = (progress * 100).round();
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                child: SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: LivingHorizon(
-                    height: 52,
-                    progress: progress,
-                    borderRadius: BorderRadius.zero,
+                if (view.total == 0)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('A fresh day.',
+                          style: AppTypography.display(size: 40, color: on)),
+                      const SizedBox(height: 8),
+                      Text('Add one small thing to tend.',
+                          style: AppTypography.subtitle.copyWith(color: on.withValues(alpha: .75))),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              CountUpText(
+                                value: view.percent,
+                                style: AppTypography.heroNumber.copyWith(color: on),
+                              ),
+                              GradientText('%', style: AppTypography.heroNumber),
+                              const SizedBox(width: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: AnimatedSwitcher(
+                                  duration: AppMotion.fast,
+                                  child: Text(
+                                    view.dayComplete
+                                        ? 'All\ntended'
+                                        : '${view.done} of ${view.total}\ntended',
+                                    key: ValueKey(view.dayComplete),
+                                    style: AppTypography.sans(
+                                      size: 15,
+                                      weight: FontWeight.w600,
+                                      height: 1.3,
+                                      tabular: true,
+                                      color: on.withValues(alpha: .75),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Positioned(
+                            left: -20,
+                            top: -40,
+                            child: SparkBurst(trigger: burst),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ProgressSegments(total: view.total, done: view.done),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Your world is $pct% alive',
-                        style: theme.textTheme.titleMedium),
-                    Text('Keep tending it to watch it grow',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  color: theme.colorScheme.onSurfaceVariant),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Scales its child 1 → 1.08 → 1 once each time [trigger] changes.
+class _Pulse extends StatelessWidget {
+  const _Pulse({required this.trigger, required this.child});
+  final int trigger;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (trigger == 0 || AppMotion.reduceMotion(context)) return child;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(trigger),
+      tween: Tween(begin: 0, end: 1),
+      duration: AppMotion.medium,
+      builder: (_, t, child) => Transform.scale(
+        scale: 1 + .08 * (t < .5 ? t * 2 : (1 - t) * 2),
+        child: child,
+      ),
+      child: child,
+    );
+  }
+}
+
+// ─── Tiles ──────────────────────────────────────────────────────────
+
+class _XpTile extends StatelessWidget {
+  const _XpTile({required this.stats, required this.onTap});
+  final PlayerStats stats;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final lvl = stats.level;
+    final meta = AppTypography.metaStrong.copyWith(color: p.textMuted);
+    return AtlasTile(
+      onTap: onTap,
+      semanticLabel:
+          'Level ${lvl.level}, ${lvl.xpInLevel} of ${lvl.xpForLevel} XP. ${stats.xpToday} XP today. Open your week.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Text('Level ${lvl.level}', style: meta),
+            const Spacer(),
+            Text('${lvl.xpInLevel}/${lvl.xpForLevel}', style: meta),
+          ]),
+          const SizedBox(height: 10),
+          FittedBox(
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.scaleDown,
+            child: CountUpText(
+              value: stats.xpToday,
+              prefix: '+',
+              suffix: ' XP',
+              style: AppTypography.cardNumber.copyWith(color: p.textPrimary),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GradientBar(value: lvl.fraction),
+        ],
+      ),
+    );
+  }
+}
+
+class _LetterTile extends StatelessWidget {
+  const _LetterTile({required this.state, required this.onTap});
+  final LetterTileState state;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final unread = state == LetterTileState.unread;
+    final title = unread ? 'Your weekly letter is ready' : 'Talk to Aurora';
+    final sub = unread ? 'from Aurora' : 'She knows your week';
+    return AtlasTile(
+      gradient: p.letter,
+      onTap: onTap,
+      semanticLabel: '$title, $sub',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          AtlasSpark(size: 30, animated: unread),
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: AppTypography.sans(
+                      size: 15, weight: FontWeight.w700, height: 1.2, color: p.textPrimary)),
+              const SizedBox(height: 2),
+              Text(sub, style: AppTypography.meta.copyWith(color: p.textMuted)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Up next ────────────────────────────────────────────────────────
+
+class _UpNextRow extends StatelessWidget {
+  const _UpNextRow({
+    super.key,
+    required this.item,
+    required this.primary,
+    required this.tended,
+    required this.onTend,
+    required this.onLater,
+    required this.onLongPress,
+  });
+
+  final TodayItem item;
+  final bool primary;
+  final bool tended;
+  final VoidCallback onTend;
+  final VoidCallback onLater;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget trailing;
+    if (tended) {
+      trailing = const _TendedCheck();
+    } else if (primary) {
+      trailing = PillButton(label: 'Tend', onTap: onTend, haptic: PressHaptic.light);
+    } else {
+      trailing = PillButton(
+        label: 'Later',
+        variant: PillVariant.track,
+        haptic: PressHaptic.selection,
+        onTap: onLater,
+      );
+    }
+    return AtlasRow(
+      leading: IconTile(style: item.style),
+      title: item.title,
+      meta: item.meta,
+      semanticsValue: tended ? 'done' : 'not done',
+      trailing: AnimatedSwitcher(
+        duration: AppMotion.fast,
+        switchInCurve: AppMotion.emphasized,
+        transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+        child: KeyedSubtree(key: ValueKey(tended ? 'done' : 'todo'), child: trailing),
+      ),
+      onSwipeRight: tended ? null : onTend,
+      onSwipeLeft: tended ? null : onLater,
+      onLongPress: onLongPress,
+    );
+  }
+}
+
+class _TendedCheck extends StatelessWidget {
+  const _TendedCheck();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 40,
+        height: 40,
+        decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.sunrise),
+        child: const AtlasIcon(Symbols.check_rounded, color: AppColors.white, size: 22, weight: 600),
+      );
+}
+
+class _DayDone extends StatelessWidget {
+  const _DayDone({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Column(
+        children: [
+          const AtlasSpark(size: 72, animated: true),
+          const SizedBox(height: AppSpacing.md),
+          Text('That’s everything for today.',
+              textAlign: TextAlign.center,
+              style: AppTypography.section.copyWith(color: p.textPrimary)),
+          const SizedBox(height: AppSpacing.md),
+          PillButton(
+            label: 'Add something',
+            variant: PillVariant.track,
+            height: 46,
+            onTap: onAdd,
+          ),
+        ],
       ),
     );
   }
