@@ -214,7 +214,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const AuroraNudgeCard(),
               const SizedBox(height: 14),
-              if (view.total == 0)
+              if (!view.ready)
+                const SizedBox.shrink()
+              else if (view.total == 0)
                 EmptyState(
                   title: 'Nothing planned for today.',
                   body: 'Add one small thing you’d like to tend.',
@@ -390,7 +392,7 @@ class _Hero extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (view.total == 0)
+                if (view.ready && view.total == 0)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

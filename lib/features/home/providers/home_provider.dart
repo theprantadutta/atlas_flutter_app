@@ -67,6 +67,7 @@ class HomeView {
     required this.stats,
     required this.letter,
     required this.letterId,
+    this.ready = true,
   });
 
   final DateTime today;
@@ -76,11 +77,16 @@ class HomeView {
   final LetterTileState letter;
   final String? letterId;
 
+  /// False until both tasks and habits have loaded. Until then the list is
+  /// partial, so Home must not judge the day: no "All tended", no empty
+  /// state and no celebration from whichever stream happened to arrive first.
+  final bool ready;
+
   int get total => items.length;
   int get done => items.where((i) => i.done).length;
   double get progress => total == 0 ? 0 : done / total;
   int get percent => (progress * 100).round();
-  bool get dayComplete => total > 0 && done == total;
+  bool get dayComplete => ready && total > 0 && done == total;
 
   /// Not-done items: by scheduled time (untimed last), then creation date;
   /// snoozed ones sink to the end.
@@ -127,8 +133,10 @@ bool _taskIsToday(Task t, DateTime today) {
 final homeProvider = Provider.autoDispose<HomeView>((ref) {
   final today = ref.watch(todayProvider);
   final user = ref.watch(authProvider.select((s) => s.user));
-  final tasks = ref.watch(tasksStreamProvider).value ?? const <Task>[];
-  final habits = ref.watch(habitsStreamProvider).value ?? const <Habit>[];
+  final tasksAsync = ref.watch(tasksStreamProvider);
+  final habitsAsync = ref.watch(habitsStreamProvider);
+  final tasks = tasksAsync.value ?? const <Task>[];
+  final habits = habitsAsync.value ?? const <Habit>[];
   final stats = ref.watch(playerStatsProvider);
   final snoozed = ref.watch(snoozeProvider);
   final reflection = ref.watch(latestReflectionProvider).value;
@@ -190,5 +198,6 @@ final homeProvider = Provider.autoDispose<HomeView>((ref) {
     stats: stats,
     letter: unread ? LetterTileState.unread : LetterTileState.talk,
     letterId: reflection?.id,
+    ready: tasksAsync.hasValue && habitsAsync.hasValue,
   );
 });

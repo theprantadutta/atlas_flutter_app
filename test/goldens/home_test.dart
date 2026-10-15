@@ -13,7 +13,7 @@ import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 import '../helpers/golden.dart';
 
-HomeView sampleHome({int done = 2}) {
+HomeView sampleHome({int done = 2, bool ready = true}) {
   final created = DateTime(2026, 10, 1);
   TodayItem item(String id, String title, String cat, int xp, int? minute, bool isDone) => TodayItem(
         id: id,
@@ -44,6 +44,7 @@ HomeView sampleHome({int done = 2}) {
     ),
     letter: LetterTileState.unread,
     letterId: 'r1',
+    ready: ready,
   );
 }
 
@@ -74,4 +75,16 @@ void main() {
       );
     });
   }
+
+  testWidgets('a half-loaded day passes no verdict', (tester) async {
+    // Only finished items have arrived so far: everything shown is done, but
+    // the day isn't, so no "All tended" and no day-done state.
+    await pumpPhone(tester, const HomeScreen(),
+        overrides: overridesFor(sampleHome(done: 4, ready: false)));
+    await settle(tester);
+    expect(find.text('All\ntended'), findsNothing);
+    expect(find.text('That’s everything for today.'), findsNothing);
+    expect(sampleHome(done: 4, ready: false).dayComplete, isFalse);
+    expect(sampleHome(done: 4).dayComplete, isTrue);
+  });
 }
