@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
+import 'package:atlas_flutter_app/features/achievements/providers/achievement_providers.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/notifications/widgets/notification_primer.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
@@ -158,6 +160,8 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     // Keep the day rolling over and discoveries happening wherever you are.
     ref.watch(dailyRolloverProvider);
     ref.watch(worldDiscoveryProvider);
+    ref.watch(achievementEvaluatorProvider);
+    ref.watch(avatarStatsSyncProvider);
     ref.listen<List<String>>(pendingDiscoveriesProvider, (prev, next) {
       final fresh = next.where((id) => !(prev ?? const []).contains(id)).toList();
       if (fresh.isEmpty || shell.currentIndex == 3) return;

@@ -67,3 +67,4 @@ lib/generated/
 
 nul
 .claude/
+test/goldens/failures/

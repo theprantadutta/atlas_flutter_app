@@ -5,9 +5,8 @@ import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_p
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
 
-/// The tone of a nudge shapes its accent — always caring, never shaming.
+/// The tone of a nudge: always caring, never shaming.
 enum NudgeTone { celebrate, gentle, encourage }
 
 /// A single proactive message from Aurora, derived from local Drift data.
@@ -29,11 +28,6 @@ class AuroraNudge {
   /// If set, tapping "Talk about it" opens Aurora chat with this seed.
   final String? prompt;
 
-  Color accent() => switch (tone) {
-        NudgeTone.celebrate => AppColors.tertiaryLight,
-        NudgeTone.gentle => AppColors.secondary,
-        NudgeTone.encourage => AppColors.xpPrimary,
-      };
 }
 
 /// Session-scoped set of dismissed nudge keys.

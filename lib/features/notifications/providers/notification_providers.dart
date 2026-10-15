@@ -1,4 +1,6 @@
-import 'package:drift/drift.dart' show Value;
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
@@ -33,13 +35,6 @@ class NotificationActions {
   NotificationActions(this._dao);
   final NotificationDao _dao;
 
-  /// Deterministic ids for opt-in starter content (removable later).
-  static const seedIds = [
-    'seed-notif-0',
-    'seed-notif-1',
-    'seed-notif-2',
-    'seed-notif-3',
-  ];
 
   Future<void> markAllRead(String userId) => _dao.markAllAsRead(userId);
 
@@ -48,66 +43,60 @@ class NotificationActions {
   Future<void> dismiss(String id) =>
       _dao.softDeleteNotification(id, DateTime.now());
 
-  /// Opt-in starter content (only seeded when the user asks for example data).
-  Future<void> seedStarter(String userId) async {
-    if (await _dao.countForUser(userId) > 0) return;
 
-    final now = DateTime.now();
-    // title, body, type, hoursAgo, read
-    final seeds = <List<dynamic>>[
-      [
-        'Achievement unlocked',
-        'You earned "Week of Calm" for a 7-day streak.',
-        'achievementUnlocked',
-        2,
-        false,
-      ],
-      [
-        'Your world grew',
-        'A new Forest tile bloomed overnight.',
-        'systemMessage',
-        5,
-        false,
-      ],
-      [
-        'Gentle reminder',
-        'Meditation is waiting whenever you are.',
-        'habitReminder',
-        28,
-        true,
-      ],
-      [
-        'Streak milestone',
-        'You reached a 12-day streak. Keep tending.',
-        'streakAlert',
-        50,
-        true,
-      ],
-    ];
-    for (var i = 0; i < seeds.length; i++) {
-      final s = seeds[i];
-      final created = now.subtract(Duration(hours: s[3] as int));
-      final read = s[4] as bool;
-      await _dao.insertNotification(NotificationsCompanion(
-        id: Value(seedIds[i]),
-        userId: Value(userId),
-        title: Value(s[0] as String),
-        body: Value(s[1] as String),
-        type: Value(s[2] as String),
-        isRead: Value(read),
-        readAt: read ? Value(created) : const Value(null),
-        createdAt: Value(created),
-        updatedAt: Value(created),
-        isDirty: const Value(true),
-      ));
+}
+
+// ─── Where a notification leads (bug: tapping one did nothing) ─────
+
+/// The in-app route a notification opens, or null to stay put. Reads, in
+/// order: an explicit `route` in its data, its linked entity, then its type.
+String? notificationRoute(Notification n) {
+  final data = n.data;
+  if (data != null && data.isNotEmpty) {
+    try {
+      final m = jsonDecode(data);
+      if (m is Map) {
+        final route = m['route'] ?? m['deep_link'];
+        if (route is String && route.startsWith('/')) return route;
+      }
+    } catch (_) {
+      // Not JSON: fall through to the entity and type.
     }
   }
-
-  /// Remove the opt-in starter content (soft-delete so it can sync).
-  Future<void> deleteStarter(String userId) async {
-    final now = DateTime.now();
-    for (final id in seedIds) {
-      await _dao.softDeleteNotification(id, now);
-    }
+  final entity = (n.entityType ?? '').toLowerCase().replaceAll('_', '');
+  switch (entity) {
+    case 'task':
+    case 'habit':
+    case 'goal':
+      return '/grow';
+    case 'achievement':
+      return '/world/achievements';
+    case 'worldtile':
+    case 'world':
+    case 'place':
+      return '/world';
+    case 'reflection':
+    case 'aurorareflection':
+    case 'letter':
+      return '/aurora/letter';
   }
+  return switch (n.type) {
+    'achievementUnlocked' || 'achievement_unlocked' => '/world/achievements',
+    'taskReminder' || 'task_reminder' => '/grow',
+    'habitReminder' || 'habit_reminder' => '/grow',
+    'goalDeadline' || 'goal_deadline' => '/grow',
+    'levelUp' || 'level_up' => '/analytics',
+    'dailySummary' || 'daily_summary' => '/analytics',
+    _ => null,
+  };
+}
+
+/// Bring back a dismissed notification (Undo after a swipe).
+Future<void> restoreNotification(AtlasDatabase db, String id) async {
+  await (db.update(db.notifications)..where((n) => n.id.equals(id))).write(NotificationsCompanion(
+    isDeleted: const Value(false),
+    deletedAt: const Value(null),
+    updatedAt: Value(DateTime.now()),
+    isDirty: const Value(true),
+  ));
 }

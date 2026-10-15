@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
     show currentUserIdProvider;
+import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 /// Reactive stream of the current user's avatar from Drift (source of truth).
 /// Avatar is 1:1 per user, so this emits a single nullable row.
@@ -134,3 +139,85 @@ class AvatarActions {
     );
   }
 }
+
+// ─── Stats from the ledger (bug: the avatar never levelled up) ───────
+
+/// The avatar's numbers, derived from local progress.
+class AvatarStats {
+  const AvatarStats({
+    required this.level,
+    required this.currentXp,
+    required this.strength,
+    required this.wisdom,
+    required this.intelligence,
+  });
+
+  final int level;
+
+  /// Total XP earned (matches the player's total).
+  final int currentXp;
+  final int strength;
+  final int wisdom;
+  final int intelligence;
+
+  /// Body, mind and craft, from where XP was earned: every 50 XP in an area
+  /// adds a point on top of a base of 10.
+  static const base = 10;
+  static const xpPerPoint = 50;
+  static const _strength = {'fitness', 'health'};
+  static const _wisdom = {'mindfulness', 'social', 'relationships', 'creative', 'personal'};
+  static const _intelligence = {'learning', 'work', 'career', 'productivity', 'finance', 'financial'};
+
+  static AvatarStats derive({required int totalXp, required List<LedgerDay> days}) {
+    var s = 0, w = 0, i = 0;
+    for (final d in days) {
+      d.categories.forEach((k, v) {
+        if (_strength.contains(k)) {
+          s += v;
+        } else if (_wisdom.contains(k)) {
+          w += v;
+        } else if (_intelligence.contains(k)) {
+          i += v;
+        }
+      });
+    }
+    return AvatarStats(
+      level: LevelInfo.of(totalXp).level,
+      currentXp: totalXp,
+      strength: base + s ~/ xpPerPoint,
+      wisdom: base + w ~/ xpPerPoint,
+      intelligence: base + i ~/ xpPerPoint,
+    );
+  }
+
+  bool matches(Avatar a) =>
+      a.level == level &&
+      a.currentXp == currentXp &&
+      a.strength == strength &&
+      a.wisdom == wisdom &&
+      a.intelligence == intelligence;
+}
+
+/// Keeps the avatar row in step with the ledger, writing only when a number
+/// actually changed. Watch it once near the root:
+/// `ref.watch(avatarStatsSyncProvider);`
+final avatarStatsSyncProvider = Provider<void>((ref) {
+  if (!ref.watch(authProvider.select((s) => s.isAuthenticated))) return;
+  final avatar = ref.watch(avatarStreamProvider).value;
+  if (avatar == null) return;
+  final stats = AvatarStats.derive(
+    totalXp: ref.watch(playerStatsProvider).totalXp,
+    days: ref.watch(ledgerDaysProvider),
+  );
+  if (stats.matches(avatar)) return;
+  final db = ref.read(databaseProvider);
+  unawaited((db.update(db.avatars)..where((a) => a.id.equals(avatar.id))).write(AvatarsCompanion(
+    level: Value(stats.level),
+    currentXp: Value(stats.currentXp),
+    strength: Value(stats.strength),
+    wisdom: Value(stats.wisdom),
+    intelligence: Value(stats.intelligence),
+    updatedAt: Value(DateTime.now()),
+    isDirty: const Value(true),
+  )));
+});
