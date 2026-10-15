@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
@@ -143,11 +145,31 @@ class OnboardingState {
   }
 }
 
+/// Whether an account was created well before now (so this is a sign-in to an
+/// existing account, not a fresh signup).
+bool isReturningAccount(DateTime createdAt, {DateTime? now}) =>
+    (now ?? DateTime.now()).difference(createdAt) > const Duration(minutes: 30);
+
 class OnboardingController extends Notifier<OnboardingState> {
   @override
   OnboardingState build() {
     _load();
+    // An account that already existed before this sign-in (a new phone, a
+    // reinstall) has been set up already: skip setup rather than add a second
+    // set of starter habits that sync would then duplicate.
+    ref.listen(authProvider.select((s) => s.user), (_, user) {
+      if (user != null && isReturningAccount(user.createdAt)) {
+        _markSetupDone();
+      }
+    }, fireImmediately: true);
     return const OnboardingState();
+  }
+
+  Future<void> _markSetupDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kSetupComplete) ?? false) return;
+    await prefs.setBool(_kSetupComplete, true);
+    state = state.copyWith(setupComplete: true);
   }
 
   Future<void> _load() async {

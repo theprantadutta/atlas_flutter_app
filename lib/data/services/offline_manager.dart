@@ -188,6 +188,7 @@ class OfflineManager {
     if (!_isOnline || _isSyncing || !_isAuthenticated) return;
 
     _isSyncing = true;
+    final startedAt = DateTime.now();
     _syncStatusController.add(SyncStatus.syncing);
     final done = Completer<void>();
     _inFlightSync = done.future;
@@ -232,6 +233,33 @@ class OfflineManager {
       _isSyncing = false;
       _inFlightSync = null;
       done.complete();
+    }
+    // Local writes made while this sync was running were ignored by the
+    // write listener (it can't tell them from the sync's own writes). Rows
+    // edited after this sync started are still dirty: go again for them.
+    // Rows the server rejected are older than that, so this can't loop.
+    if (await _hasDirtyRowsSince(startedAt)) scheduleSync();
+  }
+
+  /// Whether any synced table has a dirty row edited at or after [since].
+  Future<bool> _hasDirtyRowsSince(DateTime since) async {
+    try {
+      final db = _taskDao.attachedDatabase;
+      const tables = [
+        'tasks', 'habits', 'goals', 'avatars', 'world_tiles',
+        'achievements', 'progress_entries', 'notifications',
+      ];
+      final sql = tables
+          .map((t) => 'SELECT 1 FROM $t WHERE is_dirty = 1 AND updated_at >= ?')
+          .join(' UNION ALL ');
+      final rows = await db
+          .customSelect('$sql LIMIT 1',
+              variables: [for (final _ in tables) Variable.withDateTime(since)])
+          .get();
+      return rows.isNotEmpty;
+    } catch (e) {
+      _log.w('OfflineManager: dirty check failed', error: e);
+      return false;
     }
   }
 
@@ -414,6 +442,7 @@ class OfflineManager {
         'streak_count': t.streakCount,
         'last_completed_date': t.lastCompletedDate?.toUtc().toIso8601String(),
         'is_deleted': t.isDeleted,
+        'created_at': t.createdAt.toUtc().toIso8601String(),
         'updated_at': t.updatedAt.toUtc().toIso8601String(),
       };
 
@@ -513,6 +542,7 @@ class OfflineManager {
         'reminder_time': h.reminderTime,
         'last_completed_date': h.lastCompletedDate?.toUtc().toIso8601String(),
         'is_deleted': h.isDeleted,
+        'created_at': h.createdAt.toUtc().toIso8601String(),
         'updated_at': h.updatedAt.toUtc().toIso8601String(),
       };
 
@@ -613,6 +643,7 @@ class OfflineManager {
         'completed_at': g.completedAt?.toUtc().toIso8601String(),
         'parent_goal_id': g.parentGoalId,
         'is_deleted': g.isDeleted,
+        'created_at': g.createdAt.toUtc().toIso8601String(),
         'updated_at': g.updatedAt.toUtc().toIso8601String(),
       };
 
@@ -733,6 +764,7 @@ class OfflineManager {
       'appearance': appearance,
       'unlocked_items': unlocked,
       'is_deleted': a.isDeleted,
+      'created_at': a.createdAt.toUtc().toIso8601String(),
       'updated_at': a.updatedAt.toUtc().toIso8601String(),
     };
   }
@@ -847,6 +879,7 @@ class OfflineManager {
         'position_y': w.positionY,
         'unlocked_at': w.unlockedAt?.toUtc().toIso8601String(),
         'is_deleted': w.isDeleted,
+        'created_at': w.createdAt.toUtc().toIso8601String(),
         'updated_at': w.updatedAt.toUtc().toIso8601String(),
       };
 
@@ -956,6 +989,7 @@ class OfflineManager {
       'progress': a.progress,
       'unlocked_at': a.unlockedAt?.toUtc().toIso8601String(),
       'is_deleted': a.isDeleted,
+      'created_at': a.createdAt.toUtc().toIso8601String(),
       'updated_at': a.updatedAt.toUtc().toIso8601String(),
     };
   }
@@ -1083,6 +1117,7 @@ class OfflineManager {
       'level_at_time': p.levelAtTime,
       'additional_metrics': decode(p.additionalMetrics),
       'is_deleted': p.isDeleted,
+      'created_at': p.createdAt.toUtc().toIso8601String(),
       'updated_at': p.updatedAt.toUtc().toIso8601String(),
     };
   }
@@ -1186,6 +1221,7 @@ class OfflineManager {
         'entity_type': n.entityType,
         'entity_id': n.entityId,
         'is_deleted': n.isDeleted,
+        'created_at': n.createdAt.toUtc().toIso8601String(),
         'updated_at': n.updatedAt.toUtc().toIso8601String(),
       };
 

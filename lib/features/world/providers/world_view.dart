@@ -216,6 +216,13 @@ final worldDiscoveryProvider = Provider<void>((ref) {
     for (final p in due) {
       await actions.unlock(p.id);
     }
-    pending.add(due.map((p) => p.id));
+    // A place you just earned is a moment: celebrate it. Places unlocked
+    // by XP that arrived through sync, example data or several at once are
+    // a catch-up, not a moment, so they're recorded quietly.
+    if (due.length == 1 && TendController.recentlyAwarded) {
+      pending.add(due.map((p) => p.id));
+    } else {
+      await pending.markAllCelebrated(due.map((p) => p.id));
+    }
   });
 });

@@ -80,7 +80,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   isPassword: true,
                   textInputAction: TextInputAction.done,
                   autofillHints: const [AutofillHints.password],
-                  validator: Validators.validatePassword,
+                  // Signing in only needs a password; strength rules are for new ones,
+                  // and older accounts may predate them.
+                  validator: (v) => Validators.validateRequired(v, fieldName: 'Password'),
                   onSubmitted: (_) => _onLogin(),
                 ),
               ],

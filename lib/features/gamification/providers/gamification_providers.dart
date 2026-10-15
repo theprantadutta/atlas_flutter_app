@@ -149,6 +149,15 @@ class TendController {
   TendController(this._ref);
   final Ref _ref;
 
+  /// When this device last earned XP from something the user did. Discovery
+  /// only celebrates places unlocked right after one, never ones that
+  /// arrive through sync or example data.
+  static DateTime? lastLocalAward;
+
+  static bool get recentlyAwarded =>
+      lastLocalAward != null &&
+      DateTime.now().difference(lastLocalAward!) < const Duration(seconds: 15);
+
   AtlasDatabase get _db => _ref.read(databaseProvider);
   XpLedgerService get _ledger => _ref.read(xpLedgerServiceProvider);
   String get _userId => _ref.read(currentUserIdProvider);
@@ -185,6 +194,7 @@ class TendController {
     ));
     final key = Ledger.taskKey(task.id);
     final xp = task.xpReward;
+    lastLocalAward = DateTime.now();
     await _ledger.record(
       userId: _userId,
       itemKey: key,
@@ -264,6 +274,7 @@ class TendController {
       isDirty: const Value(true),
     ));
     final key = Ledger.habitKey(habit.id);
+    lastLocalAward = DateTime.now();
     await _ledger.record(
       userId: _userId,
       itemKey: key,
@@ -348,6 +359,7 @@ class TendController {
     final key = Ledger.goalKey(goal.id);
     if (isDone && !wasDone) {
       final xp = GamificationConstants.calculateGoalXp(priority: _priority(goal.priority));
+      lastLocalAward = DateTime.now();
       await _ledger.record(
         userId: _userId,
         itemKey: key,

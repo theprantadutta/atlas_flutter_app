@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/starter_seeder.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
@@ -38,6 +40,8 @@ class StarterDataState {
 class StarterDataController extends Notifier<StarterDataState> {
   @override
   StarterDataState build() {
+    // Re-evaluate for whoever signs in.
+    ref.watch(authProvider.select((s) => s.user?.id));
     _load();
     return const StarterDataState();
   }
@@ -52,9 +56,15 @@ class StarterDataController extends Notifier<StarterDataState> {
       await _seeder.migrateLegacyIds(userId);
     } catch (_) {/* best effort; nothing depends on it */}
     final has = await _seeder.hasSeed(userId);
+    // A returning account (new phone, reinstall) was asked already.
+    final user = ref.read(authProvider).user;
+    final returning = user != null && isReturningAccount(user.createdAt);
+    if (returning && !(prefs.getBool(_kChoiceMade) ?? false)) {
+      await prefs.setBool(_kChoiceMade, true);
+    }
     state = StarterDataState(
       loaded: true,
-      choiceMade: prefs.getBool(_kChoiceMade) ?? false,
+      choiceMade: returning || (prefs.getBool(_kChoiceMade) ?? false),
       hasStarterData: has || (prefs.getBool(_kSeeded) ?? false),
     );
   }
