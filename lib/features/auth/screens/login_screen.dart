@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/auth/widgets/forgot_password_sheet.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
@@ -89,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Align(
           alignment: Alignment.centerRight,
           child: Pressable(
-            onTap: () => _showForgotPassword(context),
+            onTap: () => showForgotPasswordSheet(context, email: _emailController.text.trim()),
             haptic: PressHaptic.selection,
             semanticLabel: 'Forgot password?',
             child: Padding(
@@ -127,41 +128,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
-
-/// Password resets need a backend endpoint (and an email sender) that Atlas
-/// doesn't have yet, so instead of a button that silently does nothing this
-/// explains honestly what still works.
-Future<void> _showForgotPassword(BuildContext context) => showAtlasSheet<void>(
-      context,
-      builder: (context) {
-        final p = context.palette;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AtlasSpark(size: 36, animated: true),
-              const SizedBox(height: AppSpacing.md),
-              Text('Forgot your password?',
-                  style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Resetting it from the app isn’t ready yet. If you first signed up with Google '
-                'or Apple, use that button and you’ll go straight in. Your data on this phone '
-                'is safe either way.',
-                style: AppTypography.body.copyWith(color: p.textBody),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              PillButton(
-                label: 'Got it',
-                height: 56,
-                expand: true,
-                haptic: PressHaptic.selection,
-                onTap: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        );
-      },
-    );

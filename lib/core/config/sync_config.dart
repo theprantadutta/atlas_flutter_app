@@ -1,13 +1,12 @@
 /// Cloud sync configuration.
 ///
-/// Sync is a **premium** feature. It is OFF by default — the app is fully
-/// usable as a local-only (Drift) experience and never touches the network for
-/// data. Billing/entitlement that flips this on per-user comes later; for now
-/// it's a single build-time gate the sync engine checks before doing any
-/// push/pull.
+/// Sync is a **premium** feature: the engine only runs for users with the
+/// cloud_sync entitlement (`canSyncProvider`). Everyone else stays a purely
+/// local (Drift) experience that never touches the network for data. This
+/// switch is the build-wide kill switch on top of that.
 class SyncConfig {
   SyncConfig._();
 
-  /// Master switch for the sync engine. Keep false until premium is wired.
-  static const bool enabled = false;
+  /// Master switch for the sync engine.
+  static const bool enabled = true;
 }
