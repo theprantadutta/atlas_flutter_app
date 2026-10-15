@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// First impression: the white spark on the coral launch ground, then the
+/// First impression: the sunrise spark on the soft peach launch ground, then the
 /// name. The native splash shows the same spark at the same size in the same
 /// spot, so the handoff is invisible and only the words arrive.
 class SplashScreen extends StatelessWidget {
@@ -15,12 +15,12 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduce = AppMotion.reduceMotion(context);
-    final onSplash = AppColors.white;
+    const onSplash = AppColors.ink;
 
     Widget name = Text('Atlas', style: AppTypography.display(size: 44, color: onSplash));
     Widget line = Text('Every day, a small sunrise.',
         style: AppTypography.sans(
-            size: 16, weight: FontWeight.w500, color: onSplash.withValues(alpha: .82)));
+            size: 16, weight: FontWeight.w500, color: AppColors.textMuted));
 
     if (!reduce) {
       name = name.animate().fadeIn(delay: 150.ms, duration: AppMotion.medium).slideY(
@@ -34,7 +34,7 @@ class SplashScreen extends StatelessWidget {
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
+      value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
         systemNavigationBarColor: AppColors.splash,
       ),
@@ -46,10 +46,10 @@ class SplashScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Spacer(),
-            const AtlasSpark(
-              size: _sparkSize,
-              variant: SparkVariant.white,
-              semanticLabel: 'Atlas',
+            // Centered rather than stretched: the gradient spans the spark's
+            // own box, exactly as in the native image.
+            const Center(
+              child: AtlasSpark(size: _sparkSize, semanticLabel: 'Atlas'),
             ),
             Expanded(
               child: Column(

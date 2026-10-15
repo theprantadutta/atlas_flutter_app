@@ -35,10 +35,10 @@ class AppColors {
   static const sunriseB = Color(0xFFFF5E62);
   static const sunriseC = Color(0xFF8E6CFF);
 
-  /// The launch ground, native splash and in-app splash alike: a deeper,
-  /// calmer coral than [sunriseB] so a full screen of it never glares. The
-  /// same in light and dark.
-  static const splash = Color(0xFFD9504F);
+  /// The launch ground, native splash and in-app splash alike: the soft
+  /// peach of Aurora's letter, so the gradient spark reads as the logo it is
+  /// without a full screen of glare. The same in light and dark.
+  static const splash = letterA;
 
   // ─── Soft letter tints ───
   static const letterA = Color(0xFFFFE7D6);
