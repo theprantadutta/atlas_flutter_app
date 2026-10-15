@@ -1,178 +1,203 @@
 import 'package:flutter/material.dart';
 
-/// Atlas — "Living World / Aurora" palette.
+/// Atlas "Daylight" palette: the raw color values.
 ///
-/// Dark is the hero (twilight ink). The aurora gradient (teal → lilac → rose)
-/// is the single bold accent, used sparingly for sky / hero / progress. Warm
-/// gold marks rewards. Category / tile / tier hues are kept natural and lightly
-/// desaturated so the whole app reads as one living world rather than a rainbow.
+/// Light-first. Warm canvas and ink do the heavy lifting; the sunrise gradient
+/// (amber → coral → violet) is reserved for things that are alive: done
+/// checks, completed progress, the FAB, Aurora's spark, best-day highlights.
 ///
-/// NOTE: the public token names are stable — widgets across the app reference
-/// them directly. Values change with the redesign; names do not.
+/// Widgets should read surface and text colors through `context.palette`
+/// (see `app_palette.dart`) so light and dark stay a single switch. The
+/// constants here are for the theme itself, the gradients (which don't change
+/// between themes), and category foreground colors.
 class AppColors {
   AppColors._();
 
-  // ─── Aurora signature (the one bold accent) ───
-  static const auroraTeal = Color(0xFF5EEAD4);
-  static const auroraLilac = Color(0xFF8B9CF7);
-  static const auroraRose = Color(0xFFF5A9C0);
+  // ─── Core (light) ───
+  static const canvas = Color(0xFFF4F1EA);
+  static const paper = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF16140F);
+  static const inkSoft = Color(0xFF4A453E);
+  static const textSecondary = Color(0xFF5E5A53);
+  static const textMuted = Color(0xFF6E695F); // mock used #77726A; darkened for 4.5:1
+  static const textFaint = Color(0xFFA39E95);
+  static const iconInactive = Color(0xFF8C877E);
+  static const chevron = Color(0xFFB3ADA2);
+  static const track = Color(0xFFECE7DD);
+  static const hairline = Color(0xFFE7E2D8);
+  static const outline = Color(0xFFDDD6C9);
+  static const white = Color(0xFFFFFFFF);
+  static const cream = Color(0xFFF4F1EA);
 
-  // ─── Primary - periwinkle/lilac (the calm brand) ───
-  static const primary = Color(0xFF6E7BF2);
-  static const primaryLight = Color(0xFF8B9CF7);
-  static const primaryDark = Color(0xFF4A55C7);
+  // ─── Sunrise signature ───
+  static const sunriseA = Color(0xFFFFB36B);
+  static const sunriseMid = Color(0xFFFF7F5F);
+  static const sunriseB = Color(0xFFFF5E62);
+  static const sunriseC = Color(0xFF8E6CFF);
 
-  // ─── Secondary - aurora teal (growth/progress) ───
-  static const secondary = Color(0xFF2BB6A6);
-  static const secondaryLight = Color(0xFF5EEAD4);
-  static const secondaryDark = Color(0xFF1E8C80);
+  // ─── Soft letter tints ───
+  static const letterA = Color(0xFFFFE7D6);
+  static const letterB = Color(0xFFFFDDE3);
+  static const letterC = Color(0xFFE9E2FF);
 
-  // ─── Tertiary - warm gold (achievement/reward) ───
-  static const tertiary = Color(0xFFE8A765);
-  static const tertiaryLight = Color(0xFFF4C77B);
-  static const tertiaryDark = Color(0xFFC9863F);
+  // ─── Category (fg / light tint) ───
+  static const coral = Color(0xFFFF6A4D), coralTint = Color(0xFFFFE9E3);
+  static const sky = Color(0xFF3FA7F5), skyTint = Color(0xFFE3F1FD);
+  static const leaf = Color(0xFF2FBF71), leafTint = Color(0xFFE2F6EA);
+  static const pine = Color(0xFF1E9A58), pineTint = Color(0xFFDDF2E6);
+  static const violet = Color(0xFF8E6CFF), violetTint = Color(0xFFEEE8FF);
+  static const amber = Color(0xFFF5A524), amberTint = Color(0xFFFDF2DC);
+  static const rose = Color(0xFFFF5E62), roseTint = Color(0xFFFFE3E4);
 
-  // ─── XP / growth ───
-  static const xpPrimary = Color(0xFF34D6A8);
-  static const xpSecondary = Color(0xFF6EE7C7);
-  static const xpBackground = Color(0xFFD7F5EC);
+  static const categoryHealth = coral;
+  static const categoryFitness = coral;
+  static const categoryMindfulness = violet;
+  static const categoryFinance = pine;
+  static const categoryWork = sky;
+  static const categoryLearning = sky;
+  static const categorySocial = rose;
+  static const categoryCreative = amber;
+  static const categoryGrowth = leaf;
 
-  // ─── Streak (warm momentum, not aggressive red) ───
-  static const streakFlame = Color(0xFFF2994A);
-  static const streakGlow = Color(0xFFF9C784);
-
-  // ─── Badge Tiers (natural, still clearly tiered) ───
-  static const badgeBronze = Color(0xFFC0855A);
-  static const badgeCommon = Color(0xFF98A2B8);
-  static const badgeRare = Color(0xFF6E9BE6);
-  static const badgeEpic = Color(0xFFAB8BE0);
-  static const badgeLegendary = Color(0xFFF0B45C);
-
-  // ─── Category Colors (muted, living-world) ───
-  static const categoryHealth = Color(0xFFE2725B);
-  static const categoryFitness = Color(0xFFE8965A);
-  static const categoryMindfulness = Color(0xFF9B8BE0);
-  static const categoryFinance = Color(0xFF5BB58C);
-  static const categoryWork = Color(0xFF6E8FD6);
-  static const categoryLearning = Color(0xFF7C84E8);
-  static const categorySocial = Color(0xFFE58AAE);
-  static const categoryCreative = Color(0xFFE5B45C);
-
-  // ─── Surfaces - Light (warm "dawn paper") ───
-  static const surfaceLight = Color(0xFFF6F3EC);
-  static const cardLight = Color(0xFFFFFFFF);
-  static const cardBorderLight = Color(0xFFE7E1D5);
-
-  // ─── Surfaces - Dark (twilight ink) ───
-  static const surfaceDark = Color(0xFF0E1326);
-  static const surfaceHighDark = Color(0xFF1E2742);
-  static const cardDark = Color(0xFF171E38);
-  static const cardBorderDark = Color(0xFF2A3350);
-
-  // ─── Text ───
-  static const textPrimaryLight = Color(0xFF1A1F2E);
-  static const textSecondaryLight = Color(0xFF6A7185);
-  static const textPrimaryDark = Color(0xFFEAEEFB);
-  static const textSecondaryDark = Color(0xFF9AA6C8);
+  /// Light tint background for a category foreground color.
+  static Color tintFor(Color c) => switch (c.toARGB32()) {
+        0xFFFF6A4D => coralTint,
+        0xFF3FA7F5 => skyTint,
+        0xFF2FBF71 => leafTint,
+        0xFF1E9A58 => pineTint,
+        0xFF8E6CFF => violetTint,
+        0xFFF5A524 => amberTint,
+        0xFFFF5E62 => roseTint,
+        _ => track,
+      };
 
   // ─── Status ───
-  static const success = Color(0xFF5BB58C);
-  static const warning = Color(0xFFE8A765);
-  static const error = Color(0xFFE0685F);
-  static const info = Color(0xFF6E8FD6);
+  static const success = pine;
+  static const successTint = leafTint;
+  static const warning = amber;
+  static const error = coral;
+  static const info = sky;
 
-  // ─── Gradients ───
-  /// The signature aurora sweep — teal → lilac → rose.
-  static const auroraGradient = LinearGradient(
-    colors: [auroraTeal, auroraLilac, auroraRose],
-    begin: Alignment.bottomLeft,
-    end: Alignment.topRight,
-  );
+  // ─── Dark theme ("after dark"); see DARK_THEME.md ───
+  static const canvasDark = Color(0xFF0F0E0B);
+  static const paperDark = Color(0xFF1C1A16);
+  static const raisedDark = Color(0xFF26231D);
+  static const borderDark = Color(0xFF34302A);
+  static const trackDark = Color(0xFF2A2722);
+  static const chartBarDark = Color(0xFF4A453E);
+  static const textBodyDark = Color(0xFFD9D2C5);
+  static const textSecondaryDark = Color(0xFFA8A296);
+  static const textMutedDark = Color(0xFF9C968B);
+  static const textFaintDark = Color(0xFF6E695F);
+  static const chevronDark = Color(0xFF5E5A53);
+  static const successDark = Color(0xFF4FD08A);
+  static const letterDarkA = Color(0xFF3A2418);
+  static const letterDarkB = Color(0xFF3A1C26);
+  static const letterDarkC = Color(0xFF241C45);
 
-  static const primaryGradient = LinearGradient(
-    colors: [primaryDark, primaryLight],
+  // ─── Gradients (identical in both themes) ───
+  static const _sunriseColors = [sunriseA, sunriseB, sunriseC];
+  static const _sunriseStops = [0.0, .55, 1.0];
+
+  /// 120°: things that are alive (checks, FAB, send, spark, avatar ring).
+  static const sunrise = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+    colors: _sunriseColors,
+    stops: _sunriseStops,
   );
 
-  static const xpGradient = LinearGradient(
-    colors: [xpPrimary, xpSecondary],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
+  /// Horizontal: progress fills.
+  static const sunriseBar = LinearGradient(
+    colors: _sunriseColors,
+    stops: _sunriseStops,
   );
 
-  static const goldGradient = LinearGradient(
-    colors: [tertiary, tertiaryLight],
+  /// Vertical: the best-day bar.
+  static const sunriseVertical = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: _sunriseColors,
+    stops: _sunriseStops,
+  );
+
+  /// Two-stop warm sweep for gradient text ("%" glyph, best-day name).
+  static const sunriseText = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+    colors: [sunriseA, sunriseB],
   );
 
-  static const secondaryGradient = LinearGradient(
-    colors: [secondaryDark, secondaryLight],
+  /// The spark mark (135°).
+  static const spark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+    colors: _sunriseColors,
+    stops: [0, .5, 1],
   );
 
-  static const streakGradient = LinearGradient(
-    colors: [streakFlame, streakGlow],
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
+  static const heroGlow = RadialGradient(
+    center: Alignment(-0.2, -0.1),
+    colors: [sunriseA, sunriseB, sunriseC, Color(0x008E6CFF)],
+    stops: [0, .38, .62, .72],
   );
 
-  // ─── Light Mode Gradients ───
-  static const primaryGradientLight = LinearGradient(
-    colors: [primary, primaryLight],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+  static const globe = RadialGradient(
+    center: Alignment(-0.32, -0.44),
+    radius: 0.9,
+    colors: [
+      Color(0xFFFFF4E8),
+      Color(0xFFFFC79A),
+      Color(0xFFFF7F6A),
+      Color(0xFFB565D8),
+      Color(0xFF5B3CC4),
+    ],
+    stops: [0, .22, .48, .72, 1],
   );
 
-  static const secondaryGradientLight = LinearGradient(
-    colors: [secondary, secondaryLight],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  static const fabShadow = [
+    BoxShadow(color: Color(0x66FF5E62), blurRadius: 26, offset: Offset(0, 12)),
+  ];
+  static const globeShadow = [
+    BoxShadow(color: Color(0x595B3CC4), blurRadius: 80, offset: Offset(0, 40)),
+  ];
 
-  /// Returns the appropriate primary gradient based on brightness.
-  static LinearGradient heroPrimaryGradient(bool isDark) =>
-      isDark ? primaryGradient : primaryGradientLight;
-
-  /// Returns the appropriate secondary gradient based on brightness.
-  static LinearGradient heroSecondaryGradient(bool isDark) =>
-      isDark ? secondaryGradient : secondaryGradientLight;
-
-  // ─── Time-of-day sky stops (for the Living Horizon) ───
-  /// Sky gradient stops keyed to the hour, so the world shifts dawn → night.
-  static List<Color> skyForHour(int hour) {
-    if (hour >= 5 && hour < 8) {
-      // dawn — soft rose & amber
-      return const [Color(0xFF2A2547), Color(0xFF6E5C8E), Color(0xFFF5B79C)];
-    } else if (hour >= 8 && hour < 17) {
-      // day — calm teal & lilac
-      return const [Color(0xFF153244), Color(0xFF2E6E8E), Color(0xFF7FD7C9)];
-    } else if (hour >= 17 && hour < 20) {
-      // dusk — the aurora hour
-      return const [Color(0xFF1A1B30), Color(0xFF6A4E8E), Color(0xFFF2A8B6)];
-    } else {
-      // night — deep ink & faint aurora
-      return const [Color(0xFF080B1A), Color(0xFF1B2347), Color(0xFF3A4E8C)];
-    }
-  }
-
-  /// Airy sky stops for light mode — keeps the living horizon feeling bright and
-  /// "dawn paper" rather than carrying dark-mode weight.
-  static List<Color> skyForHourLight(int hour) {
-    if (hour >= 5 && hour < 8) {
-      // dawn — soft blue → blush → peach
-      return const [Color(0xFFBBD2EE), Color(0xFFE6CFDD), Color(0xFFFBE3C8)];
-    } else if (hour >= 8 && hour < 17) {
-      // day — clear, airy
-      return const [Color(0xFFAFD6EE), Color(0xFFCDE9E3), Color(0xFFE9F3DE)];
-    } else if (hour >= 17 && hour < 20) {
-      // dusk — gentle lavender & peach
-      return const [Color(0xFFBAC6EC), Color(0xFFE0CFE2), Color(0xFFF7DAC6)];
-    } else {
-      // night (light theme) — soft dusky lavender, still bright
-      return const [Color(0xFFAEB8DE), Color(0xFFC8C5E2), Color(0xFFDDD2E2)];
-    }
-  }
+  // ─── LEGACY (temporary): old names mapped to Daylight so screens compile
+  // while they are rebuilt one by one. Deleted at the end of the redesign. ───
+  static const auroraTeal = sunriseA;
+  static const auroraLilac = sunriseC;
+  static const auroraRose = sunriseB;
+  static const primary = ink;
+  static const primaryLight = sunriseC;
+  static const primaryDark = ink;
+  static const secondary = leaf;
+  static const secondaryLight = leaf;
+  static const secondaryDark = pine;
+  static const tertiary = amber;
+  static const tertiaryLight = sunriseA;
+  static const tertiaryDark = amber;
+  static const xpPrimary = sunriseB;
+  static const streakFlame = sunriseA;
+  static const streakGlow = sunriseA;
+  static const badgeBronze = Color(0xFFC0855A);
+  static const badgeCommon = Color(0xFF98A2B8);
+  static const badgeRare = sky;
+  static const badgeEpic = violet;
+  static const badgeLegendary = amber;
+  static const surfaceLight = canvas;
+  static const cardLight = paper;
+  static const cardBorderLight = hairline;
+  static const surfaceDark = canvasDark;
+  static const surfaceHighDark = raisedDark;
+  static const cardDark = paperDark;
+  static const cardBorderDark = borderDark;
+  static const textPrimaryLight = ink;
+  static const textSecondaryLight = textMuted;
+  static const textPrimaryDark = cream;
+  static const auroraGradient = sunrise;
+  static const primaryGradient = sunrise;
+  static const secondaryGradient = sunrise;
+  static const goldGradient = sunriseText;
+  static List<Color> skyForHour(int hour) => _sunriseColors;
+  static List<Color> skyForHourLight(int hour) => _sunriseColors;
 }

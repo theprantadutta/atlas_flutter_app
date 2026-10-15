@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:wght@300..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block" rel="stylesheet">
+<style>body{margin:0;background:#141210}a{color:#FF5E62}a:hover{color:#F4F1EA}@keyframes gblob{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-18px,14px) scale(1.12)}}@keyframes gspin{from{background-position:0 0}to{background-position:-300px 0}}@keyframes gping{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.2);opacity:0}}@keyframes gshim{0%,100%{transform:rotate(0deg) scale(1)}50%{transform:rotate(12deg) scale(1.08)}}</style>
+</helmet>
+<section style="background:#141210;min-height:100vh;width:fit-content;padding:80px 88px 100px;display:flex;flex-direction:column;gap:56px;font-family:'Funnel Sans',sans-serif;color:#F4F1EA">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:60px;max-width:1350px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:13px;letter-spacing:.16em;color:#9C968B;font-weight:700">ATLAS · REDESIGN · DARK THEME</span>
+      <span style="font-family:'Funnel Display',sans-serif;font-size:80px;line-height:.95;font-weight:700;letter-spacing:-.04em">Atlas, <span style="background:linear-gradient(120deg,#FFB36B,#FF5E62 50%,#8E6CFF);-webkit-background-clip:text;background-clip:text;color:transparent">after dark.</span></span>
+      <span style="font-size:19px;color:#A8A296;line-height:1.5;max-width:780px;text-wrap:pretty">The dark theme of Daylight. The canvas becomes warm near-black, cards become charcoal paper, and ink surfaces lift into raised charcoal with a hairline border. Primary actions flip to cream pills. The sunrise gradient, spark and globe don't change at all, so they glow even brighter at night.</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="width:28px;height:28px;border-radius:50%;background:#0F0E0B;border:1px solid #34302A"></div><div style="width:28px;height:28px;border-radius:50%;background:#1C1A16"></div><div style="width:28px;height:28px;border-radius:50%;background:#FFB36B"></div><div style="width:28px;height:28px;border-radius:50%;background:#FF5E62"></div><div style="width:28px;height:28px;border-radius:50%;background:#8E6CFF"></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,390px);column-gap:90px;row-gap:72px">
+
+    <!-- HOME -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Home" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:06</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px">
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;color:#9C968B;font-weight:600">Tuesday, 14 October</span><span style="font-family:'Funnel Display',sans-serif;font-size:34px;font-weight:700;letter-spacing:-.035em;line-height:1">Hey KDS</span></div>
+          <div style="display:flex;gap:8px"><div style="width:44px;height:44px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center;position:relative"><span style="font-family:'Material Symbols Rounded';font-size:22px">notifications</span><div style="position:absolute;top:10px;right:11px;width:8px;height:8px;border-radius:50%;background:#FF5E62"></div></div><div style="width:44px;height:44px;border-radius:50%;padding:2px;box-sizing:border-box;background:linear-gradient(120deg,#FFB36B,#FF5E62,#8E6CFF)"><div style="width:100%;height:100%;border-radius:50%;background:#16140F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">K</div></div></div>
+        </div>
+        <div style="height:236px;border-radius:32px;background:#26231D;border:1px solid #34302A;color:#fff;position:relative;overflow:hidden;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+          <div style="position:absolute;right:-70px;top:-80px;width:260px;height:260px">{{ blob }}</div>
+          <div style="position:relative;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:600;opacity:.7">Today</span><span style="display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:15px;color:#FFB36B;font-variation-settings:'FILL' 1">local_fire_department</span>12 days</span></div>
+          <div style="position:relative;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:flex-end;gap:10px"><span style="font-family:'Funnel Display',sans-serif;font-size:96px;font-weight:700;letter-spacing:-.06em;line-height:.78">50<span style="background:linear-gradient(120deg,#FFB36B,#FF5E62);-webkit-background-clip:text;background-clip:text;color:transparent">%</span></span><span style="font-size:15px;font-weight:600;opacity:.75;padding-bottom:4px;line-height:1.3">2 of 4<br>tended</span></div>
+            <div style="display:flex;gap:6px"><div style="flex:1;height:8px;border-radius:8px;background:linear-gradient(90deg,#FFB36B,#FF7F5F)"></div><div style="flex:1;height:8px;border-radius:8px;background:linear-gradient(90deg,#FF7F5F,#FF5E62)"></div><div style="flex:1;height:8px;border-radius:8px;background:rgba(255,255,255,.15)"></div><div style="flex:1;height:8px;border-radius:8px;background:rgba(255,255,255,.15)"></div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="padding:16px;border-radius:26px;background:#1C1A16;display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:700;color:#9C968B">Level 3</span><span style="font-size:12px;font-weight:700;color:#9C968B">640/1000</span></div><span style="font-family:'Funnel Display',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1">+175 XP</span><div style="height:6px;border-radius:6px;background:#2A2722"><div style="width:64%;height:100%;border-radius:6px;background:#F4F1EA"></div></div></div>
+          <div style="padding:16px;border-radius:26px;background:linear-gradient(150deg,#3A2418,#3A1C26 55%,#241C45);display:flex;flex-direction:column;justify-content:space-between"><div style="width:30px;height:30px">{{ sparkSm }}</div><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:700;line-height:1.2">Your weekly letter is ready</span><span style="font-size:12px;font-weight:600;color:#9C968B">from Aurora</span></div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 4px 0"><span style="font-family:'Funnel Display',sans-serif;font-size:21px;font-weight:700;letter-spacing:-.02em">Up next</span><span style="font-size:13px;font-weight:700;color:#9C968B">See all 4</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="height:64px;border-radius:22px;background:#1C1A16;display:flex;align-items:center;padding:0 10px 0 12px;gap:12px"><div style="width:42px;height:42px;border-radius:14px;background:rgba(142,108,255,.2);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;color:#8E6CFF;font-variation-settings:'FILL' 1">menu_book</span></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:15px;font-weight:700">Read 20 pages</span><span style="font-size:12px;color:#9C968B;font-weight:600">9:00 pm · +20 XP</span></div><div style="height:40px;padding:0 14px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;font-size:13px;font-weight:700">Tend</div></div>
+          <div style="height:64px;border-radius:22px;background:#1C1A16;display:flex;align-items:center;padding:0 10px 0 12px;gap:12px"><div style="width:42px;height:42px;border-radius:14px;background:rgba(63,167,245,.18);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;color:#3FA7F5;font-variation-settings:'FILL' 1">bedtime</span></div><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:15px;font-weight:700">Wind down</span><span style="font-size:12px;color:#9C968B;font-weight:600">10:30 pm · +15 XP</span></div><div style="height:40px;padding:0 14px;border-radius:999px;background:#2A2722;display:flex;align-items:center;font-size:13px;font-weight:700">Later</div></div>
+        </div>
+      </div>
+      <div style="position:absolute;left:16px;right:16px;bottom:26px;display:flex;gap:10px;align-items:center">
+        <div style="flex:1;height:64px;border-radius:999px;background:#26231D;border:1px solid #34302A;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 8px">
+          <div style="height:48px;padding:0 16px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800"><span style="font-family:'Material Symbols Rounded';font-size:21px;font-variation-settings:'FILL' 1">home</span>Home</div>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">checklist</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">auto_awesome</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-right:12px">language</span>
+        </div>
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px rgba(255,94,98,.4)"><span style="font-family:'Material Symbols Rounded';font-size:30px;color:#fff">add</span></div>
+      </div>
+      <div style="position:absolute;bottom:9px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:#F4F1EA"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">HOME</span><span style="font-size:14px;color:#A8A296;line-height:1.55">One raised charcoal card shows how your day is going, with a slow glow drifting in the corner. Below it are XP and Aurora's letter, then only what's up next, each with a one-tap Tend button. The + button is separate from the nav and never covers content.</span></div>
+    </div>
+
+    <!-- GROW -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Grow" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:06</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px"><span style="font-family:'Funnel Display',sans-serif;font-size:40px;font-weight:700;letter-spacing:-.04em;line-height:1">Grow</span><div style="width:44px;height:44px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px">search</span></div></div>
+        <div style="display:flex;padding:5px;border-radius:999px;background:#2A2722"><span style="flex:1;text-align:center;padding:11px 0;font-size:14px;font-weight:700;color:#9C968B">Tasks</span><span style="flex:1;text-align:center;padding:11px 0;font-size:14px;font-weight:800;border-radius:999px;background:#F4F1EA;color:#16140F">Habits</span><span style="flex:1;text-align:center;padding:11px 0;font-size:14px;font-weight:700;color:#9C968B">Goals</span></div>
+        <div style="display:flex;justify-content:space-between;padding:14px 12px;border-radius:26px;background:#1C1A16">
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;color:{{ d.lc }}">{{ d.l }}</span><div style="position:relative;width:34px;height:34px"><div style="position:absolute;inset:0;border-radius:50%;background:{{ d.ring }};-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px))"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">{{ d.n }}</div></div></div>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px"><span style="font-family:'Funnel Display',sans-serif;font-size:21px;font-weight:700;letter-spacing:-.02em">Today · 5 of 11</span><span style="font-size:13px;font-weight:700;color:#9C968B">Daily</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ habits }}" as="h" hint-placeholder-count="5">
+            <div style="height:70px;border-radius:22px;background:#1C1A16;display:flex;align-items:center;padding:0 12px;gap:12px">
+              <div style="width:44px;height:44px;border-radius:15px;background:{{ h.tint }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:23px;color:{{ h.c }};font-variation-settings:'FILL' 1">{{ h.icon }}</span></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700">{{ h.name }}</span><span style="font-size:12px;color:#9C968B;font-weight:600">{{ h.meta }}</span></div>
+              <div style="display:flex;gap:2px;align-items:flex-end;height:22px;margin-right:4px"><sc-for list="{{ h.bars }}" as="b" hint-placeholder-count="7"><div style="width:4px;border-radius:2px;height:{{ b.h }}px;background:{{ b.bg }}"></div></sc-for></div>
+              <div style="width:34px;height:34px;border-radius:50%;background:{{ h.chk }};border:{{ h.bd }};box-sizing:border-box;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;color:#fff">{{ h.mark }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(15,14,11,0),#0F0E0B 50%)"></div>
+      <div style="position:absolute;left:16px;right:16px;bottom:26px;display:flex;gap:10px;align-items:center">
+        <div style="flex:1;height:64px;border-radius:999px;background:#26231D;border:1px solid #34302A;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px">
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-left:14px">home</span>
+          <div style="height:48px;padding:0 16px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800"><span style="font-family:'Material Symbols Rounded';font-size:21px;font-variation-settings:'FILL' 1">checklist</span>Grow</div>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">auto_awesome</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-right:12px">language</span>
+        </div>
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px rgba(255,94,98,.4)"><span style="font-family:'Material Symbols Rounded';font-size:30px;color:#fff">add</span></div>
+      </div>
+      <div style="position:absolute;bottom:9px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:#F4F1EA"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">GROW · HABITS</span><span style="font-size:14px;color:#A8A296;line-height:1.55">A week strip of rings shows each day's completion at a glance. Every habit carries a tiny 7-day sparkline, so momentum is visible on the row itself. Done habits fill with the sunrise gradient.</span></div>
+    </div>
+
+    <!-- AURORA -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Aurora" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:02</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px">{{ sparkMd }}</div><span style="font-family:'Funnel Display',sans-serif;font-size:40px;font-weight:700;letter-spacing:-.04em;line-height:1">Aurora</span></div><div style="width:44px;height:44px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px">tune</span></div></div>
+        <div style="border-radius:32px;background:linear-gradient(160deg,#3A2418 0%,#3A1C26 50%,#241C45 100%);padding:22px;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden">
+          <div style="position:absolute;right:-30px;top:-30px;width:140px;height:140px;opacity:.5">{{ sparkLg }}</div>
+          <div style="position:relative;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:800;letter-spacing:.12em">SUNDAY LETTER</span><span style="font-size:12px;font-weight:700;color:#9C968B">26 Jul to 2 Aug</span></div>
+          <span style="position:relative;font-family:'Funnel Display',sans-serif;font-size:32px;font-weight:600;letter-spacing:-.03em;line-height:1.05;text-wrap:pretty">You didn't vanish. You moved at your own pace.</span>
+          <span style="position:relative;font-size:15px;line-height:1.55;color:#D9D2C5;text-wrap:pretty">No failed streaks here, just a pause in a story you're still writing. This week, pick one small kindness to offer yourself.</span>
+          <div style="position:relative;display:flex;gap:8px"><div style="height:46px;padding:0 18px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700"><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">play_arrow</span>Listen · 2 min</div><div style="height:46px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.1);display:flex;align-items:center;font-size:14px;font-weight:700">Read all</div></div>
+        </div>
+        <span style="font-family:'Funnel Display',sans-serif;font-size:21px;font-weight:700;letter-spacing:-.02em;padding:4px 4px 0">Start a conversation</span>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ ways }}" as="w" hint-placeholder-count="4">
+            <div style="height:58px;border-radius:20px;background:#1C1A16;display:flex;align-items:center;padding:0 14px;gap:12px"><span style="font-family:'Material Symbols Rounded';font-size:22px;color:{{ w.c }};font-variation-settings:'FILL' 1">{{ w.icon }}</span><span style="flex:1;font-size:15px;font-weight:700">{{ w.t }}</span><span style="font-family:'Material Symbols Rounded';font-size:20px;color:#5E5A53">arrow_forward</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(180deg,rgba(15,14,11,0),#0F0E0B 50%)"></div>
+      <div style="position:absolute;left:16px;right:16px;bottom:26px;display:flex;gap:10px;align-items:center">
+        <div style="flex:1;height:64px;border-radius:999px;background:#26231D;border:1px solid #34302A;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px">
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-left:14px">home</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">checklist</span>
+          <div style="height:48px;padding:0 16px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800"><span style="font-family:'Material Symbols Rounded';font-size:21px;font-variation-settings:'FILL' 1">auto_awesome</span>Aurora</div>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-right:12px">language</span>
+        </div>
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px rgba(255,94,98,.4)"><span style="font-family:'Material Symbols Rounded';font-size:30px;color:#fff">add</span></div>
+      </div>
+      <div style="position:absolute;bottom:9px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:#F4F1EA"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">AURORA</span><span style="font-size:14px;color:#A8A296;line-height:1.55">Aurora gets a new mark: a four-point spark that slowly shimmers. Her weekly reflection is a soft sunrise-tinted letter with one headline sentence and a Listen button. Conversation starters are big, easy tap targets.</span></div>
+    </div>
+
+    <!-- CHAT -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Aurora chat" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:05</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:8px 16px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #34302A">
+        <div style="width:42px;height:42px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px">arrow_back</span></div>
+        <div style="width:34px;height:34px">{{ sparkSm2 }}</div>
+        <div style="flex:1;display:flex;flex-direction:column"><span style="font-family:'Funnel Display',sans-serif;font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.1">Aurora</span><span style="font-size:12px;color:#9C968B;font-weight:600">Warm · knows your week</span></div>
+        <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#9C968B">more_horiz</span>
+      </div>
+      <div style="padding:18px 16px 0;display:flex;flex-direction:column;gap:12px">
+        <div style="align-self:flex-end;max-width:270px;padding:13px 16px;border-radius:24px 24px 6px 24px;background:#F4F1EA;color:#16140F;font-size:15px;line-height:1.45">I kept my habits this week but I still feel tired</div>
+        <div style="max-width:320px;padding:15px 16px;border-radius:24px 24px 24px 6px;background:#1C1A16;font-size:15px;line-height:1.55">I hear you. Keeping your habits is a quiet kind of strength, even when it doesn't <i>feel</i> like it yet. Maybe your body wants something gentler. Pick one?</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ ideas }}" as="i" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px;border-radius:20px;background:#1C1A16;border:1.5px solid {{ i.bd }};max-width:330px">
+              <div style="width:38px;height:38px;border-radius:12px;background:{{ i.tint }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:20px;color:{{ i.c }};font-variation-settings:'FILL' 1">{{ i.icon }}</span></div>
+              <div style="flex:1;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:700">{{ i.t }}</span><span style="font-size:12px;color:#9C968B;font-weight:600">{{ i.m }}</span></div>
+              <div style="height:34px;padding:0 13px;border-radius:999px;background:{{ i.bbg }};color:{{ i.bfg }};display:flex;align-items:center;font-size:12px;font-weight:800">{{ i.b }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <span style="font-size:15px;line-height:1.55;padding:0 4px;max-width:320px;color:#D9D2C5">You're already doing so much just by showing up.</span>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 16px 30px;background:#0F0E0B;border-top:1px solid #2A2722;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:8px"><span style="padding:9px 13px;border-radius:999px;background:#1C1A16;font-size:13px;font-weight:700">Plan tomorrow</span><span style="padding:9px 13px;border-radius:999px;background:#1C1A16;font-size:13px;font-weight:700">Why am I tired?</span></div>
+        <div style="display:flex;gap:10px;align-items:center"><div style="flex:1;height:54px;border-radius:999px;background:#1C1A16;display:flex;align-items:center;padding:0 16px 0 20px;gap:8px"><span style="flex:1;font-size:15px;color:#6E695F">Message Aurora</span><span style="font-family:'Material Symbols Rounded';font-size:22px;color:#9C968B">mic</span></div><div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;color:#fff">arrow_upward</span></div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">AURORA CHAT</span><span style="font-size:14px;color:#A8A296;line-height:1.55">Your messages are cream, hers are charcoal paper. Her suggestions are cards with one-tap Add, and the one she recommends most is outlined in the gradient. Quick replies sit above the input, with a mic for talking instead of typing.</span></div>
+    </div>
+
+    <!-- WORLD -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Atlas world" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:07</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:12px 24px 0;display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-family:'Funnel Display',sans-serif;font-size:40px;font-weight:700;letter-spacing:-.04em;line-height:1">Your Atlas</span><span style="font-size:15px;color:#9C968B;font-weight:600">12 of 30 places discovered</span></div>
+        <div style="width:44px;height:44px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px;color:#F5A524;font-variation-settings:'FILL' 1">trophy</span></div>
+      </div>
+      <div style="position:absolute;top:150px;left:50%;margin-left:-150px;width:300px;height:300px">{{ globe }}</div>
+      <div style="position:absolute;top:478px;left:20px;right:20px;display:flex;flex-direction:column;gap:10px">
+        <div style="padding:16px;border-radius:26px;background:#26231D;border:1px solid #34302A;color:#fff;display:flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:16px;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:24px;font-variation-settings:'FILL' 1">sailing</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:7px"><div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:700">Next: Lantern Bay</span><span style="font-size:12px;font-weight:700;opacity:.7">140 XP</span></div><div style="height:6px;border-radius:6px;background:rgba(255,255,255,.15)"><div style="width:72%;height:100%;border-radius:6px;background:linear-gradient(90deg,#FFB36B,#FF5E62,#8E6CFF)"></div></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <sc-for list="{{ places }}" as="p" hint-placeholder-count="3">
+            <div style="padding:12px;border-radius:20px;background:#1C1A16;display:flex;flex-direction:column;gap:8px"><div style="width:34px;height:34px;border-radius:11px;background:{{ p.tint }};display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:19px;color:{{ p.c }};font-variation-settings:'FILL' 1">{{ p.icon }}</span></div><div style="display:flex;flex-direction:column"><span style="font-size:13px;font-weight:700">{{ p.n }}</span><span style="font-size:11px;color:#9C968B;font-weight:600">{{ p.m }}</span></div></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:absolute;left:16px;right:16px;bottom:26px;display:flex;gap:10px;align-items:center">
+        <div style="flex:1;height:64px;border-radius:999px;background:#26231D;border:1px solid #34302A;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;padding:0 8px">
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E;margin-left:14px">home</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">checklist</span>
+          <span style="font-family:'Material Symbols Rounded';font-size:24px;color:#8C877E">auto_awesome</span>
+          <div style="height:48px;padding:0 16px;border-radius:999px;background:#F4F1EA;color:#16140F;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800"><span style="font-family:'Material Symbols Rounded';font-size:21px;font-variation-settings:'FILL' 1">language</span>Atlas</div>
+        </div>
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 26px rgba(255,94,98,.4)"><span style="font-family:'Material Symbols Rounded';font-size:30px;color:#fff">add</span></div>
+      </div>
+      <div style="position:absolute;bottom:9px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:#F4F1EA"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">ATLAS · WORLD</span><span style="font-size:14px;color:#A8A296;line-height:1.55">The tile grid becomes a slowly turning globe, which finally makes the name Atlas mean something. Every place you discover glows on it. The next one is always shown with how far away it is, and discovered places are collected below.</span></div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+    <div data-screen-label="Insights" style="width:390px;height:844px;border-radius:52px;overflow:hidden;position:relative;background:#0F0E0B;color:#F4F1EA;box-shadow:0 0 0 10px #000,0 0 0 11px #2A2722,0 50px 100px rgba(0,0,0,.5)">
+      <div style="height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:700"><span>4:09</span><div style="display:flex;gap:5px;align-items:center"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">signal_cellular_alt</span><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:20px;font-variation-settings:'FILL' 1">battery_full</span></div></div>
+      <div style="padding:8px 20px 0;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px;padding:0 4px"><div style="width:42px;height:42px;border-radius:50%;background:#1C1A16;display:flex;align-items:center;justify-content:center"><span style="font-family:'Material Symbols Rounded';font-size:22px">arrow_back</span></div><span style="font-family:'Funnel Display',sans-serif;font-size:30px;font-weight:700;letter-spacing:-.03em">Your week</span><span style="margin-left:auto;padding:7px 12px;border-radius:999px;background:#1C1A16;font-size:12px;font-weight:700">Week 31</span></div>
+        <div style="padding:20px 18px 16px;border-radius:30px;background:#1C1A16;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end"><div style="display:flex;flex-direction:column"><span style="font-family:'Funnel Display',sans-serif;font-size:64px;font-weight:700;letter-spacing:-.05em;line-height:.85">975</span><span style="font-size:13px;color:#9C968B;font-weight:600;margin-top:6px">XP earned this week</span></div><span style="padding:6px 10px;border-radius:999px;background:rgba(47,191,113,.18);color:#4FD08A;font-size:12px;font-weight:800">↑ 18%</span></div>
+          <div style="height:160px;display:flex;align-items:flex-end;gap:10px">
+            <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7"><div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end"><div style="width:100%;border-radius:14px;height:{{ b.h }}px;background:{{ b.bg }}"></div><span style="font-size:12px;font-weight:700;color:{{ b.lc }}">{{ b.d }}</span></div></sc-for>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="padding:16px;border-radius:24px;background:#26231D;border:1px solid #34302A;color:#fff;display:flex;flex-direction:column;gap:12px"><span style="font-size:12px;font-weight:700;opacity:.6">Best day</span><span style="font-family:'Funnel Display',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1;background:linear-gradient(120deg,#FFB36B,#FF5E62);-webkit-background-clip:text;background-clip:text;color:transparent">Friday</span><span style="font-size:12px;font-weight:600;opacity:.7">200 XP · 5 tended</span></div>
+          <div style="padding:16px;border-radius:24px;background:#1C1A16;display:flex;flex-direction:column;gap:12px"><span style="font-size:12px;font-weight:700;color:#9C968B">Completion</span><span style="font-family:'Funnel Display',sans-serif;font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1">72%</span><div style="height:6px;border-radius:6px;background:#2A2722"><div style="width:72%;height:100%;border-radius:6px;background:#F4F1EA"></div></div></div>
+        </div>
+        <div style="padding:16px;border-radius:24px;background:#1C1A16;display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:14px;font-weight:700">Where your XP came from</span>
+          <div style="display:flex;height:14px;border-radius:999px;overflow:hidden;gap:3px"><div style="width:47%;background:#FF6A4D"></div><div style="width:31%;background:#8E6CFF"></div><div style="width:22%;background:#3FA7F5"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#FF6A4D"></span>Health 380</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#8E6CFF"></span>Mind 255</span><span style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:#3FA7F5"></span>Learning 170</span></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:9px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:#F4F1EA"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;letter-spacing:.14em;font-weight:800;color:#FF5E62">INSIGHTS</span><span style="font-size:14px;color:#A8A296;line-height:1.55">One big number up top. The bars are muted, and only your best day gets the gradient, so it pops instantly. Completion and the XP breakdown are compact enough to fit on one screen.</span></div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  spark(size, anim = true) {
+    const h = React.createElement;
+    return h('div', { style: { width: '100%', height: '100%', position: 'relative', animation: anim ? 'gshim 5s ease-in-out infinite' : 'none' } },
+      h('div', { style: { position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#FFB36B,#FF5E62 50%,#8E6CFF)', clipPath: 'polygon(50% 0%,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0% 50%,39% 39%)' } }));
+  }
+  renderVals() {
+    const h = React.createElement;
+    const blob = h('div', { style: { position: 'relative', width: '100%', height: '100%', animation: 'gblob 9s ease-in-out infinite' } },
+      h('div', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle at 40% 45%,#FFB36B 0%,#FF5E62 38%,#8E6CFF 62%,rgba(142,108,255,0) 72%)', filter: 'blur(18px)', opacity: .9 } }));
+    const globe = h('div', { style: { position: 'relative', width: 300, height: 300 } },
+      h('div', { style: { position: 'absolute', inset: -30, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,94,98,.25),rgba(244,241,234,0) 65%)' } }),
+      h('div', { style: { position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden', background: 'radial-gradient(circle at 34% 28%,#FFF4E8 0%,#FFC79A 22%,#FF7F6A 48%,#B565D8 72%,#5B3CC4 100%)', boxShadow: '0 40px 80px rgba(91,60,196,.35), inset -24px -30px 60px rgba(40,20,90,.35)' } },
+        h('div', { style: { position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 48px,rgba(255,255,255,.35) 48px 49.5px)', animation: 'gspin 14s linear infinite', WebkitMask: 'radial-gradient(circle,#000 55%,rgba(0,0,0,.2) 72%)', mask: 'radial-gradient(circle,#000 55%,rgba(0,0,0,.2) 72%)' } }),
+        h('div', { style: { position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg,rgba(255,255,255,0) 0 42px,rgba(255,255,255,.3) 42px 43.5px)' } }),
+        h('div', { style: { position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle at 30% 25%,rgba(255,255,255,.55),rgba(255,255,255,0) 40%)' } })),
+      ...[[96, 92, 'Meadow', 1], [168, 70, 'Pine Ridge', 1], [130, 150, 'Still Lake', 1], [206, 158, 'Lantern Bay', 0], [74, 196, 'Sun Fields', 1]].map(([x, y, n, on], i) => h('div', { key: i, style: { position: 'absolute', left: x, top: y, width: 0, height: 0 } },
+        on ? null : h('div', { style: { position: 'absolute', left: -14, top: -14, width: 28, height: 28, borderRadius: '50%', border: '2px solid #fff', animation: 'gping 2s ease-out infinite' } }),
+        h('div', { style: { position: 'absolute', left: -6, top: -6, width: 12, height: 12, borderRadius: '50%', background: on ? '#fff' : '#16140F', border: on ? 'none' : '2.5px solid #fff', boxSizing: 'border-box', boxShadow: on ? '0 0 14px 4px rgba(255,255,255,.8)' : '0 0 0 4px rgba(255,255,255,.3)' } }),
+        h('div', { style: { position: 'absolute', left: 10, top: -11, whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 999, background: on ? 'rgba(255,255,255,.85)' : '#16140F', color: on ? '#16140F' : '#fff', fontSize: 11, fontWeight: 800, fontFamily: "'Funnel Sans',sans-serif" } }, on ? n : n + ' · next'))));
+    const L = ['M', 'T', 'W', 'T', 'F', 'S', 'S'], N = [13, 14, 15, 16, 17, 18, 19], P = [100, 45, 0, 0, 0, 0, 0];
+    const days = L.map((l, i) => ({ l, n: N[i], lc: i === 1 ? '#FF5E62' : '#9C968B', ring: P[i] ? `conic-gradient(#FFB36B,#FF5E62 ${P[i] * .6}%,#8E6CFF ${P[i]}%,#2A2722 ${P[i]}%)` : '#2A2722' }));
+    const HB = [
+      ['Move your body', 'directions_run', '#FF6A4D', 'rgba(255,106,77,.18)', '12 day streak', [1, 1, 1, 1, 1, 1, 1], 1],
+      ['Drink enough water', 'water_drop', '#3FA7F5', 'rgba(63,167,245,.18)', '6 of 6 glasses', [1, 1, 1, 0, 1, 1, 1], 1],
+      ['Stretch for 10 minutes', 'accessibility_new', '#2FBF71', 'rgba(47,191,113,.18)', '5 day streak', [0, 1, 1, 1, 1, 1, 1], 1],
+      ['Wind down before bed', 'bedtime', '#8E6CFF', 'rgba(142,108,255,.2)', '10:30 pm', [1, 1, 0, 1, 1, 1, 0], 0],
+      ['Rest properly tonight', 'hotel', '#F5A524', 'rgba(245,165,36,.18)', 'Before midnight', [0, 0, 1, 0, 0, 1, 0], 0],
+    ];
+    const habits = HB.map(([name, icon, c, tint, meta, w, d]) => ({ name, icon, c, tint, meta,
+      bars: w.map((v, i) => ({ h: v ? [14, 18, 12, 20, 16, 22, 18][i] : 4, bg: v ? c : '#34302A' })),
+      chk: d ? 'linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF)' : 'transparent', bd: d ? 'none' : '2px solid #4A453E', mark: d ? 'check' : '' }));
+    const ways = [
+      { t: 'Tell it the way it is', icon: 'edit_note', c: '#FF6A4D' }, { t: 'Plan my week', icon: 'calendar_month', c: '#8E6CFF' },
+      { t: 'Celebrate a small win', icon: 'celebration', c: '#F5A524' }, { t: 'I feel stuck', icon: 'cloud', c: '#3FA7F5' },
+    ];
+    const ideas = [
+      { t: '5 min stretch before bed', m: 'Habit · 10:15 pm · +15 XP', icon: 'self_improvement', c: '#8E6CFF', tint: 'rgba(142,108,255,.2)', b: 'Add', bbg: 'linear-gradient(120deg,#FFB36B,#FF5E62 55%,#8E6CFF)', bfg: '#fff', bd: 'rgba(255,94,98,.6)' },
+      { t: 'A short walk outside', m: 'Task · today · +10 XP', icon: 'directions_walk', c: '#2FBF71', tint: 'rgba(47,191,113,.18)', b: 'Add', bbg: '#F4F1EA', bfg: '#16140F', bd: 'transparent' },
+      { t: 'Sit with a warm drink', m: 'Just for tonight', icon: 'coffee', c: '#F5A524', tint: 'rgba(245,165,36,.18)', b: 'Remind me', bbg: '#2A2722', bfg: '#F4F1EA', bd: 'transparent' },
+    ];
+    const places = [
+      { n: 'Meadow', m: 'Found Jul 2', icon: 'grass', c: '#2FBF71', tint: 'rgba(47,191,113,.18)' },
+      { n: 'Pine Ridge', m: 'Found Jul 19', icon: 'forest', c: '#4FD08A', tint: 'rgba(30,154,88,.24)' },
+      { n: 'Still Lake', m: 'Found Aug 1', icon: 'water', c: '#3FA7F5', tint: 'rgba(63,167,245,.18)' },
+    ];
+    const xp = [120, 85, 160, 95, 200, 140, 175], D = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const bars = xp.map((v, i) => ({ d: D[i], h: Math.round(v / 200 * 128), bg: i === 4 ? 'linear-gradient(180deg,#FFB36B,#FF5E62 55%,#8E6CFF)' : '#4A453E', lc: i === 4 ? '#FF5E62' : '#9C968B' }));
+    return { blob, globe, sparkSm: this.spark(30), sparkSm2: this.spark(34), sparkMd: this.spark(40), sparkLg: this.spark(140), days, habits, ways, ideas, places, bars };
+  }
+}
+</script>
+</body>
+</html>

@@ -70,6 +70,9 @@ dependencies:
   refresh_rate: ^1.0.2
   gpt_markdown: ^1.1.7
   url_launcher: ^6.3.0
+  flutter_tts: ^4.2.5
+  speech_to_text: ^7.5.0
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:
@@ -91,7 +94,39 @@ flutter:
     - assets/brand/
     - assets/legal/
 
-# ─── App icon (Living World / Aurora mark) ───
+  fonts:
+    - family: FunnelDisplay
+      fonts:
+        - asset: assets/fonts/FunnelDisplay-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/FunnelDisplay-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/FunnelDisplay-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/FunnelDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/FunnelDisplay-ExtraBold.ttf
+          weight: 800
+    - family: FunnelSans
+      fonts:
+        - asset: assets/fonts/FunnelSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/FunnelSans-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/FunnelSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/FunnelSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/FunnelSans-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/FunnelSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/FunnelSans-ExtraBold.ttf
+          weight: 800
+
+# ─── App icon (Daylight spark on ink) ───
 flutter_launcher_icons:
   android: true
   ios: true
@@ -103,9 +138,13 @@ flutter_launcher_icons:
 
 # ─── Native splash ───
 flutter_native_splash:
-  color: "#0E1326"
+  color: "#F4F1EA"
+  color_dark: "#0F0E0B"
   image: "assets/brand/atlas_splash.png"
+  image_dark: "assets/brand/atlas_splash.png"
   android_12:
-    color: "#0E1326"
+    color: "#F4F1EA"
+    color_dark: "#0F0E0B"
     image: "assets/brand/atlas_splash.png"
+    image_dark: "assets/brand/atlas_splash.png"
   fullscreen: false

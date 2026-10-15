@@ -12,6 +12,7 @@ import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/refresh_rate_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
 import 'package:atlas_flutter_app/shared/themes/app_theme.dart';
 
 class AtlasApp extends ConsumerStatefulWidget {
@@ -169,6 +170,8 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      themeAnimationDuration: AppMotion.medium,
+      themeAnimationCurve: AppMotion.standard,
       routerConfig: router,
     );
   }
