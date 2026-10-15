@@ -221,7 +221,10 @@ class _AppNavigationShellState extends ConsumerState<AppNavigationShell> {
     } else {
       final bottom = navBottomOffset(context);
       final reduce = AppMotion.reduceMotion(context);
+      // expand: every child here is positioned (and the coach marks are
+      // zero-size when hidden), so without it the Stack collapses to 0×0.
       body = Stack(
+        fit: StackFit.expand,
         children: [
           Positioned.fill(child: branches),
           // A soft fade so content dissolves behind the floating nav.
