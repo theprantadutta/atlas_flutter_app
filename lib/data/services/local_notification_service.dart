@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show Color;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
@@ -22,7 +23,7 @@ class LocalNotificationService {
   /// onboarding "stay on track" step, or the Notifications settings screen).
   Future<void> initialize() async {
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_atlas');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -136,7 +137,8 @@ class LocalNotificationService {
       channelDescription: 'Push notifications from Atlas',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_stat_atlas',
+      color: Color(0xFFFF5E62),
     );
 
     const iosDetails = DarwinNotificationDetails(

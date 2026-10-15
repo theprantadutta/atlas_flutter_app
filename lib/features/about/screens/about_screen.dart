@@ -49,7 +49,7 @@ class AboutScreen extends ConsumerWidget {
             Center(
               child: Column(
                 children: [
-                  const AtlasLogo(size: 88, glow: true),
+                  const AtlasAppIcon(size: 88, animated: true),
                   AppSpacing.gapMd,
                   Text('Atlas', style: theme.textTheme.displaySmall),
                   AppSpacing.gapXs,

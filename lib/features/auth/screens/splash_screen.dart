@@ -47,7 +47,7 @@ class SplashScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const AtlasLogoBadge(size: 116)
+                const AtlasSpark(size: 116, animated: true)
                     .animate()
                     .fadeIn(duration: AppMotion.slow)
                     .scale(

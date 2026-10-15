@@ -40,6 +40,13 @@
             </intent-filter>
         </activity>
 
+        <!-- FCM background notifications: the spark silhouette, tinted coral. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_atlas" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/atlas_notification" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

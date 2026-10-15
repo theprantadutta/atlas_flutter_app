@@ -1,4 +1,3 @@
-import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 /// Motion tokens: "calm by default, crisp on touch, joyful at milestones".

@@ -122,7 +122,7 @@ class _Header extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const AtlasLogo(size: 30),
+                    const AtlasSpark(size: 30),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       'Atlas',
