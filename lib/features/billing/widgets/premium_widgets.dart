@@ -4,12 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// A calm, on-brand invitation to upgrade. The aurora gradient badge is the
-/// single bold accent; the whole card taps through to the paywall.
+/// A calm invitation to upgrade: a soft letter-tinted tile with the spark
+/// and one ink pill. The whole tile taps through to the paywall.
 class UpgradeCtaCard extends StatelessWidget {
   const UpgradeCtaCard({
     super.key,
@@ -28,143 +26,87 @@ class UpgradeCtaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AtlasCard(
-      onTap: onTap ?? () => context.push('/paywall'),
-      padding: const EdgeInsets.all(AppSpacing.md),
+    final p = context.palette;
+    final open = onTap ?? () => context.push('/paywall');
+    return AtlasTile(
+      gradient: p.letter,
+      onTap: open,
+      semanticLabel: '$title. $subtitle',
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: AppColors.auroraGradient,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: Icon(icon, size: 24, color: const Color(0xFF10243B)),
-          ),
+          const AtlasSpark(size: 30, animated: true),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleMedium),
+                Text(title, style: AppTypography.rowTitle.copyWith(color: p.textPrimary)),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
-                ),
+                Text(subtitle, style: AppTypography.meta.copyWith(color: p.textMuted, height: 1.4)),
               ],
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          _AuroraPill(label: actionLabel),
+          PillButton(label: actionLabel, height: 36, onTap: open),
         ],
       ),
     );
   }
 }
 
-class _AuroraPill extends StatelessWidget {
-  const _AuroraPill({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        gradient: AppColors.auroraGradient,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: const Color(0xFF10243B),
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-}
-
-/// A live Aurora usage meter for free users: "n/3 chats left · resets Mon".
-/// When exhausted it turns into an inline upgrade CTA. Renders nothing for
-/// premium users or before the entitlement snapshot loads.
+/// A live Aurora usage meter for free users: "2/3 chats left · resets Mon".
+/// When exhausted it turns into an inline upgrade invitation. Renders nothing
+/// for premium users or before the entitlement snapshot loads.
 class AuroraUsageMeter extends ConsumerWidget {
-  const AuroraUsageMeter({super.key});
+  const AuroraUsageMeter({
+    super.key,
+    this.padding = const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+  });
 
-  static const _weekdays = [
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat',
-    'Sun',
-  ];
+  final EdgeInsetsGeometry padding;
+
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usage = ref.watch(auroraUsageProvider);
     final remaining = usage?.chatRemaining;
-    // No meter for premium (unlimited) or before the snapshot resolves.
     if (usage == null || remaining == null) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
+    final p = context.palette;
     final limit = usage.chatLimit ?? 0;
-    final exhausted = remaining <= 0;
     final resets = _resetLabel(usage);
 
-    if (exhausted) {
-      // Only offer the trial the store says this user can still start — a
-      // returning subscriber has already used theirs and Play won't grant it again.
+    if (remaining <= 0) {
+      // Only offer the trial the store says this user can still start.
       final trialDays = ref.watch(availableTrialDaysProvider);
       return Padding(
-        padding: const EdgeInsets.fromLTRB(
-            AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.xs),
+        padding: padding,
         child: UpgradeCtaCard(
-          icon: Icons.auto_awesome_rounded,
-          title: 'You’ve used your free chats',
+          icon: Symbols.auto_awesome_rounded,
+          title: 'You’ve used this week’s chats',
           subtitle: trialDays > 0
-              ? 'Try $trialDays days free for unlimited Aurora$resets.'
-              : 'Upgrade for unlimited Aurora$resets.',
+              ? 'Try $trialDays days free for unlimited Aurora.$resets'
+              : 'Unlimited Aurora with Premium.$resets',
           actionLabel: trialDays > 0 ? 'Try free' : 'Upgrade',
         ),
       );
     }
 
-    final fraction = limit == 0 ? 0.0 : remaining / limit;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.gutter, 0, AppSpacing.gutter, AppSpacing.xs),
+      padding: padding,
       child: Row(
         children: [
-          Icon(Icons.auto_awesome_rounded,
-              size: 15, color: theme.colorScheme.primary),
+          const AtlasSpark(size: 14),
           const SizedBox(width: AppSpacing.xs),
           Text(
-            '$remaining/$limit chat${remaining == 1 ? '' : 's'} left',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
+            '$remaining of $limit chats left',
+            style: AppTypography.metaStrong.copyWith(color: p.textPrimary),
           ),
           if (resets.isNotEmpty)
-            Text(
-              ' ·$resets',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
+            Text(resets, style: AppTypography.meta.copyWith(color: p.textMuted)),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: AtlasProgressBar(fraction: fraction, height: 6),
-          ),
+          Expanded(child: GradientBar(value: limit == 0 ? 0 : remaining / limit)),
         ],
       ),
     );
@@ -173,6 +115,6 @@ class AuroraUsageMeter extends ConsumerWidget {
   String _resetLabel(AuroraUsage usage) {
     final resets = usage.weekResetsAt;
     if (resets == null) return '';
-    return ' resets ${_weekdays[resets.weekday - 1]}';
+    return ' · resets ${_weekdays[resets.weekday - 1]}';
   }
 }

@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
@@ -47,9 +48,7 @@ final fcmServiceProvider = Provider<FcmService>((ref) {
 // ─── Local Notification Service ─────────────────────────────
 
 final localNotificationServiceProvider =
-    Provider<LocalNotificationService>((ref) {
-  return LocalNotificationService();
-});
+    Provider<LocalNotificationService>((ref) => LocalNotificationService.instance);
 
 // ─── Sync Stream Providers ───────────────────────────────────
 
@@ -66,4 +65,17 @@ final pendingOperationsCountProvider = StreamProvider<int>((ref) {
 /// Last sync time stream.
 final lastSyncTimeProvider = StreamProvider<DateTime?>((ref) {
   return ref.read(offlineManagerProvider).lastSyncTimeStream;
+});
+
+/// Whether the device has a network connection. Only Aurora (the one
+/// network feature) reads this; local features never depend on it.
+final onlineProvider = StreamProvider<bool>((ref) async* {
+  bool isOnline(List<ConnectivityResult> r) => r.any((c) => c != ConnectivityResult.none);
+  final connectivity = Connectivity();
+  try {
+    yield isOnline(await connectivity.checkConnectivity());
+  } catch (_) {
+    yield true;
+  }
+  yield* connectivity.onConnectivityChanged.map(isOnline);
 });

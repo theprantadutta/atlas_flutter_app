@@ -75,6 +75,30 @@ class AuthService {
     return getCurrentUser();
   }
 
+  // ─── Password reset ─────────────────────────────────────────────
+
+  /// Ask the server to email a 6-digit code. Returns the ticket to send back
+  /// with the code (the same shape whether or not the email has an account).
+  Future<String> requestPasswordReset(String email) async {
+    final response = await _apiService.post(
+      '/auth/password/forgot',
+      data: {'email': email.trim()},
+    );
+    return (response.data as Map<String, dynamic>)['ticket'] as String;
+  }
+
+  /// Set a new password with the ticket and the emailed code.
+  Future<void> resetPassword({
+    required String ticket,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _apiService.post(
+      '/auth/password/reset',
+      data: {'ticket': ticket, 'code': code.trim(), 'new_password': newPassword},
+    );
+  }
+
   // ─── Google Sign-In ─────────────────────────────────────────────
 
   Future<void> _ensureGoogleInitialized() async {

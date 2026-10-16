@@ -1,123 +1,146 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:atlas_flutter_app/core/gamification/days.dart';
+import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
-import 'package:atlas_flutter_app/features/home/providers/home_provider.dart'
-    show categoryVisual;
-import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/category_style.dart';
 
-/// Shown in the "Best day" tile before any XP has been earned this week.
-const kNoBestDay = 'Not yet';
-
-/// A single category's share of earned XP, for the breakdown card.
+/// One category's share of the week's XP.
 class CategorySlice {
-  const CategorySlice(this.label, this.value, this.color);
+  const CategorySlice(this.label, this.xp, this.color);
   final String label;
-  final double value;
+  final int xp;
   final Color color;
 }
 
-/// The insights view-model, computed entirely from the local Drift stores.
-class AnalyticsData {
-  const AnalyticsData({
-    required this.weeklyXp,
-    required this.weekdayLabels,
+/// A week of insights, from the local ledger.
+class WeekInsights {
+  const WeekInsights({
+    required this.weekStart,
+    required this.xpByDay,
+    required this.tendedByDay,
     required this.categories,
-    required this.completionRate,
-    required this.bestDay,
-    required this.totalXpWeek,
+    required this.completion,
+    required this.trendPercent,
+    required this.today,
   });
 
-  final List<double> weeklyXp;
-  final List<String> weekdayLabels;
+  /// Monday.
+  final DateTime weekStart;
+  final List<int> xpByDay; // Mon..Sun
+  final List<int> tendedByDay;
   final List<CategorySlice> categories;
-  final double completionRate; // 0..1
-  final String bestDay;
-  final int totalXpWeek;
 
-  static const empty = AnalyticsData(
-    weeklyXp: [0, 0, 0, 0, 0, 0, 0],
-    weekdayLabels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-    categories: [],
-    completionRate: 0,
-    bestDay: kNoBestDay,
-    totalXpWeek: 0,
-  );
+  /// Done ÷ set for the days so far, 0..1.
+  final double completion;
+
+  /// Change vs the previous week as a whole percentage, or null when there
+  /// is nothing to compare with.
+  final int? trendPercent;
+  final DateTime today;
+
+  int get totalXp => xpByDay.fold(0, (a, b) => a + b);
+  int get isoWeekNumber => isoWeek(weekStart);
+  DateTime dayAt(int i) => addDays(weekStart, i);
+  bool isFuture(int i) => dayAt(i).isAfter(today);
+
+  /// The best day (ties go to the latest), or -1 before any XP.
+  int get bestIndex {
+    var best = -1, bestXp = 0;
+    for (var i = 0; i < 7; i++) {
+      if (xpByDay[i] > 0 && xpByDay[i] >= bestXp) {
+        best = i;
+        bestXp = xpByDay[i];
+      }
+    }
+    return best;
+  }
 }
 
-const _dayInitials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const _dayNames = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
+/// The week being viewed (its Monday). Defaults to this week.
+class SelectedWeek extends Notifier<DateTime> {
+  @override
+  DateTime build() => startOfWeek(ref.watch(todayProvider));
+  void set(DateTime monday) => state = startOfWeek(monday);
+}
 
-bool _sameDay(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+final selectedWeekProvider = NotifierProvider<SelectedWeek, DateTime>(SelectedWeek.new);
 
-/// Insights derived from Drift: XP per day over the last week (from progress
-/// entries) and a completion + category breakdown (from tasks).
-final analyticsProvider = Provider.autoDispose<AnalyticsData>((ref) {
-  final progress =
-      ref.watch(progressEntriesStreamProvider).value ??
-          const <ProgressEntry>[];
+int _sumXp(List<LedgerDay> days, DateTime from, int n) {
+  var s = 0;
+  for (var i = 0; i < n; i++) {
+    s += LedgerMath.dayOf(days, addDays(from, i))?.xp ?? 0;
+  }
+  return s;
+}
+
+final weekInsightsProvider = Provider.autoDispose.family<WeekInsights, DateTime>((ref, monday) {
+  final today = ref.watch(todayProvider);
+  final days = ref.watch(ledgerDaysProvider);
+  final habits = ref.watch(habitsStreamProvider).value ?? const <Habit>[];
   final tasks = ref.watch(tasksStreamProvider).value ?? const <Task>[];
 
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-
-  // Last 7 days, oldest → newest, so the bars read left to right.
-  final weeklyXp = <double>[];
-  final labels = <String>[];
-  var bestXp = -1;
-  var bestName = kNoBestDay;
-  for (var i = 6; i >= 0; i--) {
-    final day = today.subtract(Duration(days: i));
-    final xp = progress
-        .where((p) => _sameDay(p.date, day))
-        .fold<int>(0, (s, p) => s + p.xpGained);
-    weeklyXp.add(xp.toDouble());
-    labels.add(_dayInitials[day.weekday - 1]);
-    if (xp > bestXp) {
-      bestXp = xp;
-      bestName = _dayNames[day.weekday - 1];
-    }
+  final xp = <int>[], tended = <int>[];
+  final cats = <String, int>{};
+  var done = 0, set = 0;
+  for (var i = 0; i < 7; i++) {
+    final d = addDays(monday, i);
+    final day = LedgerMath.dayOf(days, d);
+    xp.add(day?.xp ?? 0);
+    tended.add(day?.count ?? 0);
+    day?.categories.forEach((k, v) => cats.update(k, (x) => x + v, ifAbsent: () => v));
+    if (d.isAfter(today)) continue;
+    done += day?.count ?? 0;
+    // What was asked of this day: daily-ish habits and recurring daily tasks
+    // that existed by then.
+    set += habits
+        .where((h) =>
+            !dateOnly(h.createdAt).isAfter(d) &&
+            !HabitSchedule.isWeekly(h.frequency) &&
+            HabitSchedule.isScheduledOn(h.frequency, d))
+        .length;
+    set += tasks.where((t) => t.type == 'daily' && !dateOnly(t.createdAt).isAfter(d)).length;
   }
-  final totalXpWeek = weeklyXp.fold<double>(0, (s, v) => s + v).round();
-  if (bestXp <= 0) bestName = kNoBestDay;
+  final end = addDays(monday, 6);
+  set += habits
+      .where((h) => HabitSchedule.isWeekly(h.frequency) && !dateOnly(h.createdAt).isAfter(end))
+      .length;
+  set += tasks.where((t) {
+    final due = t.dueDate;
+    return t.type != 'daily' &&
+        due != null &&
+        !dateOnly(due).isBefore(monday) &&
+        !dateOnly(due).isAfter(end);
+  }).length;
 
-  // Completion + category mix from real tasks.
-  final completed = tasks.where((t) => t.isCompleted).toList();
-  final completionRate = tasks.isEmpty ? 0.0 : completed.length / tasks.length;
+  // Compare like with like: this week so far against the same days last week.
+  final daysSoFar =
+      today.isBefore(monday) ? 7 : (daysBetween(monday, today) + 1).clamp(1, 7);
+  final current = _sumXp(days, monday, daysSoFar);
+  final previous = _sumXp(days, addDays(monday, -7), daysSoFar);
+  final trend = previous > 0 ? (((current - previous) / previous) * 100).round() : null;
 
-  final byCategory = <String, double>{};
-  for (final t in completed) {
-    final add = t.xpReward.toDouble();
-    byCategory.update(t.category, (v) => v + add, ifAbsent: () => add);
-  }
-  final categories = byCategory.entries
-      .map((e) => CategorySlice(
-            _titleCase(e.key),
-            e.value,
-            categoryVisual(e.key).color,
-          ))
-      .toList()
+  final sorted = cats.entries.where((e) => e.value > 0).toList()
     ..sort((a, b) => b.value.compareTo(a.value));
+  final slices = <CategorySlice>[
+    for (final e in sorted.take(3))
+      CategorySlice(
+          CategoryStyle.label(e.key), e.value, CategoryStyle.forCategory(e.key).color),
+  ];
+  final rest = sorted.skip(3).fold<int>(0, (a, e) => a + e.value);
+  if (rest > 0) slices.add(CategorySlice('Other', rest, const Color(0xFFB3ADA2)));
 
-  return AnalyticsData(
-    weeklyXp: weeklyXp,
-    weekdayLabels: labels,
-    categories: categories.take(5).toList(),
-    completionRate: completionRate.clamp(0.0, 1.0),
-    bestDay: bestName,
-    totalXpWeek: totalXpWeek,
+  return WeekInsights(
+    weekStart: monday,
+    xpByDay: xp,
+    tendedByDay: tended,
+    categories: slices,
+    completion: set == 0 ? 0 : (done / set).clamp(0.0, 1.0),
+    trendPercent: trend,
+    today: today,
   );
 });
-
-String _titleCase(String s) =>
-    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';

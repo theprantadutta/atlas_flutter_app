@@ -89,11 +89,24 @@ class TaskDao extends DatabaseAccessor<AtlasDatabase> with _$TaskDaoMixin {
   }
 
   /// Mark rows as cleanly synced.
-  Future<void> markSynced(List<String> ids, DateTime syncedAt) async {
-    if (ids.isEmpty) return;
-    await (update(tasks)..where((t) => t.id.isIn(ids))).write(
-      TasksCompanion(isDirty: const Value(false), lastSyncedAt: Value(syncedAt)),
-    );
+  /// Clears the dirty flag for pushed rows, keyed by id with the `updatedAt`
+  /// that was sent. A row whose `updatedAt` changed while the push was in
+  /// flight (edited mid-sync) is left dirty so that edit goes out next sync.
+  Future<void> markSynced(
+      Map<String, DateTime> pushedUpdatedAt, DateTime syncedAt) async {
+    if (pushedUpdatedAt.isEmpty) return;
+    await transaction(() async {
+      for (final e in pushedUpdatedAt.entries) {
+        await (update(tasks)
+              ..where((t) => t.id.equals(e.key) & t.updatedAt.equals(e.value)))
+            .write(
+          TasksCompanion(
+            isDirty: const Value(false),
+            lastSyncedAt: Value(syncedAt),
+          ),
+        );
+      }
+    });
   }
 
   /// Purge tombstones that have been confirmed synced.

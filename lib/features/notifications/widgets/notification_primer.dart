@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 /// Set once the primer has been shown, so it is only ever asked once.
 const _kPrimerShown = 'atlas_notification_primer_shown';
@@ -29,14 +23,8 @@ final _log = AppLog('Notifications');
 ///
 /// Returns true when permission ends up granted.
 Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
-  final optedIn = await showModalBottomSheet<bool>(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    showDragHandle: true,
-    // A sheet pinned to the full width of an iPad puts its controls at the far
-    // edges of a 1366pt screen. Hold it to the same measure as the content.
-    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
+  final optedIn = await showAtlasSheet<bool>(
+    context,
     builder: (_) => const _NotificationPrimerSheet(),
   );
 
@@ -44,8 +32,7 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
 
   // One OS permission covers both kinds of notification, so this single prompt
   // is the whole ask: POST_NOTIFICATIONS on Android, UNUserNotificationCenter
-  // on iOS. Local notifications go first because that call also asks for exact
-  // alarms, which the scheduled reminders need.
+  // on iOS. No exact-alarm permission: reminders are scheduled inexactly.
   final granted =
       await ref.read(localNotificationServiceProvider).requestPermissions();
   _log.i('Notification permission after primer: $granted');
@@ -55,6 +42,8 @@ Future<bool> showNotificationPrimer(BuildContext context, WidgetRef ref) async {
     // said yes but stays unreachable until the next cold start, because the
     // token is only picked up at launch when permission already exists.
     await ref.read(fcmServiceProvider).onPermissionGranted();
+    // Reminders were waiting for this; schedule them now.
+    replanReminders(ref);
     return true;
   }
 
@@ -108,166 +97,88 @@ Future<void> maybeShowNotificationPrimer(
 class _NotificationPrimerSheet extends StatelessWidget {
   const _NotificationPrimerSheet();
 
-  /// The three Atlas actually sends, in the order they matter. Deliberately not
-  /// all six from Settings: a list long enough to skim is a list nobody reads.
+  /// What Atlas actually sends, in the order it matters. Each has its own
+  /// switch in Settings.
   static const _reasons = <(IconData, Color, String, String)>[
     (
-      Icons.loop_rounded,
-      AppColors.xpPrimary,
+      Symbols.repeat_rounded,
+      AppColors.leaf,
       'Keep your rhythm',
-      'A little prompt for the habits you chose.',
+      'A reminder at the time you set on a habit, until it’s done.',
     ),
     (
-      Icons.check_circle_outline_rounded,
-      AppColors.categoryWork,
+      Symbols.task_alt_rounded,
+      AppColors.sky,
       'Nothing slips',
-      'A soft nudge when a task is actually due.',
+      'A soft nudge when a task with a time is due.',
     ),
     (
-      Icons.emoji_events_rounded,
-      AppColors.badgeLegendary,
-      'Celebrate the wins',
-      'The moments you earn, marked as they happen.',
+      Symbols.wb_twilight_rounded,
+      AppColors.amber,
+      'A calm morning',
+      'A look at your day, and Aurora’s letter on Sundays.',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.gutter,
-          0,
-          AppSpacing.gutter,
-          AppSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 64,
-                height: 64,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: AppColors.auroraGradient,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                ),
-                child: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: Color(0xFF10243B),
-                  size: 30,
-                ),
-              ),
-            ).animate().fadeIn(duration: AppMotion.medium).scale(
-                  begin: const Offset(0.9, 0.9),
-                  end: const Offset(1, 1),
-                  curve: AppMotion.standard,
-                ),
-            AppSpacing.gapMd,
-            Text(
-              'Want a gentle nudge?',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.headlineSmall,
+    final p = context.palette;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: AtlasSpark(size: 56, animated: true)),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Want a gentle nudge?',
+            textAlign: TextAlign.center,
+            style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Atlas only speaks at times you chose, about the things you chose to '
+            'tend. Never about a streak or a missed day.',
+            textAlign: TextAlign.center,
+            style: AppTypography.body.copyWith(color: p.textBody),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          for (final (icon, color, title, blurb) in _reasons) ...[
+            AtlasRow(
+              minHeight: 64,
+              leading: IconTile(style: CategoryStyle(icon, color)),
+              title: title,
+              metaWidget: Text(blurb, style: AppTypography.meta.copyWith(color: p.textMuted)),
             ),
-            AppSpacing.gapXs,
-            Text(
-              'Atlas can remind you about the things you chose to tend. Quiet, '
-              'occasional, and never about a streak you broke.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-            AppSpacing.gapLg,
-            for (final (icon, color, title, blurb) in _reasons) ...[
-              _Reason(icon: icon, color: color, title: title, blurb: blurb),
-              AppSpacing.gapSm,
-            ],
-            AppSpacing.gapSm,
-            AppButton(
-              label: 'Turn on reminders',
-              icon: Icons.notifications_active_outlined,
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                Navigator.of(context).pop(true);
-              },
-            ),
-            AppSpacing.gapXs,
-            AppButton(
-              label: 'Not now',
-              variant: AppButtonVariant.ghost,
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.of(context).pop(false);
-              },
-            ),
-            AppSpacing.gapXs,
-            Text(
-              'You can change this any time in Settings.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            const SizedBox(height: AppSpacing.xs),
           ],
-        ),
+          const SizedBox(height: AppSpacing.md),
+          PillButton(
+            label: 'Turn on reminders',
+            icon: Symbols.notifications_active_rounded,
+            height: 56,
+            expand: true,
+            haptic: PressHaptic.medium,
+            onTap: () => Navigator.of(context).pop(true),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          PillButton(
+            label: 'Not now',
+            variant: PillVariant.track,
+            height: 56,
+            expand: true,
+            haptic: PressHaptic.selection,
+            onTap: () => Navigator.of(context).pop(false),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'You can change this any time in Settings.',
+            textAlign: TextAlign.center,
+            style: AppTypography.meta.copyWith(color: p.textMuted),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _Reason extends StatelessWidget {
-  const _Reason({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.blurb,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String blurb;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.titleSmall),
-              Text(
-                blurb,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

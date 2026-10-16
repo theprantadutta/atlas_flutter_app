@@ -13,9 +13,14 @@ class FcmService {
   final TokenService _tokenService;
 
   String? _currentToken;
+  bool _listening = false;
 
-  /// Callback the app can set to handle incoming notification payloads.
-  Function(Map<String, dynamic>)? onNotificationReceived;
+  /// A push arrived while the app is open (the OS shows nothing then).
+  void Function(RemoteMessage message)? onForeground;
+
+  /// The user tapped a push: from the background, or one that launched the
+  /// app from closed.
+  void Function(RemoteMessage message)? onOpened;
 
   FcmService(this._apiService, this._tokenService);
 
@@ -47,14 +52,21 @@ class FcmService {
       final messaging = FirebaseMessaging.instance;
 
       // Listeners are cheap and permission-independent: a user who grants
-      // later should not need a restart for messages to arrive.
-      messaging.onTokenRefresh.listen((newToken) {
-        _log.d('[FCM] Token refreshed');
-        _currentToken = newToken;
-        registerToken();
-      });
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      // later should not need a restart for messages to arrive. Attached
+      // once: this runs on every sign-in, and a second set of listeners
+      // showed every push twice.
+      if (!_listening) {
+        _listening = true;
+        messaging.onTokenRefresh.listen((newToken) {
+          _log.d('[FCM] Token refreshed');
+          _currentToken = newToken;
+          registerToken();
+        });
+        FirebaseMessaging.onMessage.listen((m) => onForeground?.call(m));
+        FirebaseMessaging.onMessageOpenedApp.listen((m) => onOpened?.call(m));
+        final initial = await messaging.getInitialMessage();
+        if (initial != null) onOpened?.call(initial);
+      }
 
       if (await hasPermission()) {
         await _fetchToken();
@@ -138,29 +150,5 @@ class FcmService {
     } catch (e) {
       _log.e('[FCM] Failed to unregister token: $e');
     }
-  }
-
-  void _handleForegroundMessage(RemoteMessage message) {
-    _log.d('[FCM] Foreground message: ${message.notification?.title}');
-
-    final payload = <String, dynamic>{
-      'title': message.notification?.title ?? '',
-      'body': message.notification?.body ?? '',
-      ...message.data,
-    };
-
-    onNotificationReceived?.call(payload);
-  }
-
-  void _handleMessageOpenedApp(RemoteMessage message) {
-    _log.d('[FCM] Message opened app: ${message.notification?.title}');
-
-    final payload = <String, dynamic>{
-      'title': message.notification?.title ?? '',
-      'body': message.notification?.body ?? '',
-      ...message.data,
-    };
-
-    onNotificationReceived?.call(payload);
   }
 }

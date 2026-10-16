@@ -2,17 +2,25 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/core/config/demo_driver.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
+import 'package:atlas_flutter_app/data/services/local_notification_service.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/notifications/data/inbox.dart';
+import 'package:atlas_flutter_app/features/notifications/providers/notification_engine.dart';
 import 'package:atlas_flutter_app/features/updates/providers/app_update_provider.dart';
 import 'package:atlas_flutter_app/router/app_router.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/refresh_rate_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/theme_provider.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_palette.dart';
 import 'package:atlas_flutter_app/shared/themes/app_theme.dart';
 
 class AtlasApp extends ConsumerStatefulWidget {
@@ -25,6 +33,7 @@ class AtlasApp extends ConsumerStatefulWidget {
 class _AtlasAppState extends ConsumerState<AtlasApp>
     with WidgetsBindingObserver {
   StreamSubscription<void>? _syncRequiredSub;
+  StreamSubscription<String>? _tapSub;
 
   @override
   void initState() {
@@ -34,6 +43,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     _initializeOfflineServices();
     // No-op unless this is a debug demo run; see registerDemoDriver.
     registerDemoDriver(ref.read(routerProvider));
+    _wireNotificationTaps();
     // Look for a Play update once the first frame is up, so the check never
     // competes with startup.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,14 +76,16 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
         _connectSignalR();
         _initializeFcm();
+        _refreshAccountMessages();
       }
     });
 
-    // Cloud sync is premium — drive the engine's per-user gate from the
-    // expiry-aware entitlement snapshot (falls back to the cached user profile
-    // before the first `/entitlements` fetch resolves).
+    // Cloud sync is premium — drive the engine's per-user gate from the same
+    // `cloud_sync` entitlement the sync UI uses (falls back to premium status
+    // before the first `/entitlements` fetch resolves), so the engine never
+    // runs while the UI says sync is unavailable, or vice versa.
     ref.listenManual<bool>(
-      isPremiumProvider,
+      canSyncProvider,
       (prev, next) => offlineManager.setEntitled(next),
       fireImmediately: true,
     );
@@ -83,6 +95,8 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        // A new day may have started while we were away.
+        ref.read(todayProvider.notifier).refresh();
         ref.read(offlineManagerProvider).onAppResumed();
         // Re-check entitlement on resume so renewals / lapses / expiry are
         // picked up without a restart.
@@ -97,6 +111,10 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
         // backgrounded, so re-assert it rather than silently sliding to 60 Hz.
         ref.read(refreshRateProvider.notifier).apply();
         _connectSignalR();
+        // Reminders are planned a few days ahead; top the plan up, and pick
+        // up account messages that arrived while we were away.
+        ref.invalidate(reminderSyncProvider);
+        _refreshAccountMessages();
         break;
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
@@ -108,36 +126,65 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     }
   }
 
+  /// Every notification tap (a reminder, a push, or the one that launched
+  /// the app) becomes a pending route, which the app shell opens once it is
+  /// on screen, after the splash and the sign-in redirects.
+  void _wireNotificationTaps() {
+    final local = ref.read(localNotificationServiceProvider);
+    final pending = ref.read(pendingNotificationRouteProvider.notifier);
+    _tapSub = local.taps.listen(pending.set);
+    final launch = local.launchRoute;
+    if (launch != null) {
+      local.launchRoute = null;
+      pending.set(launch);
+    }
+  }
+
   Future<void> _initializeFcm() async {
-    final fcmService = ref.read(fcmServiceProvider);
-    final localNotificationService = ref.read(localNotificationServiceProvider);
-    final router = ref.read(routerProvider);
+    final fcm = ref.read(fcmServiceProvider);
+    final local = ref.read(localNotificationServiceProvider);
 
-    // Wire FCM foreground messages to show local notifications
-    fcmService.onNotificationReceived = (payload) {
-      final title = payload['title'] as String? ?? '';
-      final body = payload['body'] as String? ?? '';
-      if (title.isNotEmpty || body.isNotEmpty) {
-        localNotificationService.showNotification(
-          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-          title: title,
-          body: body,
-          payload: payload['route'] as String? ?? '/notifications',
-        );
-      }
+    // The OS shows nothing for a push while the app is open, so show it here
+    // (on the Account channel), and file it in the inbox either way.
+    fcm.onForeground = (m) {
+      final (title, body) = _fileAccountPush(m);
+      if (title.isEmpty && body.isEmpty) return;
+      local.show(
+        id: kUnmanagedIdBase + ((m.messageId ?? '$title$body').hashCode & 0x0FFFFFFF),
+        title: title,
+        body: body,
+        route: safeNotificationRoute(_routeOf(m)),
+      );
+    };
+    fcm.onOpened = (m) {
+      _fileAccountPush(m);
+      ref.read(pendingNotificationRouteProvider.notifier).set(_routeOf(m));
     };
 
-    // Wire notification tap to navigate
-    localNotificationService.onNotificationTapped = (payload) {
-      if (payload != null && payload.isNotEmpty) {
-        router.push(payload.startsWith('/') ? payload : '/notifications');
-      } else {
-        router.push('/notifications');
-      }
-    };
+    await fcm.initialize();
+    await fcm.registerToken();
+  }
 
-    await fcmService.initialize();
-    await fcmService.registerToken();
+  String? _routeOf(RemoteMessage m) =>
+      routeForInboxKind(m.data['kind'] as String? ?? '') ?? m.data['route'] as String?;
+
+  /// Files an account push in the inbox under the server's id (so a later
+  /// fetch of the same message lands on the same row). Returns its text.
+  (String, String) _fileAccountPush(RemoteMessage m) {
+    final title = m.notification?.title ?? '';
+    final body = m.notification?.body ?? '';
+    final id = m.data['notification_id'] as String?;
+    final userId = ref.read(authProvider).user?.id;
+    if (m.data['kind'] == InboxKind.account && id != null && userId != null) {
+      fileAccountMessage(ref.read(inboxProvider), userId: userId, id: id, title: title, body: body);
+    }
+    return (title, body);
+  }
+
+  void _refreshAccountMessages() {
+    final userId = ref.read(authProvider).user?.id;
+    if (userId == null) return;
+    refreshAccountMessages(ref.read(apiServiceProvider), ref.read(inboxProvider), userId);
   }
 
   void _connectSignalR() {
@@ -157,6 +204,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   @override
   void dispose() {
     _syncRequiredSub?.cancel();
+    _tapSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -172,7 +220,14 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      themeAnimationDuration: AppMotion.medium,
+      themeAnimationCurve: AppMotion.standard,
       routerConfig: router,
+      // Status and navigation bars follow the palette (light icons in dark).
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(context.palette),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

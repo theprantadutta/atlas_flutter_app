@@ -2,11 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
-import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
-import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
-import 'package:atlas_flutter_app/features/notifications/providers/notification_providers.dart';
-import 'package:atlas_flutter_app/features/progress/providers/progress_providers.dart';
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
+import 'package:atlas_flutter_app/features/onboarding/providers/starter_seeder.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 const _kChoiceMade = 'atlas_starter_choice_made';
 const _kSeeded = 'atlas_starter_seeded';
@@ -40,16 +40,32 @@ class StarterDataState {
 class StarterDataController extends Notifier<StarterDataState> {
   @override
   StarterDataState build() {
+    // Re-evaluate for whoever signs in.
+    ref.watch(authProvider.select((s) => s.user?.id));
     _load();
     return const StarterDataState();
   }
 
+  StarterSeeder get _seeder => StarterSeeder(ref.read(databaseProvider));
+
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = ref.read(currentUserIdProvider);
+    // Older builds gave example rows ids the server rejects; fix them once.
+    try {
+      await _seeder.migrateLegacyIds(userId);
+    } catch (_) {/* best effort; nothing depends on it */}
+    final has = await _seeder.hasSeed(userId);
+    // A returning account (new phone, reinstall) was asked already.
+    final user = ref.read(authProvider).user;
+    final returning = user != null && isReturningAccount(user.createdAt);
+    if (returning && !(prefs.getBool(_kChoiceMade) ?? false)) {
+      await prefs.setBool(_kChoiceMade, true);
+    }
     state = StarterDataState(
       loaded: true,
-      choiceMade: prefs.getBool(_kChoiceMade) ?? false,
-      hasStarterData: prefs.getBool(_kSeeded) ?? false,
+      choiceMade: returning || (prefs.getBool(_kChoiceMade) ?? false),
+      hasStarterData: has || (prefs.getBool(_kSeeded) ?? false),
     );
   }
 
@@ -79,21 +95,9 @@ class StarterDataController extends Notifier<StarterDataState> {
     state = state.copyWith(hasStarterData: false);
   }
 
-  Future<void> _seedAll(String userId) async {
-    await ref.read(taskActionsProvider).seedStarter(userId);
-    await ref.read(habitActionsProvider).seedStarter(userId);
-    await ref.read(goalActionsProvider).seedStarter(userId);
-    await ref.read(notificationActionsProvider).seedStarter(userId);
-    await ref.read(progressActionsProvider).seedStarter(userId);
-  }
+  Future<void> _seedAll(String userId) => _seeder.seed(userId);
 
-  Future<void> _deleteAll(String userId) async {
-    await ref.read(taskActionsProvider).deleteStarter(userId);
-    await ref.read(habitActionsProvider).deleteStarter(userId);
-    await ref.read(goalActionsProvider).deleteStarter(userId);
-    await ref.read(notificationActionsProvider).deleteStarter(userId);
-    await ref.read(progressActionsProvider).deleteStarter(userId);
-  }
+  Future<void> _deleteAll(String userId) => _seeder.remove(userId);
 }
 
 final starterDataProvider =

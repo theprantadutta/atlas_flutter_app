@@ -48,9 +48,8 @@ void main() async {
     _log.e('Firebase initialisation failed', error: e, stackTrace: st);
   }
 
-  // Initialize local notifications
-  final localNotificationService = LocalNotificationService();
-  await localNotificationService.initialize();
+  // The single notification service: time zone, channels, tap routing.
+  await LocalNotificationService.instance.initialize();
 
   runApp(const ProviderScope(child: AtlasApp()));
 }

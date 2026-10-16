@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Atlas uses the microphone only while you hold the mic button, so you can talk to Aurora instead of typing.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>Atlas turns what you say into text for your message to Aurora.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
@@ -68,7 +72,6 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
-
 		<!-- Google Sign-In redirects back through the reversed OAuth client id
 		     from GoogleService-Info.plist. Keep the two in sync. -->
 		<key>CFBundleURLTypes</key>
@@ -84,7 +87,6 @@
 				</array>
 			</dict>
 		</array>
-
 		<!-- url_launcher opens the privacy/terms pages and the App Store
 		     subscription-management sheet. -->
 		<key>LSApplicationQueriesSchemes</key>
@@ -107,7 +109,6 @@
 			<string>fetch</string>
 			<string>remote-notification</string>
 		</array>
-
 		<!-- Atlas uses only HTTPS/standard system crypto, which is exempt.
 		     Declaring this here skips the export-compliance questionnaire on
 		     every single TestFlight/App Store upload. -->

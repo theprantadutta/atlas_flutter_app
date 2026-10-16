@@ -186,3 +186,23 @@ class AdaptiveTwoPane extends StatelessWidget {
     );
   }
 }
+
+/// Daylight's screen padding: the gutter, plus whatever side slack holds the
+/// content to [maxWidth] on a wide window. On a phone it is exactly
+/// `EdgeInsets.fromLTRB(gutter, top, gutter, bottom)`.
+///
+/// Inside the app shell on a wide window, the shell already holds the tabs to
+/// a reading column and reports that width through [MediaQuery], so tab
+/// screens and the pages pushed over them get the same measure without
+/// counting the nav rail twice.
+EdgeInsets readableInsets(
+  BuildContext context, {
+  required double top,
+  required double bottom,
+  double maxWidth = AppBreakpoints.readingColumn,
+}) {
+  final slack = MediaQuery.sizeOf(context).width - maxWidth;
+  final side = AppSpacing.gutter + (slack > 0 ? slack / 2 : 0.0);
+  return EdgeInsets.fromLTRB(side, top, side, bottom);
+}
+

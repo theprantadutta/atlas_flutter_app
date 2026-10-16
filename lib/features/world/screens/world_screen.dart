@@ -1,403 +1,370 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_world.dart'
-    show TileType, TileVisuals, WorldTileInfo;
-import 'package:atlas_flutter_app/data/database/atlas_database.dart';
-import 'package:atlas_flutter_app/features/world/providers/world_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
-import 'package:atlas_flutter_app/shared/widgets/brand/living_horizon.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
+import 'package:atlas_flutter_app/core/gamification/days.dart';
+import 'package:atlas_flutter_app/core/gamification/ledger.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/features/world/providers/world_view.dart';
+import 'package:atlas_flutter_app/features/world/widgets/atlas_globe.dart';
+import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// The "Your World" tab — a living map that flourishes tile by tile as the
-/// user tends their habits. Tab root, so it carries no back button.
-class WorldScreen extends ConsumerWidget {
+/// Your Atlas: a slowly turning globe of the places you've discovered by
+/// tending yourself, the next one always in view.
+class WorldScreen extends ConsumerStatefulWidget {
   const WorldScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tilesAsync = ref.watch(worldTilesStreamProvider);
+  ConsumerState<WorldScreen> createState() => _WorldScreenState();
+}
+
+class _WorldScreenState extends ConsumerState<WorldScreen> {
+  final _globe = GlobalKey<AtlasGlobeState>();
+  String? _celebrating;
+  int _burst = 0;
+
+  void _maybeCelebrate(List<String> pending, WorldView view) {
+    if (_celebrating != null || pending.isEmpty) return;
+    final id = pending.first;
+    final place = view.places.where((p) => p.id == id).firstOrNull;
+    if (place == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      setState(() => _celebrating = id);
+      // Let the globe turn to it and the pin land.
+      await Future<void>.delayed(AppMotion.deliberate + AppMotion.medium);
+      if (!mounted) return;
+      HapticFeedback.heavyImpact();
+      setState(() => _burst++);
+      await ref.read(pendingDiscoveriesProvider.notifier).celebrated(id);
+      await Future<void>.delayed(AppMotion.fast);
+      if (!mounted) return;
+      await _discoverySheet(place);
+      if (mounted) setState(() => _celebrating = null);
+    });
+  }
+
+  Future<void> _discoverySheet(Place place) => showAtlasSheet<void>(
+        context,
+        builder: (context) {
+          final p = context.palette;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GradientIconTile(icon: place.icon, size: 64),
+                const SizedBox(height: AppSpacing.md),
+                Text('You discovered', style: AppTypography.dateLine.copyWith(color: p.textMuted)),
+                const SizedBox(height: 4),
+                Text(place.name,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
+                const SizedBox(height: AppSpacing.xs),
+                Text('Every day you tend yourself, the world gets a little bigger.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body.copyWith(color: p.textBody)),
+                const SizedBox(height: AppSpacing.lg),
+                Row(children: [
+                  Expanded(
+                    child: PillButton(
+                      label: 'Visit',
+                      height: 52,
+                      expand: true,
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _openPlace(place);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: PillButton(
+                      label: 'Close',
+                      variant: PillVariant.track,
+                      height: 52,
+                      expand: true,
+                      haptic: PressHaptic.selection,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ]),
+              ],
+            ),
+          );
+        },
+      );
+
+  void _openPlace(Place place) {
+    _globe.currentState?.focusOn(place);
+    showAtlasSheet<void>(context, builder: (_) => _PlaceSheet(place: place));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final view = ref.watch(worldViewProvider);
+    final pending = ref.watch(pendingDiscoveriesProvider);
+    if (view != null) _maybeCelebrate(pending, view);
 
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: tilesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) =>
-              const Center(child: Text('Could not load your world')),
-          data: (rows) {
-            final unlockedCount = rows.where((t) => t.isUnlocked).length;
-            final total = rows.length;
-            return ListView(
-              // The whole world should be visible at once on a tablet
-              // rather than 5 tiles per row.
-              padding: adaptiveScreenPadding(context, maxWidth: 1000),
-              children: [
-                AtlasHeader(
-                  title: 'Your World',
-                  subtitle: 'Tend yourself, watch it grow',
-                  trailing: CircleActionButton(
-                    icon: Icons.emoji_events_outlined,
-                    onTap: () => context.push('/world/achievements'),
-                  ),
+        child: ListView(
+          controller: ref.watch(tabScrollControllersProvider).of(3),
+          padding: readableInsets(context, top: AppSpacing.sm, bottom: navScrollPadding(context)),
+          children: [
+            ScreenHeader(
+              title: 'Your Atlas',
+              subtitle: view == null
+                  ? ' '
+                  : '${view.aliveCount} of ${view.places.length} places discovered',
+              trailing: CircleIconButton(
+                icon: Symbols.trophy_rounded,
+                filled: true,
+                iconColor: AppColors.amber,
+                semanticLabel: 'Achievements',
+                onTap: () => context.push('/world/achievements'),
+              ),
+            ),
+            if (view == null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              const Center(child: Skeleton(height: 300, width: 300, radius: 150)),
+            ] else ...[
+              SizedBox(
+                height: 372,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: -8,
+                      child: AtlasGlobe(
+                        key: _globe,
+                        places: view.places,
+                        nextId: view.next?.id,
+                        dropId: _celebrating,
+                        onTapPlace: (place) => showAtlasSheet<void>(
+                          context,
+                          builder: (_) => _PlaceSheet(place: place),
+                        ),
+                      ),
+                    ),
+                    SparkBurst(trigger: _burst, radius: 110),
+                  ],
                 ),
-                AppSpacing.gapLg,
-                _HeroBanner(unlockedCount: unlockedCount, total: total),
-                AppSpacing.gapLg,
-                _WorldGrid(
-                  rows: rows,
-                  onUnlock: (id) =>
-                      ref.read(worldActionsProvider).unlock(id),
+              ),
+              if (view.next != null) _NextCard(view: view) else const _AllFound(),
+              const SizedBox(height: 10),
+              if (view.discovered.isNotEmpty)
+                LayoutBuilder(builder: (context, c) {
+                  final w = (c.maxWidth - 16) / 3;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (var i = 0; i < view.discovered.length; i++)
+                        SizedBox(
+                          width: w,
+                          child: EntryFade(
+                            id: 'place-${view.discovered[i].id}',
+                            index: i,
+                            child: _PlaceTile(
+                              place: view.discovered[i],
+                              onTap: () => _openPlace(view.discovered[i]),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                })
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  child: Text('Your first places appear here as you tend.',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.body.copyWith(color: p.textMuted)),
                 ),
-                AppSpacing.gapXl,
-                const SectionHeader(title: 'Legend'),
-                const _Legend(),
-              ],
-            );
-          },
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-/// A living horizon hero with an overlaid "alive" count.
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({required this.unlockedCount, required this.total});
-
-  final int unlockedCount;
-  final int total;
+class _NextCard extends StatelessWidget {
+  const _NextCard({required this.view});
+  final WorldView view;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final progress = total == 0 ? 0.0 : unlockedCount / total;
-
-    return Stack(
-      children: [
-        LivingHorizon(
-          height: 150,
-          progress: progress,
-          borderRadius:
-              const BorderRadius.all(Radius.circular(AppSpacing.radiusLg)),
-        ),
-        Positioned(
-          left: AppSpacing.md,
-          bottom: AppSpacing.md,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xxs + 2,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.32),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    final p = context.palette;
+    final next = view.next!;
+    final on = p.onRaised;
+    return AtlasTile.raised(
+      context,
+      semanticLabel: 'Next place: ${next.name}, ${view.xpToGo} XP to go',
+      child: Row(
+        children: [
+          GradientIconTile(icon: next.icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.eco_rounded,
-                    size: 15, color: AppColors.auroraTeal),
-                AppSpacing.hGapXs,
-                Text(
-                  '$unlockedCount / $total tiles alive',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                Row(children: [
+                  Expanded(
+                    child: Text('Next: ${next.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.rowTitle.copyWith(color: on)),
                   ),
+                  CountUpText(
+                    value: view.xpToGo,
+                    suffix: ' XP',
+                    style: AppTypography.metaStrong.copyWith(color: on.withValues(alpha: .7)),
+                  ),
+                ]),
+                const SizedBox(height: 7),
+                GradientBar(
+                  value: view.nextProgress,
+                  gradient: AppColors.sunriseBar,
+                  trackColor: on.withValues(alpha: .15),
                 ),
               ],
             ),
           ),
-        ),
-      ],
-    ).animate().fadeIn(duration: AppMotion.medium).slideY(
-          begin: 0.06,
-          end: 0,
-          duration: AppMotion.medium,
-          curve: AppMotion.standard,
-        );
-  }
-}
-
-class _WorldGrid extends StatelessWidget {
-  const _WorldGrid({required this.rows, required this.onUnlock});
-
-  final List<WorldTile> rows;
-  final void Function(String id) onUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    // The first dormant tile glows — it's the next one ready to bloom.
-    final firstLocked = rows.indexWhere((t) => !t.isUnlocked);
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: rows.length,
-      // Five across on a phone; on a tablet the world is square (8×8), so
-      // widen to eight and the whole map reads at a glance instead of
-      // scrolling as a five-wide strip.
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: context.isCompactWindow ? 5 : 8,
-        mainAxisSpacing: AppSpacing.xs,
-        crossAxisSpacing: AppSpacing.xs,
+        ],
       ),
-      itemBuilder: (context, index) {
-        final row = rows[index];
-        final info = WorldTileInfo(
-          type: _tileTypeFromString(row.tileType),
-          unlocked: row.isUnlocked,
-          glowing: index == firstLocked,
-          cost: row.unlockRequirement,
-        );
-        return _WorldTile(
-          tile: info,
-          onTap: () {
-            if (info.glowing) {
-              onUnlock(row.id);
-            } else {
-              _showTileSheet(context, info);
-            }
-          },
-        );
-      },
     );
   }
 }
 
-TileType _tileTypeFromString(String s) {
-  for (final t in TileType.values) {
-    if (t.name == s) return t;
+class _AllFound extends StatelessWidget {
+  const _AllFound();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return AtlasTile.raised(
+      context,
+      child: Row(children: [
+        const AtlasSpark(size: 40, animated: true),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text('You’ve found every place. Keep tending; your world remembers.',
+              style: AppTypography.rowTitle.copyWith(color: p.onRaised)),
+        ),
+      ]),
+    );
   }
-  return TileType.grass;
 }
 
-class _WorldTile extends StatelessWidget {
-  const _WorldTile({required this.tile, required this.onTap});
-
-  final WorldTileInfo tile;
+class _PlaceTile extends StatelessWidget {
+  const _PlaceTile({required this.place, required this.onTap});
+  final Place place;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = tile.type.color;
-
-    late final Color bg;
-    late final Widget icon;
-    Border? border;
-    List<BoxShadow>? shadow;
-
-    if (tile.unlocked) {
-      bg = color.withValues(alpha: 0.18);
-      icon = Icon(tile.type.icon, color: color, size: 22);
-    } else if (tile.glowing) {
-      bg = color.withValues(alpha: 0.22);
-      icon = Icon(tile.type.icon, color: color, size: 22);
-      border = Border.all(color: AppColors.auroraLilac, width: 1.5);
-      shadow = [
-        BoxShadow(
-          color: AppColors.auroraLilac.withValues(alpha: 0.45),
-          blurRadius: 16,
-          spreadRadius: 1,
-        ),
-        BoxShadow(
-          color: AppColors.auroraTeal.withValues(alpha: 0.30),
-          blurRadius: 22,
-          spreadRadius: 1,
-        ),
-      ];
-    } else {
-      bg = theme.colorScheme.surfaceContainerHighest;
-      icon = Icon(
-        Icons.lock_outline,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-        size: 18,
-      );
-    }
-
-    return GestureDetector(
+    final p = context.palette;
+    final found = place.tile.unlockedAt;
+    return AtlasTile(
+      radius: AppSpacing.radiusButton,
+      padding: const EdgeInsets.all(12),
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.standard,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: border,
-          boxShadow: shadow,
-        ),
-        child: Center(child: icon),
+      semanticLabel: place.name,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconTile(style: CategoryStyle(place.icon, place.color), size: 34),
+          const SizedBox(height: 8),
+          Text(place.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.tileTitle.copyWith(color: p.textPrimary)),
+          Text(found == null ? 'Found' : 'Found ${monthShort(found)} ${found.day}',
+              style: AppTypography.tiny.copyWith(color: p.textMuted)),
+        ],
       ),
     );
   }
 }
 
-void _showTileSheet(BuildContext context, WorldTileInfo tile) {
-  final theme = Theme.of(context);
-  final color = tile.type.color;
-  final unlocked = tile.unlocked;
+/// A place up close: when you found it and what you tended that day.
+class _PlaceSheet extends ConsumerWidget {
+  const _PlaceSheet({required this.place});
+  final Place place;
 
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    // A sheet pinned to the full width of an iPad puts its controls at the far
-    // edges of a 1366pt screen. Hold it to the same measure as the content.
-    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
-    builder: (context) => Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppSpacing.radiusXl),
-        ),
-        border: Border.all(color: theme.colorScheme.outline),
-      ),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.xl,
-      ),
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final found = place.tile.unlockedAt;
+    final days = ref.watch(ledgerDaysProvider);
+    final habits = ref.watch(habitsStreamProvider).value ?? const [];
+    final tasks = ref.watch(tasksStreamProvider).value ?? const [];
+    final day = found == null ? null : LedgerMath.dayOf(days, found);
+    final titles = <String>[
+      if (day != null)
+        for (final key in day.items.keys)
+          if (key.startsWith('h:'))
+            ?habits.where((h) => Ledger.habitKey(h.id) == key).firstOrNull?.title
+          else if (key.startsWith('t:'))
+            ?tasks.where((t) => Ledger.taskKey(t.id) == key).firstOrNull?.title,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.outline,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-              ),
-            ),
-          ),
-          AppSpacing.gapLg,
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: unlocked
-                      ? color.withValues(alpha: 0.18)
-                      : theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: Icon(
-                  unlocked ? tile.type.icon : Icons.lock_outline,
-                  color: unlocked ? color : theme.colorScheme.onSurfaceVariant,
-                  size: 28,
-                ),
-              ),
-              AppSpacing.hGapMd,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tile.type.label,
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                    Text(
-                      unlocked ? 'Flourishing' : 'Dormant',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          AppSpacing.gapMd,
-          Text(
-            unlocked
-                ? 'A peaceful ${tile.type.label.toLowerCase()}, earned by '
-                    'tending your habits. Keep going and your world grows '
-                    'richer.'
-                : 'This ${tile.type.label.toLowerCase()} is still dormant. '
-                    'It needs ${tile.cost} XP to bloom, so tend your habits to '
-                    'bring it to life.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.45,
-            ),
-          ),
-          if (!unlocked) ...[
-            AppSpacing.gapMd,
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.tertiary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.auto_awesome_rounded,
-                      size: 18, color: AppColors.tertiary),
-                  AppSpacing.hGapSm,
-                  Text(
-                    '${tile.cost} XP to bloom',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: AppColors.tertiary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
-  );
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AtlasCard(
-      child: Wrap(
-        spacing: AppSpacing.md,
-        runSpacing: AppSpacing.sm,
-        children: [
-          for (final type in TileType.values)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: type.color.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  child: Icon(type.icon, color: type.color, size: 15),
-                ),
-                AppSpacing.hGapXs,
+          Row(children: [
+            place.discovered
+                ? IconTile(style: CategoryStyle(place.icon, place.color), size: 48)
+                : GradientIconTile(icon: place.icon),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(place.name, style: AppTypography.section.copyWith(color: p.textPrimary)),
+                const SizedBox(height: 2),
                 Text(
-                  type.label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  place.discovered
+                      ? (found == null ? 'Discovered' : 'Found ${longDate(found)}')
+                      : 'Opens at ${place.tile.unlockRequirement} XP',
+                  style: AppTypography.meta.copyWith(color: p.textMuted),
                 ),
-              ],
+              ]),
             ),
+          ]),
+          if (place.discovered) ...[
+            const SizedBox(height: AppSpacing.lg - 4),
+            Text('WHAT GOT YOU HERE',
+                style: AppTypography.kicker.copyWith(color: p.textMuted)),
+            const SizedBox(height: AppSpacing.xs),
+            if (titles.isEmpty)
+              Text('Showing up, a little at a time.',
+                  style: AppTypography.body.copyWith(color: p.textBody))
+            else
+              for (final t in titles.take(5))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    const AtlasSpark(size: 12),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(t, style: AppTypography.body.copyWith(color: p.textBody))),
+                  ]),
+                ),
+            const SizedBox(height: AppSpacing.xs),
+            Text('${place.tile.unlockRequirement} XP to discover',
+                style: AppTypography.metaStrong.copyWith(color: p.textMuted)),
+          ],
         ],
       ),
     );

@@ -32,14 +32,6 @@ class TaskActions {
   final TaskDao _dao;
   final _uuid = const Uuid();
 
-  /// Deterministic ids for opt-in starter content, so it can be recognised
-  /// and removed later (see the "Delete starter data" setting).
-  static const seedIds = [
-    'seed-task-0',
-    'seed-task-1',
-    'seed-task-2',
-    'seed-task-3',
-  ];
 
   Future<void> create({
     required String userId,
@@ -48,8 +40,14 @@ class TaskActions {
     String category = 'custom',
     String type = 'daily',
     int xp = 25,
+    String? dueTime,
   }) async {
     final now = DateTime.now();
+    // An "HH:mm" time puts it on today's list at that time.
+    final hm = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(dueTime ?? '');
+    final due = hm == null
+        ? null
+        : DateTime(now.year, now.month, now.day, int.parse(hm[1]!), int.parse(hm[2]!));
     await _dao.insertTask(TasksCompanion(
       id: Value(_uuid.v4()),
       userId: Value(userId),
@@ -58,66 +56,16 @@ class TaskActions {
       type: Value(type),
       category: Value(category),
       xpReward: Value(xp),
+      dueDate: Value(due),
       createdAt: Value(now),
       updatedAt: Value(now),
       isDirty: const Value(true),
     ));
   }
 
-  Future<void> toggleComplete(Task row) async {
-    final now = DateTime.now();
-    final next = !row.isCompleted;
-    await _dao.updateFields(
-      row.id,
-      TasksCompanion(
-        isCompleted: Value(next),
-        lastCompletedDate: Value(next ? now : null),
-        updatedAt: Value(now),
-        isDirty: const Value(true),
-      ),
-    );
-  }
 
-  /// Toggle completion by id (used by the home screen's today list).
-  Future<void> toggleById(String id) async {
-    final row = await _dao.getTaskById(id);
-    if (row != null) await toggleComplete(row);
-  }
 
   Future<void> delete(String id) => _dao.softDeleteTask(id, DateTime.now());
 
-  /// Opt-in starter content (only seeded when the user asks for example data).
-  Future<void> seedStarter(String userId) async {
-    if (await _dao.getTaskById(seedIds.first) != null) return;
-    final now = DateTime.now();
-    const seeds = [
-      ['Reply to Sam', 'Due today', 'work', 'daily', 25],
-      ['Stretch for 10 min', 'Loosen up', 'fitness', 'daily', 30],
-      ['Plan the week', 'Sunday ritual', 'mindfulness', 'weekly', 45],
-      ['Read "Atomic Habits"', '38% through', 'learning', 'longTerm', 90],
-    ];
-    for (var i = 0; i < seeds.length; i++) {
-      final s = seeds[i];
-      await _dao.insertTask(TasksCompanion(
-        id: Value(seedIds[i]),
-        userId: Value(userId),
-        title: Value(s[0] as String),
-        description: Value(s[1] as String),
-        category: Value(s[2] as String),
-        type: Value(s[3] as String),
-        xpReward: Value(s[4] as int),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-        isDirty: const Value(true),
-      ));
-    }
-  }
 
-  /// Remove the opt-in starter content (soft-delete so it can sync).
-  Future<void> deleteStarter(String userId) async {
-    final now = DateTime.now();
-    for (final id in seedIds) {
-      await _dao.softDeleteTask(id, now);
-    }
-  }
 }

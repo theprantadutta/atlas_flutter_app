@@ -198,12 +198,14 @@ search, so it exists purely to convert, but the copy already does both jobs.
 
 ## 4. What still needs doing outside this file
 
-- [x] **Screenshots.** Done for the App Store: 10 iPhone (6.5", 1284x2778) and 6 iPad (13",
-      2064x2752) captioned marketing shots, uploaded and live. Sources in
-      `ios_app_store_screenshots/` and `ipad_app_store_screenshots/`; raw captures in
-      `ios_screenshots/` and `ipad_screenshots/`. Play still uses
-      `play_store_screenshots/` and `android_screenshots/`.
-- [ ] **Feature graphic** (Play, 1024x500). Should read at thumbnail size.
+- [ ] **Screenshots.** Play (2.0, Daylight): phone in `play_store_screenshots/`, tablets in
+      `play_store_tablet_7inch_screenshots/` and `play_store_tablet_10inch_screenshots/`; raw
+      captures in `screenshots/` and `tablet_screenshots/`. The App Store set (10 iPhone 6.5",
+      6 iPad 13", in `ios_app_store_screenshots/` and `ipad_app_store_screenshots/`, raw in
+      `ios_screenshots/` and `ipad_screenshots/`) shows the pre-Daylight design and needs
+      redoing for 2.0. Lead with the living world and the habit list, not the login screen.
+- [x] **Feature graphic** (Play, 1024x500): `assets/brand/atlas_feature_graphic_1024x500.png`.
+      Play icon (512x512): `assets/brand/atlas_512x512.png`.
 - [ ] **Localisation.** Even translating just the name, subtitle and short description into the top
       three non-English markets typically outperforms any amount of English keyword tuning.
 - [ ] **Category.** Health & Fitness converts better than Productivity for this positioning, but

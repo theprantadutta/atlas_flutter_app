@@ -17,38 +17,27 @@ class ApiService {
   late final Dio _dio;
   late final Dio _refreshDio;
 
-  bool _isRefreshing = false;
-  final List<Completer<Response>> _pendingRequests = [];
+  /// The in-flight token refresh, shared by every request that hits a 401
+  /// while it runs. Each of those requests then retries *itself* with the new
+  /// token, so no request is ever answered with another request's response.
+  Future<String>? _refreshFuture;
+
+  /// Marks a request that has already been retried after a refresh, so a
+  /// second 401 is surfaced instead of triggering another refresh (or waiting
+  /// on the refresh it is itself part of).
+  static const _retriedKey = 'atlas_auth_retried';
 
   /// Optional callback invoked when an unrecoverable 401 occurs
   /// (e.g., refresh token expired). The app can use this to force logout.
   VoidCallback? onUnauthorized;
 
-  ApiService(this._tokenService) {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: '${AppConfig.baseUrl}${AppConfig.apiPrefix}',
-        connectTimeout: Duration(milliseconds: AppConfig.connectTimeout),
-        receiveTimeout: Duration(milliseconds: AppConfig.receiveTimeout),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+  /// [dio] and [refreshDio] are injectable for tests (e.g. with a fake
+  /// `HttpClientAdapter`); production code uses the defaults.
+  ApiService(this._tokenService, {Dio? dio, Dio? refreshDio}) {
+    _dio = dio ?? Dio(_baseOptions());
 
     // Separate Dio instance for token refresh to avoid interceptor recursion
-    _refreshDio = Dio(
-      BaseOptions(
-        baseUrl: '${AppConfig.baseUrl}${AppConfig.apiPrefix}',
-        connectTimeout: Duration(milliseconds: AppConfig.connectTimeout),
-        receiveTimeout: Duration(milliseconds: AppConfig.receiveTimeout),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+    _refreshDio = refreshDio ?? Dio(_baseOptions());
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -57,6 +46,16 @@ class ApiService {
       ),
     );
   }
+
+  static BaseOptions _baseOptions() => BaseOptions(
+        baseUrl: '${AppConfig.baseUrl}${AppConfig.apiPrefix}',
+        connectTimeout: Duration(milliseconds: AppConfig.connectTimeout),
+        receiveTimeout: Duration(milliseconds: AppConfig.receiveTimeout),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
 
   // ─── Interceptors ───────────────────────────────────────────────
 
@@ -78,32 +77,59 @@ class ApiService {
   ) async {
     _log.w('[API] Error ${error.response?.statusCode} on ${error.requestOptions.method} ${error.requestOptions.path}: ${error.response?.data}');
 
-    // Only attempt refresh on 401 responses
-    if (error.response?.statusCode != 401) {
+    final options = error.requestOptions;
+
+    // Only attempt refresh on 401 responses, and only once per request.
+    if (error.response?.statusCode != 401 ||
+        options.extra[_retriedKey] == true) {
       return handler.next(error);
     }
 
-    // If already refreshing, queue this request and wait
-    if (_isRefreshing) {
-      final completer = Completer<Response>();
-      _pendingRequests.add(completer);
-      try {
-        final response = await completer.future;
-        return handler.resolve(response);
-      } catch (e) {
-        return handler.next(error);
+    final String newAccessToken;
+    try {
+      // If the token was already rotated after this request was sent (it lost
+      // a race with a refresh that has since finished), retry with the
+      // current token instead of refreshing again.
+      final current = await _tokenService.getAccessToken();
+      final sentWith = options.headers['Authorization'];
+      if (_refreshFuture == null &&
+          current != null &&
+          current.isNotEmpty &&
+          sentWith != null &&
+          sentWith != 'Bearer $current') {
+        newAccessToken = current;
+      } else {
+        newAccessToken = await (_refreshFuture ??=
+            _refreshTokens().whenComplete(() => _refreshFuture = null));
       }
+    } catch (_) {
+      return handler.next(error);
     }
 
-    _isRefreshing = true;
+    // Retry this request with its own options and the new token.
+    options.headers['Authorization'] = 'Bearer $newAccessToken';
+    options.extra[_retriedKey] = true;
+    try {
+      final response = await _dio.fetch<dynamic>(options);
+      return handler.resolve(response);
+    } on DioException catch (retryError) {
+      return handler.next(retryError);
+    } catch (_) {
+      return handler.next(error);
+    }
+  }
 
+  /// Exchange the refresh token for a new pair and persist it. Returns the new
+  /// access token. Clears the session (and fires [onUnauthorized]) when the
+  /// server rejects the refresh or no refresh token exists; transient network
+  /// failures keep the tokens so the user can retry once back online.
+  Future<String> _refreshTokens() async {
     try {
       final refreshToken = await _tokenService.getRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
         throw const AuthException('No refresh token available');
       }
 
-      // Attempt to refresh using the separate Dio instance
       final refreshResponse = await _refreshDio.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},
@@ -116,20 +142,7 @@ class ApiService {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       );
-
-      // Retry the original failed request
-      final requestOptions = error.requestOptions;
-      requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
-
-      final retryResponse = await _dio.fetch(requestOptions);
-
-      // Resolve all queued requests
-      for (final completer in _pendingRequests) {
-        completer.complete(retryResponse);
-      }
-      _pendingRequests.clear();
-
-      return handler.resolve(retryResponse);
+      return newAccessToken;
     } on DioException catch (refreshError) {
       // Only force logout if the server explicitly rejected the refresh
       // (e.g., 401/403). For network errors (offline, timeout), keep
@@ -138,27 +151,12 @@ class ApiService {
         await _tokenService.deleteTokens();
         onUnauthorized?.call();
       }
-
-      // Reject all queued requests
-      for (final completer in _pendingRequests) {
-        completer.completeError(error);
-      }
-      _pendingRequests.clear();
-
-      return handler.next(error);
+      rethrow;
     } catch (_) {
       // Unknown errors (not network-related) — force logout as a safety net
       await _tokenService.deleteTokens();
       onUnauthorized?.call();
-
-      for (final completer in _pendingRequests) {
-        completer.completeError(error);
-      }
-      _pendingRequests.clear();
-
-      return handler.next(error);
-    } finally {
-      _isRefreshing = false;
+      rethrow;
     }
   }
 
@@ -181,6 +179,30 @@ class ApiService {
   }) async {
     try {
       return await _dio.post(path, data: data);
+    } on DioException catch (e) {
+      throw ErrorHandler.handleDioError(e);
+    }
+  }
+
+  /// POST and read the response body as it arrives (server-sent events).
+  /// Non-2xx responses still throw [AppException] with the status code.
+  Future<Response<ResponseBody>> postStream(
+    String path, {
+    dynamic data,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await _dio.post<ResponseBody>(
+        path,
+        data: data,
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {'Accept': 'text/event-stream'},
+          // Premium replies can take a while to start and keep arriving.
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
     } on DioException catch (e) {
       throw ErrorHandler.handleDioError(e);
     }

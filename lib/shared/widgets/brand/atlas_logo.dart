@@ -1,239 +1,240 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
+import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
+import 'package:atlas_flutter_app/shared/themes/app_palette.dart';
+import 'package:atlas_flutter_app/shared/themes/app_typography.dart';
 
-/// The Atlas logo — the "Aurora A" mark: a bold aurora-gradient peak that reads
-/// as the letter A (Atlas) and a mountain (the living world), a thin horizon gap
-/// as the crossbar, and a warm gold sun rising behind it on a twilight sky. The
-/// mark *is* the product's metaphor, so it scales from a 24px glyph to a splash
-/// hero and matches the app launcher icon.
+/// How the spark is filled.
+enum SparkVariant {
+  /// The sunrise gradient. Aurora, the logo, anything alive.
+  gradient,
+
+  /// Solid in the theme's primary text color (ink in light, cream in dark).
+  ink,
+
+  /// Solid white, for use on gradients and photos.
+  white,
+}
+
+/// The Atlas mark: a four-point spark.
 ///
-/// Use [AtlasLogo] for the symbol, or [AtlasLogo.wordmark] for symbol + name.
-class AtlasLogo extends StatelessWidget {
-  const AtlasLogo({super.key, this.size = 48, this.glow = false})
-      : _wordmark = false;
+/// Used as the app logo and as Aurora's face. With [animated] it shimmers
+/// (rotation ±12°, scale 1 → 1.08, a 5s mirror loop); with [busy] the loop
+/// tightens to 1.2s and the opacity pulses, which is how Aurora shows she is
+/// thinking. Both loops switch off under reduced motion.
+class AtlasSpark extends StatefulWidget {
+  const AtlasSpark({
+    super.key,
+    this.size = 40,
+    this.variant = SparkVariant.gradient,
+    this.animated = false,
+    this.busy = false,
+    this.semanticLabel,
+  });
 
-  const AtlasLogo.wordmark({super.key, this.size = 40, this.glow = false})
-      : _wordmark = true;
-
-  /// Edge length of the square mark.
   final double size;
+  final SparkVariant variant;
+  final bool animated;
+  final bool busy;
+  final String? semanticLabel;
 
-  /// Adds a soft aurora glow behind the mark (nice on dark heroes).
-  final bool glow;
+  @override
+  State<AtlasSpark> createState() => _AtlasSparkState();
+}
 
-  final bool _wordmark;
+class _AtlasSparkState extends State<AtlasSpark>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _controller;
+
+  bool _shouldLoop(BuildContext context) =>
+      (widget.animated || widget.busy) && !AppMotion.reduceMotion(context);
+
+  Duration get _period =>
+      widget.busy ? AppMotion.ambientSparkBusy : AppMotion.ambientSpark;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(AtlasSpark oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.busy != widget.busy ||
+        oldWidget.animated != widget.animated) {
+      _sync();
+    }
+  }
+
+  /// Start, retime or stop the loop without restarting it from zero, so a
+  /// theme change or a busy flip never makes the spark jump.
+  void _sync() {
+    if (!_shouldLoop(context)) {
+      _controller?.stop();
+      return;
+    }
+    final c = _controller ??= AnimationController(vsync: this);
+    // Half the period each way (mirror).
+    final half = _period ~/ 2;
+    if (c.duration != half || !c.isAnimating) {
+      c.duration = half;
+      c.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final mark = SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(painter: _AtlasMarkPainter()),
+    final p = context.palette;
+    final paint = SparkPainter(
+      gradient: widget.variant == SparkVariant.gradient ? AppColors.spark : null,
+      color: switch (widget.variant) {
+        SparkVariant.gradient => null,
+        SparkVariant.ink => p.textPrimary,
+        SparkVariant.white => AppColors.white,
+      },
+    );
+    Widget spark = CustomPaint(
+      size: Size.square(widget.size),
+      painter: paint,
     );
 
-    final glowing = glow
-        ? Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(size * 0.3),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.auroraLilac.withValues(alpha: 0.35),
-                  blurRadius: size * 0.5,
-                  spreadRadius: size * 0.04,
-                ),
-              ],
+    final c = _controller;
+    if (c != null && _shouldLoop(context)) {
+      spark = AnimatedBuilder(
+        animation: c,
+        child: spark,
+        builder: (context, child) {
+          final t = AppMotion.gentle.transform(c.value);
+          final opacity = widget.busy ? .7 + .3 * (1 - t) : 1.0;
+          return Opacity(
+            opacity: opacity,
+            child: Transform.rotate(
+              angle: t * 12 * math.pi / 180,
+              child: Transform.scale(scale: 1 + .08 * t, child: child),
             ),
-            child: mark,
-          )
-        : mark;
+          );
+        },
+      );
+    }
 
-    if (!_wordmark) return glowing;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        glowing,
-        SizedBox(width: size * 0.32),
-        Text(
-          'Atlas',
-          style: GoogleFonts.fraunces(
-            fontSize: size * 0.62,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.5,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-      ],
+    return Semantics(
+      label: widget.semanticLabel,
+      excludeSemantics: widget.semanticLabel == null,
+      child: SizedBox.square(
+        dimension: widget.size,
+        child: RepaintBoundary(child: spark),
+      ),
     );
   }
 }
 
-class _AtlasMarkPainter extends CustomPainter {
-  // Brand palette (kept exact so the glyph matches the launcher icon).
-  static const _skyTop = Color(0xFF10162B);
-  static const _skyMid = Color(0xFF1C2748);
-  static const _skyBottom = Color(0xFF2A3A66);
-  static const _horizon = Color(0xFF17203F);
-  static const _auroraTeal = Color(0xFF5EEAD4);
-  static const _auroraLilac = Color(0xFF8B9CF7);
-  static const _auroraRose = Color(0xFFF5A9C0);
-  static const _gold = Color(0xFFF4C77B);
-  static const _goldCore = Color(0xFFFFF4CE);
+/// Paints the spark: `(0,-1) (.22,-.22) (1,0) (.22,.22) (0,1) (-.22,.22)
+/// (-1,0) (-.22,-.22)` in unit coordinates, scaled to fit the canvas.
+class SparkPainter extends CustomPainter {
+  const SparkPainter({this.gradient, this.color})
+      : assert(gradient != null || color != null);
+
+  final Gradient? gradient;
+  final Color? color;
+
+  static const _waist = .22;
+
+  static Path pathFor(Rect rect) {
+    final c = rect.center;
+    final r = rect.shortestSide / 2;
+    Offset at(double x, double y) => Offset(c.dx + x * r, c.dy + y * r);
+    return Path()
+      ..moveTo(at(0, -1).dx, at(0, -1).dy)
+      ..lineTo(at(_waist, -_waist).dx, at(_waist, -_waist).dy)
+      ..lineTo(at(1, 0).dx, at(1, 0).dy)
+      ..lineTo(at(_waist, _waist).dx, at(_waist, _waist).dy)
+      ..lineTo(at(0, 1).dx, at(0, 1).dy)
+      ..lineTo(at(-_waist, _waist).dx, at(-_waist, _waist).dy)
+      ..lineTo(at(-1, 0).dx, at(-1, 0).dy)
+      ..lineTo(at(-_waist, -_waist).dx, at(-_waist, -_waist).dy)
+      ..close();
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
     final rect = Offset.zero & size;
-    final squircle = RRect.fromRectAndRadius(rect, Radius.circular(w * 0.3));
-
-    canvas.save();
-    canvas.clipRRect(squircle);
-
-    // Twilight sky.
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_skyTop, _skyMid, _skyBottom],
-        ).createShader(rect),
-    );
-
-    // Faint aurora glow high in the sky.
-    canvas.drawCircle(
-      Offset(w * 0.5, h * 0.30),
-      w * 0.34,
-      Paint()
-        ..color = _auroraLilac.withValues(alpha: 0.22)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.10),
-    );
-
-    // A couple of quiet stars.
-    final starPaint = Paint()..color = Colors.white.withValues(alpha: 0.85);
-    canvas.drawCircle(Offset(w * 0.26, h * 0.24), w * 0.012, starPaint);
-    canvas.drawCircle(Offset(w * 0.36, h * 0.15), w * 0.008, starPaint);
-    canvas.drawCircle(Offset(w * 0.78, h * 0.16), w * 0.009, starPaint);
-
-    // Gold sun rising behind the upper-right slope (drawn before the peak).
-    final sunCenter = Offset(w * 0.66, h * 0.33);
-    final sunR = w * 0.105;
-    canvas.drawCircle(
-      sunCenter,
-      sunR * 1.7,
-      Paint()
-        ..color = _gold.withValues(alpha: 0.28)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.05),
-    );
-    canvas.drawCircle(sunCenter, sunR, Paint()..color = _gold);
-    canvas.drawCircle(
-        sunCenter, sunR * 0.6, Paint()..color = _goldCore.withValues(alpha: 0.95));
-
-    // The peak — a rounded triangle filled with the aurora gradient.
-    final apex = Offset(w * 0.5, h * 0.19);
-    final baseL = Offset(w * 0.15, h * 0.85);
-    final baseR = Offset(w * 0.85, h * 0.85);
-    final peak = _roundedTriangle([apex, baseR, baseL], w * 0.055);
-    final peakRect = Rect.fromLTRB(w * 0.15, h * 0.19, w * 0.85, h * 0.85);
-    canvas.drawPath(
-      peak,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.bottomLeft,
-          end: Alignment.topRight,
-          colors: [_auroraTeal, _auroraLilac, _auroraRose],
-        ).createShader(peakRect),
-    );
-
-    // Horizon crossbar — a thin twilight gap across the lower third (the "A" bar).
-    canvas.save();
-    canvas.clipPath(peak);
-    final barY = h * 0.635;
-    final barH = h * 0.055;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.10, barY - barH / 2, w * 0.90, barY + barH / 2),
-        Radius.circular(barH / 2),
-      ),
-      Paint()..color = _horizon,
-    );
-    canvas.restore();
-
-    canvas.restore();
-
-    // Inner hairline for crispness.
-    canvas.drawRRect(
-      squircle.deflate(0.5),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: 0.08),
-    );
-  }
-
-  /// A closed triangle path with rounded corners (radius [r]).
-  Path _roundedTriangle(List<Offset> pts, double r) {
-    final path = Path();
-    final n = pts.length;
-    for (var i = 0; i < n; i++) {
-      final curr = pts[i];
-      final prev = pts[(i - 1 + n) % n];
-      final next = pts[(i + 1) % n];
-
-      final toPrev = prev - curr;
-      final toNext = next - curr;
-      final lenPrev = toPrev.distance;
-      final lenNext = toNext.distance;
-      final rr = math.min(r, math.min(lenPrev, lenNext) / 2);
-
-      final p1 = curr + toPrev / lenPrev * rr;
-      final p2 = curr + toNext / lenNext * rr;
-
-      if (i == 0) {
-        path.moveTo(p1.dx, p1.dy);
-      } else {
-        path.lineTo(p1.dx, p1.dy);
-      }
-      path.quadraticBezierTo(curr.dx, curr.dy, p2.dx, p2.dy);
+    final paint = Paint()..isAntiAlias = true;
+    if (gradient != null) {
+      paint.shader = gradient!.createShader(rect);
+    } else {
+      paint.color = color!;
     }
-    path.close();
-    return path;
+    canvas.drawPath(pathFor(rect), paint);
   }
 
   @override
-  bool shouldRepaint(covariant _AtlasMarkPainter oldDelegate) => false;
+  bool shouldRepaint(SparkPainter old) =>
+      old.gradient != gradient || old.color != color;
 }
 
-/// A rounded app-icon-style container around the mark — handy for splash and
-/// empty states where the mark needs a little breathing room.
-class AtlasLogoBadge extends StatelessWidget {
-  const AtlasLogoBadge({super.key, this.size = 96});
+/// The spark beside the "Atlas" wordmark in Funnel Display 700.
+class AtlasLockup extends StatelessWidget {
+  const AtlasLockup({super.key, this.height = 40, this.animated = false});
+
+  /// Cap height of the lockup; the spark is drawn at this size.
+  final double height;
+  final bool animated;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Semantics(
+      label: 'Atlas',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AtlasSpark(size: height, animated: animated),
+          SizedBox(width: height * .3),
+          Text(
+            'Atlas',
+            style: AppTypography.display(
+              size: height * 1.05,
+              color: p.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The app icon as a widget: the gradient spark on an ink squircle. Used on
+/// About and anywhere the "real" icon should appear in-app.
+class AtlasAppIcon extends StatelessWidget {
+  const AtlasAppIcon({super.key, this.size = 88, this.animated = false});
 
   final double size;
+  final bool animated;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(size * 0.14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.06),
-            Colors.white.withValues(alpha: 0.02),
-          ],
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: ShapeDecoration(
+        color: AppColors.ink,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(size * .3),
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
-      child: AtlasLogo(size: size * 0.72, glow: true),
+      child: AtlasSpark(size: size * .56, animated: animated),
     );
   }
 }

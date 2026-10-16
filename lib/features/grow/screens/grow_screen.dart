@@ -1,86 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:atlas_flutter_app/data/database/atlas_database.dart' as db;
-import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
-import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
-import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
+import 'package:atlas_flutter_app/core/gamification/days.dart';
+import 'package:atlas_flutter_app/core/gamification/ledger.dart';
+import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
+import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
+import 'package:atlas_flutter_app/features/grow/providers/grow_providers.dart';
+import 'package:atlas_flutter_app/features/grow/widgets/item_actions.dart';
+import 'package:atlas_flutter_app/features/grow/widgets/item_editor_sheet.dart';
+import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
+import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
+import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
+import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-// ─── Task category → visuals (local-first tasks come from Drift) ───
-Color _taskColor(String category) => switch (category) {
-      'health' => AppColors.categoryHealth,
-      'fitness' => AppColors.categoryFitness,
-      'mindfulness' => AppColors.categoryMindfulness,
-      'finance' => AppColors.categoryFinance,
-      'work' => AppColors.categoryWork,
-      'learning' => AppColors.categoryLearning,
-      'social' => AppColors.categorySocial,
-      'creative' => AppColors.categoryCreative,
-      'productivity' => AppColors.categoryWork,
-      'career' => AppColors.categoryWork,
-      'financial' => AppColors.categoryFinance,
-      'relationships' => AppColors.categorySocial,
-      'personal' => AppColors.primary,
-      _ => AppColors.primary,
-    };
-
-IconData _taskIcon(String category) => switch (category) {
-      'health' => Icons.favorite_rounded,
-      'fitness' => Icons.directions_run_rounded,
-      'mindfulness' => Icons.self_improvement_rounded,
-      'finance' => Icons.savings_rounded,
-      'work' => Icons.work_outline_rounded,
-      'learning' => Icons.menu_book_rounded,
-      'social' => Icons.group_rounded,
-      'creative' => Icons.palette_rounded,
-      'productivity' => Icons.bolt_rounded,
-      'career' => Icons.work_outline_rounded,
-      'financial' => Icons.savings_rounded,
-      'relationships' => Icons.favorite_border_rounded,
-      'personal' => Icons.flag_outlined,
-      _ => Icons.check_circle_outline_rounded,
-    };
-
-String _cadenceLabel(String type) => switch (type) {
-      'weekly' => 'Weekly',
-      'longTerm' => 'Long-term',
-      _ => 'Daily',
-    };
-
-String _freqLabel(String frequency) => switch (frequency) {
-      'weekly' => 'Weekly',
-      'weekdays' => 'Weekdays',
-      'weekends' => 'Weekends',
-      'custom' => 'Custom',
-      _ => 'Daily',
-    };
-
-String _goalStatusLabel(db.Goal g) {
-  if (g.status == 'completed' || g.progress >= 1.0) return 'Completed';
-  final d = g.deadline;
-  if (d != null && d.difference(DateTime.now()).inDays <= 21) return 'Due soon';
-  return 'On track';
-}
-
-String _goalDueLabel(db.Goal g) {
-  if (g.status == 'completed' || g.progress >= 1.0) return 'done';
-  final d = g.deadline;
-  if (d == null) return 'no deadline';
-  final days = d.difference(DateTime.now()).inDays;
-  if (days < 0) return 'overdue';
-  if (days == 0) return 'today';
-  if (days < 14) return 'in $days days';
-  return 'in ${(days / 7).round()} weeks';
-}
-
-/// The Grow hub — one calm home for Tasks, Habits and Goals.
+/// Grow: everything you're tending, in three tabs.
 class GrowScreen extends ConsumerStatefulWidget {
   const GrowScreen({super.key});
 
@@ -88,265 +26,131 @@ class GrowScreen extends ConsumerStatefulWidget {
   ConsumerState<GrowScreen> createState() => _GrowScreenState();
 }
 
+enum _Freq { all, daily, weekly }
+
 class _GrowScreenState extends ConsumerState<GrowScreen> {
-  int _segment = 0;
+  int _tab = 1; // Habits first, like the design.
+  bool _searching = false;
+  final _search = TextEditingController();
+  String _query = '';
+  DateTime? _day; // null = today
+  _Freq _freq = _Freq.all;
 
-  void _comingSoon(String what) => AtlasToast.info(context, what);
-
-  void _onAdd() {
-    switch (_segment) {
-      case 0:
-        _showNewTaskDialog();
-      case 1:
-        _showNewHabitDialog();
-      case 2:
-        _showNewGoalDialog();
-      default:
-        _comingSoon('Add coming soon');
-    }
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
-  Future<void> _showNewGoalDialog() async {
-    final controller = TextEditingController();
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New goal'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'What are you working toward?'),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-    if (title == null || title.isEmpty) return;
-    final userId = ref.read(currentUserIdProvider);
-    await ref.read(goalActionsProvider).create(userId: userId, title: title);
-  }
+  bool _matches(String title) =>
+      _query.isEmpty || title.toLowerCase().contains(_query.toLowerCase());
 
-  Future<void> _showNewHabitDialog() async {
-    final controller = TextEditingController();
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New habit'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'What will you nurture?'),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-    if (title == null || title.isEmpty) return;
-    final userId = ref.read(currentUserIdProvider);
-    await ref.read(habitActionsProvider).create(userId: userId, title: title);
-  }
-
-  Future<void> _showNewTaskDialog() async {
-    final controller = TextEditingController();
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New task'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(hintText: 'What needs tending?'),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-    if (title == null || title.isEmpty) return;
-    final userId = ref.read(currentUserIdProvider);
-    await ref.read(taskActionsProvider).create(userId: userId, title: title);
+  void _toggleSearch() {
+    setState(() {
+      _searching = !_searching;
+      if (!_searching) {
+        _search.clear();
+        _query = '';
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(dailyRolloverProvider);
+    final p = context.palette;
+    final today = ref.watch(todayProvider);
+    final day = _day ?? today;
+
+    final Widget body = switch (_tab) {
+      0 => _TasksTab(key: const ValueKey('tasks'), matches: _matches),
+      1 => _HabitsTab(
+        key: const ValueKey('habits'),
+        matches: _matches,
+        day: day,
+        today: today,
+        freq: _freq,
+        onFreq: () =>
+            setState(() => _freq = _Freq.values[(_freq.index + 1) % 3]),
+        onDay: (d) => setState(() => _day = isSameDay(d, today) ? null : d),
+      ),
+      _ => _GoalsTab(key: const ValueKey('goals'), matches: _matches),
+    };
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          // Cards, not prose: a wider column fits two or three across
-          // instead of stranding one lonely ribbon down the middle.
-          padding: adaptiveScreenPadding(context, maxWidth: 1100),
-          children: [
-            AtlasHeader(
-              title: 'Grow',
-              subtitle: 'Small steps, every day',
-              trailing: CircleActionButton(
-                icon: Icons.add_rounded,
-                onTap: _onAdd,
-              ),
+        child: SparkRefresh(
+          onRefresh: () => refreshEverything(ref),
+          child: ListView(
+            physics: sparkRefreshPhysics,
+            controller: ref.watch(tabScrollControllersProvider).of(1),
+            padding: readableInsets(context, top: AppSpacing.sm, bottom: navScrollPadding(context),
             ),
-            AppSpacing.gapLg,
-            SegmentedTabs(
-              labels: const ['Tasks', 'Habits', 'Goals'],
-              index: _segment,
-              onChanged: (i) => setState(() => _segment = i),
-            ),
-            AppSpacing.gapLg,
-            AnimatedSwitcher(
-              duration: AppMotion.fast,
-              child: switch (_segment) {
-                0 => const _TasksView(key: ValueKey('tasks')),
-                1 => const _HabitsView(key: ValueKey('habits')),
-                _ => const _GoalsView(key: ValueKey('goals')),
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Tasks ──────────────────────────────────────────────────────────
-
-class _TasksView extends ConsumerWidget {
-  const _TasksView({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasksAsync = ref.watch(tasksStreamProvider);
-    return tasksAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.only(top: AppSpacing.xxl),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (_, _) => const AtlasEmptyState(
-        icon: Icons.error_outline_rounded,
-        title: 'Something went wrong',
-        message: 'Could not load your tasks.',
-      ),
-      data: (tasks) {
-        if (tasks.isEmpty) {
-          return const AtlasEmptyState(
-            icon: Icons.task_alt_rounded,
-            title: 'No tasks yet',
-            message: 'Tap + to add your first task.',
-          );
-        }
-        const cadences = ['Daily', 'Weekly', 'Long-term'];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final cadence in cadences)
-              if (tasks.any((t) => _cadenceLabel(t.type) == cadence)) ...[
-                SectionHeader(title: cadence),
-                // One column on a phone, two or three on a tablet — a single
-                // ribbon of rows leaves most of an iPad empty.
-                AdaptiveCardGrid(
-                  children: [
-                    for (final t in tasks
-                        .where((t) => _cadenceLabel(t.type) == cadence))
-                      _TaskRow(
-                        task: t,
-                        onTap: () =>
-                            ref.read(taskActionsProvider).toggleComplete(t),
-                        onDelete: () =>
-                            ref.read(taskActionsProvider).delete(t.id),
-                      ),
-                  ],
+            children: [
+              ScreenHeader(
+                title: 'Grow',
+                trailing: CircleIconButton(
+                  icon: _searching
+                      ? Symbols.close_rounded
+                      : Symbols.search_rounded,
+                  semanticLabel: _searching ? 'Close search' : 'Search',
+                  onTap: _toggleSearch,
                 ),
-                AppSpacing.gapMd,
-              ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({
-    required this.task,
-    required this.onTap,
-    required this.onDelete,
-  });
-  final db.Task task;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final done = task.isCompleted;
-    final color = _taskColor(task.category);
-    return Dismissible(
-      key: ValueKey(task.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-      ),
-      child: AtlasCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(AppSpacing.sm + 2),
-        child: Row(
-          children: [
-            _IconTile(icon: _taskIcon(task.category), color: color, dim: done),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      decoration: done ? TextDecoration.lineThrough : null,
-                      color: done
-                          ? theme.colorScheme.onSurfaceVariant
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    done
-                        ? 'Done · +${task.xpReward} XP'
-                        : (task.description ?? '+${task.xpReward} XP'),
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                ],
               ),
-            ),
-            _Check(done: done, color: color),
-          ],
+              AnimatedSize(
+                duration: AppMotion.fast,
+                curve: AppMotion.standard,
+                child: _searching
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.md),
+                        child: TextField(
+                          controller: _search,
+                          autofocus: true,
+                          onChanged: (v) => setState(() => _query = v.trim()),
+                          style: AppTypography.sans(
+                            size: 15,
+                            color: p.textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search tasks, habits and goals',
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 16,
+                                right: 8,
+                              ),
+                              child: AtlasIcon(
+                                Symbols.search_rounded,
+                                size: 20,
+                                color: p.textMuted,
+                              ),
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 44,
+                            ),
+                          ),
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SegmentedPill(
+                labels: const ['Tasks', 'Habits', 'Goals'],
+                index: _tab,
+                onChanged: (i) => setState(() => _tab = i),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                switchInCurve: AppMotion.standard,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.topCenter,
+                  children: [...previous, ?current],
+                ),
+                child: body,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -355,253 +159,597 @@ class _TaskRow extends StatelessWidget {
 
 // ─── Habits ─────────────────────────────────────────────────────────
 
-class _HabitsView extends ConsumerWidget {
-  const _HabitsView({super.key});
+class _HabitsTab extends ConsumerWidget {
+  const _HabitsTab({
+    super.key,
+    required this.matches,
+    required this.day,
+    required this.today,
+    required this.freq,
+    required this.onFreq,
+    required this.onDay,
+  });
+
+  final bool Function(String) matches;
+  final DateTime day;
+  final DateTime today;
+  final _Freq freq;
+  final VoidCallback onFreq;
+  final ValueChanged<DateTime> onDay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitsAsync = ref.watch(habitsStreamProvider);
-    return habitsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.only(top: AppSpacing.xxl),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (_, _) => const AtlasEmptyState(
-        icon: Icons.error_outline_rounded,
-        title: 'Something went wrong',
-        message: 'Could not load your habits.',
-      ),
-      data: (habits) {
-        if (habits.isEmpty) {
-          return const AtlasEmptyState(
-            icon: Icons.eco_outlined,
-            title: 'No habits yet',
-            message: 'Tap + to nurture your first habit.',
-          );
-        }
-        final doneToday = habits.where((h) => h.isCompletedToday).length;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AtlasCard(
-              child: Row(
-                children: [
-                  ProgressRing(
-                    progress: habits.isEmpty ? 0 : doneToday / habits.length,
-                    size: 56,
-                    stroke: 6,
-                    child: Text('$doneToday/${habits.length}',
-                        style: Theme.of(context).textTheme.labelMedium),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Today's habits",
-                            style: Theme.of(context).textTheme.titleMedium),
-                        Text('Keep your streaks alive',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
-                      ],
-                    ),
-                  ),
-                ],
+    final days = ref.watch(ledgerDaysProvider);
+    final week = ref.watch(weekStripProvider);
+    final isToday = isSameDay(day, today);
+
+    final all = habitsAsync.value ?? const <Habit>[];
+    final habits =
+        all.where((h) {
+          if (!matches(h.title)) return false;
+          final weekly = HabitSchedule.isWeekly(h.frequency);
+          if (freq == _Freq.daily && weekly) return false;
+          if (freq == _Freq.weekly && !weekly) return false;
+          if (!isToday && dateOnly(h.createdAt).isAfter(day)) return false;
+          return weekly || HabitSchedule.isScheduledOn(h.frequency, day);
+        }).toList()..sort((a, b) {
+          final ad = habitDoneOn(a, day, today, days),
+              bd = habitDoneOn(b, day, today, days);
+          // Done ones first, like a filled week.
+          if (ad != bd) return ad ? -1 : 1;
+          return a.createdAt.compareTo(b.createdAt);
+        });
+    final done = habits.where((h) => habitDoneOn(h, day, today, days)).length;
+    final label = isToday ? 'Today' : weekdayName(day);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _WeekStrip(days: week, selected: day, today: today, onTap: onDay),
+        const SizedBox(height: AppSpacing.md),
+        SectionTitle(
+          habits.isEmpty ? label : '$label · $done of ${habits.length}',
+          action: switch (freq) {
+            _Freq.all => 'All',
+            _Freq.daily => 'Daily',
+            _Freq.weekly => 'Weekly',
+          },
+          onAction: onFreq,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (habitsAsync.isLoading && all.isEmpty)
+          const SkeletonList(height: AppSpacing.habitRowHeight)
+        else if (habits.isEmpty)
+          EmptyState(
+            title: all.isEmpty ? 'No habits yet.' : 'Nothing here.',
+            body: all.isEmpty
+                ? 'Start with one small thing you want to come back to.'
+                : null,
+            actionLabel: all.isEmpty ? 'Add a habit' : null,
+            onAction: () => showItemEditor(context, kind: ItemKind.habit),
+          )
+        else
+          for (var i = 0; i < habits.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: EntryFade(
+                id: 'habit-${habits[i].id}',
+                index: i,
+                child: _HabitRow(
+                  habit: habits[i],
+                  day: day,
+                  today: today,
+                  days: days,
+                ),
               ),
             ),
-            AppSpacing.gapMd,
-            AdaptiveCardGrid(
-              children: [
-                for (final h in habits)
-                  _HabitRow(
-                    habit: h,
-                    onTap: () =>
-                        ref.read(habitActionsProvider).toggleComplete(h),
-                    onDelete: () => ref.read(habitActionsProvider).delete(h.id),
-                  ),
-              ],
-            ),
-          ],
-        );
-      },
+      ],
     );
   }
 }
 
-class _HabitRow extends StatelessWidget {
-  const _HabitRow({
-    required this.habit,
+class _WeekStrip extends StatelessWidget {
+  const _WeekStrip({
+    required this.days,
+    required this.selected,
+    required this.today,
     required this.onTap,
-    required this.onDelete,
   });
-  final db.Habit habit;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
+
+  final List<WeekDay> days;
+  final DateTime selected;
+  final DateTime today;
+  final ValueChanged<DateTime> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final done = habit.isCompletedToday;
-    final color = _taskColor(habit.category);
-    return Dismissible(
-      key: ValueKey(habit.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-      ),
-      child: AtlasCard(
-        onTap: onTap,
-        child: Row(
-          children: [
-            _IconTile(icon: _taskIcon(habit.category), color: color, dim: !done),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(habit.title, style: theme.textTheme.titleMedium),
-                  Row(
+    final p = context.palette;
+    final selIndex = days.indexWhere((d) => isSameDay(d.date, selected));
+    return AtlasTile(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (var i = 0; i < days.length; i++)
+                Pressable(
+                  onTap: days[i].isFuture ? null : () => onTap(days[i].date),
+                  haptic: PressHaptic.selection,
+                  circle: true,
+                  semanticLabel:
+                      '${weekdayName(days[i].date)} ${days[i].date.day}, ${(days[i].value * 100).round()} percent',
+                  child: Column(
                     children: [
-                      const Icon(Icons.local_fire_department_rounded,
-                          size: 14, color: AppColors.streakFlame),
-                      const SizedBox(width: 3),
                       Text(
-                          '${habit.streakCount} day streak · ${_freqLabel(habit.frequency)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant)),
+                        weekdayLetter(days[i].date),
+                        style: AppTypography.dayLabel.copyWith(
+                          color: isSameDay(days[i].date, today)
+                              ? AtlasPalette.accent
+                              : p.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Opacity(
+                        opacity: days[i].isFuture ? .6 : 1,
+                        child: DayRing(
+                          value: days[i].value,
+                          label: '${days[i].date.day}',
+                          delay: AppMotion.listStagger * i,
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // The 2px ink underline under the selected day.
+          SizedBox(
+            height: 2,
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final slot = (c.maxWidth - 34) / 6;
+                return Stack(
+                  children: [
+                    AnimatedPositioned(
+                      duration: AppMotion.reduceMotion(context)
+                          ? Duration.zero
+                          : AppMotion.medium,
+                      curve: AppMotion.emphasized,
+                      left: selIndex < 0 ? 0 : selIndex * slot + 7,
+                      width: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: p.textPrimary,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-            _Check(done: done, color: color),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HabitRow extends ConsumerWidget {
+  const _HabitRow({
+    required this.habit,
+    required this.day,
+    required this.today,
+    required this.days,
+  });
+
+  final Habit habit;
+  final DateTime day;
+  final DateTime today;
+  final List<LedgerDay> days;
+
+  Future<void> _tend(BuildContext context, WidgetRef ref) async {
+    final outcome = await ref.read(tendControllerProvider).tendHabit(habit);
+    if (outcome == null || !context.mounted) return;
+    final level = outcome.leveledUpTo;
+    AtlasToast.undo(
+      context,
+      level != null
+          ? 'Level $level. +${outcome.xp} XP'
+          : '+${outcome.xp} XP · ${habit.title}',
+      onUndo: outcome.undo,
+    );
+  }
+
+  Future<void> _untend(WidgetRef ref) =>
+      ref.read(tendControllerProvider).untendHabit(habit, days);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final style = CategoryStyle.forItem(
+      title: habit.title,
+      category: habit.category,
+    );
+    final isToday = isSameDay(day, today);
+    final done = habitDoneOn(habit, day, today, days);
+    final week = habitWeek(habit, day, today, days);
+    final streakAlive = HabitSchedule.streakAlive(
+      habit.frequency,
+      habit.lastCompletedDate,
+      today,
+    );
+    final streak = streakAlive ? habit.streakCount : 0;
+    final time = parseHm(habit.reminderTime);
+    final unit = HabitSchedule.isWeekly(habit.frequency) ? 'week' : 'day';
+    final meta = !isToday
+        ? (done ? 'Done' : 'Not this day')
+        : (done || time == null)
+        ? (streak > 0
+              ? '$streak $unit streak'
+              : HabitSchedule.isWeekly(habit.frequency)
+              ? 'Once this week'
+              : '+${GamificationConstants.calculateHabitXp(difficulty: habit.difficulty)} XP')
+        : clockLabel(time.hour, time.minute);
+
+    return AtlasRow(
+      minHeight: AppSpacing.habitRowHeight,
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      leading: IconTile(style: style, size: 44),
+      title: habit.title,
+      metaWidget: AnimatedSwitcher(
+        duration: AppMotion.fast,
+        child: Text(
+          meta,
+          key: ValueKey(meta),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.meta.copyWith(color: context.palette.textMuted),
         ),
       ),
+      semanticsValue: done ? 'done' : 'not done',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Sparkline7(
+            days: week,
+            color: style.fg(context),
+            seed: habit.id,
+            dayKeys: [for (var i = 6; i >= 0; i--) dayKey(addDays(day, -i))],
+          ),
+          CheckCircle(
+            done: done,
+            enabled: isToday,
+            semanticLabel: '${habit.title}, ${done ? 'done' : 'not done'}',
+            onTap: () => done ? _untend(ref) : _tend(context, ref),
+          ),
+        ],
+      ),
+      onTap: () => showItemEditor(context, habit: habit),
+      onLongPress: () => showItemMenu(context, ref, habit: habit),
+      onSwipeRight: isToday && !done ? () => _tend(context, ref) : null,
+      onSwipeLeft: isToday && !done
+          ? () {
+              ref.read(snoozeProvider.notifier).skipToday(habit.id);
+              HapticFeedback.selectionClick();
+              AtlasToast.undo(
+                context,
+                'Skipped for today',
+                onUndo: () => ref.read(snoozeProvider.notifier).clear(habit.id),
+              );
+            }
+          : null,
+      swipeLeftLabel: 'Skip today',
+    );
+  }
+}
+
+// ─── Tasks ──────────────────────────────────────────────────────────
+
+class _TasksTab extends ConsumerWidget {
+  const _TasksTab({super.key, required this.matches});
+  final bool Function(String) matches;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(tasksStreamProvider);
+    final today = ref.watch(todayProvider);
+    final all = (async.value ?? const <Task>[])
+        .where((t) => matches(t.title))
+        .toList();
+
+    bool isDone(Task t) =>
+        t.isCompleted &&
+        TaskSchedule.doneInPeriod(t.type, t.lastCompletedDate, today);
+
+    List<Task> group(bool Function(Task) test) =>
+        all.where(test).toList()..sort((a, b) {
+          if (isDone(a) != isDone(b)) return isDone(a) ? 1 : -1;
+          final ad = a.dueDate, bd = b.dueDate;
+          if (ad != null && bd != null) return ad.compareTo(bd);
+          if (ad != null) return -1;
+          if (bd != null) return 1;
+          return a.createdAt.compareTo(b.createdAt);
+        });
+
+    final groups = [
+      ('Daily', group((t) => t.type == 'daily')),
+      ('Weekly', group((t) => t.type == 'weekly')),
+      ('Long-term', group((t) => t.type != 'daily' && t.type != 'weekly')),
+    ].where((g) => g.$2.isNotEmpty).toList();
+
+    if (async.isLoading && all.isEmpty) return const SkeletonList();
+    if (groups.isEmpty) {
+      return EmptyState(
+        title: (async.value ?? const []).isEmpty
+            ? 'No tasks yet.'
+            : 'Nothing matches.',
+        body: (async.value ?? const []).isEmpty
+            ? 'Add the next small thing you want done.'
+            : null,
+        actionLabel: (async.value ?? const []).isEmpty ? 'Add a task' : null,
+        onAction: () => showItemEditor(context, kind: ItemKind.task),
+      );
+    }
+
+    var index = 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (label, tasks) in groups) ...[
+          SectionTitle(
+            '$label · ${tasks.where(isDone).length} of ${tasks.length}',
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          for (final t in tasks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: EntryFade(
+                id: 'task-${t.id}',
+                index: index++,
+                child: _TaskRow(task: t, done: isDone(t)),
+              ),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
+    );
+  }
+}
+
+class _TaskRow extends ConsumerWidget {
+  const _TaskRow({required this.task, required this.done});
+  final Task task;
+  final bool done;
+
+  Future<void> _tend(BuildContext context, WidgetRef ref) async {
+    final outcome = await ref.read(tendControllerProvider).tendTask(task);
+    if (outcome == null || !context.mounted) return;
+    final level = outcome.leveledUpTo;
+    AtlasToast.undo(
+      context,
+      level != null
+          ? 'Level $level. +${outcome.xp} XP'
+          : 'Done · +${outcome.xp} XP',
+      onUndo: outcome.undo,
+    );
+  }
+
+  String _meta(DateTime today) {
+    if (done) {
+      return task.type == 'daily' ? 'Done today' : 'Done';
+    }
+    final due = task.dueDate;
+    final xp = '+${task.xpReward} XP';
+    if (due == null) return xp;
+    final hasTime = due.hour != 0 || due.minute != 0;
+    final diff = daysBetween(today, due);
+    final when = diff == 0
+        ? (hasTime ? clockLabel(due.hour, due.minute) : 'Today')
+        : diff == 1
+        ? 'Tomorrow'
+        : diff < 0
+        ? 'Waiting since ${due.day} ${monthShort(due)}'
+        : diff < 7
+        ? weekdayName(due)
+        : '${due.day} ${monthShort(due)}';
+    return '$when · $xp';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = ref.watch(todayProvider);
+    final style = CategoryStyle.forItem(
+      title: task.title,
+      category: task.category,
+    );
+    return AtlasRow(
+      minHeight: AppSpacing.habitRowHeight,
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      leading: IconTile(style: style, size: 44),
+      title: task.title,
+      meta: _meta(today),
+      semanticsValue: done ? 'done' : 'not done',
+      trailing: CheckCircle(
+        done: done,
+        semanticLabel: '${task.title}, ${done ? 'done' : 'not done'}',
+        onTap: () => done
+            ? ref.read(tendControllerProvider).untendTask(task)
+            : _tend(context, ref),
+      ),
+      onTap: () => showItemEditor(context, task: task),
+      onLongPress: () => showItemMenu(context, ref, task: task),
+      onSwipeRight: done ? null : () => _tend(context, ref),
+      onSwipeLeft: done
+          ? null
+          : () {
+              ref.read(snoozeProvider.notifier).skipToday(task.id);
+              AtlasToast.undo(
+                context,
+                'Skipped for today',
+                onUndo: () => ref.read(snoozeProvider.notifier).clear(task.id),
+              );
+            },
+      swipeLeftLabel: 'Skip today',
     );
   }
 }
 
 // ─── Goals ──────────────────────────────────────────────────────────
 
-class _GoalsView extends ConsumerWidget {
-  const _GoalsView({super.key});
+class _GoalsTab extends ConsumerWidget {
+  const _GoalsTab({super.key, required this.matches});
+  final bool Function(String) matches;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final goalsAsync = ref.watch(goalsStreamProvider);
-    return goalsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.only(top: AppSpacing.xxl),
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (_, _) => const AtlasEmptyState(
-        icon: Icons.error_outline_rounded,
-        title: 'Something went wrong',
-        message: 'Could not load your goals.',
-      ),
-      data: (goals) {
-        if (goals.isEmpty) {
-          return const AtlasEmptyState(
-            icon: Icons.flag_outlined,
-            title: 'No goals yet',
-            message: 'Tap + to set a horizon to grow toward.',
-          );
-        }
-        return Column(
+    final async = ref.watch(goalsStreamProvider);
+    final all = async.value ?? const <Goal>[];
+    final goals =
+        all.where((g) => matches(g.title) && g.status != 'cancelled').toList()
+          ..sort((a, b) {
+            final ad = a.progress >= 1, bd = b.progress >= 1;
+            if (ad != bd) return ad ? 1 : -1;
+            final adl = a.deadline, bdl = b.deadline;
+            if (adl != null && bdl != null) return adl.compareTo(bdl);
+            if (adl != null) return -1;
+            if (bdl != null) return 1;
+            return a.createdAt.compareTo(b.createdAt);
+          });
+
+    if (async.isLoading && all.isEmpty) return const SkeletonList(height: 132);
+    if (goals.isEmpty) {
+      return EmptyState(
+        title: all.isEmpty ? 'No goals yet.' : 'Nothing matches.',
+        body: all.isEmpty
+            ? 'Pick somewhere you’d like to be in a few months.'
+            : null,
+        actionLabel: all.isEmpty ? 'Add a goal' : null,
+        onAction: () => showItemEditor(context, kind: ItemKind.goal),
+      );
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < goals.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: EntryFade(
+              id: 'goal-${goals[i].id}',
+              index: i,
+              child: _GoalCard(goal: goals[i]),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _GoalCard extends ConsumerWidget {
+  const _GoalCard({required this.goal});
+  final Goal goal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final today = ref.watch(todayProvider);
+    final style = CategoryStyle.forItem(
+      title: goal.title,
+      category: goal.category,
+    );
+    final pct = (goal.progress * 100).round();
+    final complete = goal.progress >= 1;
+    final deadline = goal.deadline;
+    String target;
+    if (complete) {
+      final c = goal.completedAt;
+      target = c == null ? 'Complete' : 'Reached ${c.day} ${monthShort(c)}';
+    } else if (deadline == null) {
+      target = 'No target date';
+    } else {
+      final d = daysBetween(today, deadline);
+      target = d < 0
+          ? 'Target was ${deadline.day} ${monthShort(deadline)}'
+          : d == 0
+          ? 'Target · today'
+          : d < 14
+          ? 'Target · in $d ${d == 1 ? 'day' : 'days'}'
+          : 'Target · in ${(d / 7).round()} weeks';
+    }
+    final status = complete
+        ? 'Complete'
+        : pct == 0
+        ? 'Not started'
+        : 'In progress';
+
+    return Pressable(
+      onTap: () => showGoalProgressSheet(context, ref, goal),
+      onLongPress: () => showItemMenu(context, ref, goal: goal),
+      semanticLabel: '${goal.title}, $status, $pct percent, $target',
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: BoxDecoration(
+          color: p.paper,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusRow),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AdaptiveCardGrid(
-              children: [
-                for (final g in goals)
-                  _GoalCard(
-                    goal: g,
-                    onTap: () => ref.read(goalActionsProvider).bumpProgress(g),
-                    onDelete: () => ref.read(goalActionsProvider).delete(g.id),
-                  ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _GoalCard extends StatelessWidget {
-  const _GoalCard({
-    required this.goal,
-    required this.onTap,
-    required this.onDelete,
-  });
-  final db.Goal goal;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = _taskColor(goal.category);
-    final done = goal.status == 'completed' || goal.progress >= 1.0;
-    final status = _goalStatusLabel(goal);
-    return Dismissible(
-      key: ValueKey(goal.id),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: AppSpacing.lg),
-        decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        child: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-      ),
-      child: AtlasCard(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
             Row(
               children: [
-                _IconTile(icon: _taskIcon(goal.category), color: color, dim: done),
+                IconTile(style: style, size: 38),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(goal.title, style: theme.textTheme.titleMedium),
-                ),
-                _StatusChip(status: status, color: color),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: AtlasProgressBar(
-                    fraction: goal.progress,
-                    color: done ? AppColors.success : null,
+                  child: Text(
+                    goal.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.rowTitle.copyWith(
+                      color: p.textPrimary,
+                    ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Text('${(goal.progress * 100).round()}%',
-                    style: theme.textTheme.labelLarge),
+                const SizedBox(width: AppSpacing.xs),
+                AtlasChip(
+                  label: status,
+                  dense: true,
+                  background: complete ? p.successBg : p.track,
+                  foreground: complete ? p.success : p.textPrimary,
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xs),
-            Text('Target · ${_goalDueLabel(goal)}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                CountUpText(
+                  value: pct,
+                  suffix: '%',
+                  style: AppTypography.cardNumber.copyWith(
+                    color: p.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text(
+                    target,
+                    style: AppTypography.meta.copyWith(color: p.textMuted),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            GradientBar(
+              value: goal.progress,
+              gradient: AppColors.sunriseBar,
+              sheen: complete,
+            ),
           ],
         ),
       ),
@@ -609,78 +757,121 @@ class _GoalCard extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status, required this.color});
-  final String status;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final c = switch (status) {
-      'Completed' => AppColors.success,
-      'Due soon' => AppColors.streakFlame,
-      _ => color,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs + 2, vertical: 3),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-      ),
-      child: Text(status,
-          style: theme.textTheme.labelSmall
-              ?.copyWith(color: c, fontWeight: FontWeight.w700)),
-    );
-  }
+/// Set a goal's progress precisely (replaces the old fixed +25% tap).
+Future<void> showGoalProgressSheet(
+  BuildContext context,
+  WidgetRef ref,
+  Goal goal,
+) async {
+  await showAtlasSheet<void>(
+    context,
+    builder: (_) => _GoalProgressSheet(goal: goal),
+  );
 }
 
-// ─── Shared bits ────────────────────────────────────────────────────
-
-class _IconTile extends StatelessWidget {
-  const _IconTile({required this.icon, required this.color, this.dim = false});
-  final IconData icon;
-  final Color color;
-  final bool dim;
+class _GoalProgressSheet extends ConsumerStatefulWidget {
+  const _GoalProgressSheet({required this.goal});
+  final Goal goal;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: dim ? 0.10 : 0.16),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      ),
-      child: Icon(icon, color: color.withValues(alpha: dim ? 0.6 : 1), size: 22),
-    );
-  }
+  ConsumerState<_GoalProgressSheet> createState() => _GoalProgressSheetState();
 }
 
-class _Check extends StatelessWidget {
-  const _Check({required this.done, required this.color});
-  final bool done;
-  final Color color;
+class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
+  late double _value = widget.goal.progress;
+
+  Future<void> _save() async {
+    final nav = Navigator.of(context);
+    final outcome = await ref
+        .read(tendControllerProvider)
+        .setGoalProgress(widget.goal, _value);
+    nav.pop();
+    if (!mounted) return;
+    if (outcome != null) {
+      HapticFeedback.heavyImpact();
+      AtlasToast.undo(
+        context,
+        'Goal reached · +${outcome.xp} XP',
+        onUndo: outcome.undo,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.standard,
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: done ? color : Colors.transparent,
-        border: Border.all(
-            color: done ? color : theme.colorScheme.outline, width: 2),
+    final p = context.palette;
+    final pct = (_value * 100).round();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.md,
       ),
-      child: done
-          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-          : null,
-    ).animate(target: done ? 1 : 0).scaleXY(
-        begin: 1, end: 1.08, duration: AppMotion.fast, curve: AppMotion.standard);
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            widget.goal.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.section.copyWith(color: p.textPrimary),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$pct',
+                  style: AppTypography.statNumber.copyWith(
+                    color: p.textPrimary,
+                  ),
+                ),
+                GradientText('%', style: AppTypography.statNumber),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Slider(
+            value: _value,
+            divisions: 20,
+            onChanged: (v) {
+              if ((v * 20).round() != (_value * 20).round()) {
+                HapticFeedback.selectionClick();
+              }
+              setState(() => _value = v);
+            },
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              for (final v in [0.25, 0.5, 0.75, 1.0])
+                ChoiceChipPill(
+                  label: v == 1.0 ? 'Done' : '${(v * 100).round()}%',
+                  selected: (_value - v).abs() < .001,
+                  onTap: () => setState(() => _value = v),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          PillButton(
+            label: _value >= 1 && widget.goal.progress < 1
+                ? 'Mark as reached'
+                : 'Save',
+            variant: _value >= 1 && widget.goal.progress < 1
+                ? PillVariant.gradient
+                : PillVariant.action,
+            height: 56,
+            expand: true,
+            onTap: _save,
+          ),
+        ],
+      ),
+    );
   }
 }

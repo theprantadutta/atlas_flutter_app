@@ -1,21 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:atlas_flutter_app/core/sample/sample_extra.dart';
+import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/avatar/providers/avatar_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
     show currentUserIdProvider;
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
-import 'package:atlas_flutter_app/shared/widgets/ui_kit.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// Your Avatar — a playful but tasteful colour studio. Compose skin, hair and
-/// outfit hues and watch the little soul update live.
+/// The avatar palettes. Stored as indices, so the lengths and order must
+/// stay stable; the outfit hues are the Daylight category colors.
+class AvatarPalettes {
+  AvatarPalettes._();
+
+  static const skin = [
+    Color(0xFFF6D5B8),
+    Color(0xFFE8B98E),
+    Color(0xFFC68A5E),
+    Color(0xFF8D5A3C),
+    Color(0xFF5C3A29),
+  ];
+
+  static const hair = [
+    Color(0xFF2B2B2B),
+    Color(0xFF6B4423),
+    Color(0xFFC58B3B),
+    Color(0xFF8E6CFF),
+    Color(0xFFFF6A4D),
+  ];
+
+  static const outfit = [
+    AppColors.violet,
+    AppColors.leaf,
+    AppColors.amber,
+    AppColors.coral,
+    AppColors.sky,
+  ];
+}
+
+/// Your avatar: a small studio for skin, hair and outfit, with the stats
+/// it has grown from what you tend.
 class AvatarScreen extends ConsumerStatefulWidget {
   const AvatarScreen({super.key});
 
@@ -29,6 +55,7 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
   int _hair = 0;
   int _outfit = 0;
   bool _initialized = false;
+  bool _dirty = false;
 
   static const _segments = ['Skin', 'Hair', 'Outfit'];
 
@@ -37,16 +64,16 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
   void _maybeInit(Avatar? avatar) {
     if (_initialized || avatar == null) return;
     final idx = avatarIndicesFromJson(avatar.appearanceData);
-    _skin = idx.skin.clamp(0, AvatarOptions.skin.length - 1);
-    _hair = idx.hair.clamp(0, AvatarOptions.hair.length - 1);
-    _outfit = idx.outfit.clamp(0, AvatarOptions.outfit.length - 1);
+    _skin = idx.skin.clamp(0, AvatarPalettes.skin.length - 1);
+    _hair = idx.hair.clamp(0, AvatarPalettes.hair.length - 1);
+    _outfit = idx.outfit.clamp(0, AvatarPalettes.outfit.length - 1);
     _initialized = true;
   }
 
   List<Color> get _activePalette => switch (_segment) {
-        0 => AvatarOptions.skin,
-        1 => AvatarOptions.hair,
-        _ => AvatarOptions.outfit,
+        0 => AvatarPalettes.skin,
+        1 => AvatarPalettes.hair,
+        _ => AvatarPalettes.outfit,
       };
 
   int get _activeIndex => switch (_segment) {
@@ -56,7 +83,9 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
       };
 
   void _select(int index) {
+    HapticFeedback.selectionClick();
     setState(() {
+      _dirty = true;
       switch (_segment) {
         case 0:
           _skin = index;
@@ -77,91 +106,202 @@ class _AvatarScreenState extends ConsumerState<AvatarScreen> {
           outfit: _outfit,
         );
     if (!mounted) return;
-    AtlasToast.success(context, 'Looking good!');
+    setState(() => _dirty = false);
+    AtlasToast.success(context, 'Looking good');
+  }
+
+  Future<void> _rename(String current) async {
+    final controller = TextEditingController(text: current);
+    final name = await showAtlasSheet<String>(
+      context,
+      builder: (context) {
+        final p = context.palette;
+        return Padding(
+          padding: readableInsets(context, top: 0, bottom: AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Name your avatar',
+                  style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 24,
+                textCapitalization: TextCapitalization.words,
+                onSubmitted: (v) => Navigator.of(context).pop(v),
+                style: AppTypography.sans(size: 16, weight: FontWeight.w600, color: p.textPrimary),
+                decoration: const InputDecoration(hintText: 'A name', counterText: ''),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              PillButton(
+                label: 'Save name',
+                height: 56,
+                expand: true,
+                onTap: () => Navigator.of(context).pop(controller.text),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == current) return;
+    await ref.read(avatarActionsProvider).rename(ref.read(currentUserIdProvider), trimmed);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final avatarAsync = ref.watch(avatarStreamProvider);
+    final p = context.palette;
+    final async = ref.watch(avatarStreamProvider);
+    final avatar = async.value;
+    _maybeInit(avatar);
 
     return Scaffold(
       body: SafeArea(
-        bottom: false,
-        child: avatarAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) =>
-              const Center(child: Text('Could not load your avatar')),
-          data: (avatar) {
-            _maybeInit(avatar);
-            return ListView(
-              padding: adaptiveScreenPadding(context),
-              children: [
-                AtlasHeader(title: 'Your Avatar', onBack: () => context.pop()),
-            AppSpacing.gapLg,
-            _AvatarPreview(
-              skin: AvatarOptions.skin[_skin],
-              hair: AvatarOptions.hair[_hair],
-              outfit: AvatarOptions.outfit[_outfit],
-            ).animate().fadeIn(duration: AppMotion.medium),
-            AppSpacing.gapXl,
-            SegmentedTabs(
-              labels: _segments,
-              index: _segment,
-              onChanged: (i) => setState(() => _segment = i),
-            ),
-            AppSpacing.gapLg,
-            Text(
-              'Pick a ${_segments[_segment].toLowerCase()} tone',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            AppSpacing.gapMd,
-            _SwatchWrap(
-              key: ValueKey(_segment),
-              palette: _activePalette,
-              selected: _activeIndex,
-              onSelect: _select,
-            ).animate().fadeIn(duration: AppMotion.fast),
-            AppSpacing.gapXl,
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.check_rounded),
-                label: const Text('Save'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusPill),
-                  ),
-                  textStyle: theme.textTheme.titleMedium,
+        child: ListView(
+          padding: readableInsets(context, top: AppSpacing.xs, bottom: AppSpacing.xxl),
+          children: [
+            ScreenHeader(title: 'Your avatar', onBack: () => context.pop()),
+            const SizedBox(height: AppSpacing.md),
+            if (avatar == null && async.isLoading)
+              const Skeleton(height: 320, radius: AppSpacing.radiusXl)
+            else ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                decoration: BoxDecoration(
+                  gradient: p.letter,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+                ),
+                child: Column(
+                  children: [
+                    _AvatarPreview(
+                      skin: AvatarPalettes.skin[_skin],
+                      hair: AvatarPalettes.hair[_hair],
+                      outfit: AvatarPalettes.outfit[_outfit],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Pressable(
+                      onTap: avatar == null ? null : () => _rename(avatar.name),
+                      semanticLabel: 'Rename ${avatar?.name ?? 'avatar'}',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(avatar?.name ?? 'Adventurer',
+                              style: AppTypography.section.copyWith(color: p.textPrimary)),
+                          const SizedBox(width: 6),
+                          AtlasIcon(Symbols.edit_rounded, size: 18, color: p.textMuted),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text('Level ${avatar?.level ?? 1}',
+                        style: AppTypography.metaStrong.copyWith(color: p.textMuted)),
+                    const SizedBox(height: AppSpacing.md),
+                    if (avatar != null) _Stats(avatar: avatar),
+                  ],
                 ),
               ),
-            ),
-              ],
-            );
-          },
+              const SizedBox(height: AppSpacing.lg - 4),
+              SegmentedPill(
+                labels: _segments,
+                index: _segment,
+                onChanged: (i) => setState(() => _segment = i),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AtlasTile(
+                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+                child: AnimatedSwitcher(
+                  duration: AppMotion.fast,
+                  child: Row(
+                    key: ValueKey(_segment),
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      for (var i = 0; i < _activePalette.length; i++)
+                        _Swatch(
+                          color: _activePalette[i],
+                          selected: i == _activeIndex,
+                          label: '${_segments[_segment]} ${i + 1}',
+                          onTap: () => _select(i),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: _dirty
+                    ? PillButton(
+                        key: const ValueKey('save'),
+                        label: 'Save',
+                        height: 56,
+                        expand: true,
+                        onTap: _save,
+                      )
+                    : Container(
+                        key: const ValueKey('saved'),
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: p.track,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          AtlasIcon(Symbols.check_rounded, size: 18, color: p.textMuted),
+                          const SizedBox(width: 6),
+                          Text('Saved', style: AppTypography.button.copyWith(color: p.textMuted)),
+                        ]),
+                      ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-// ─── Preview ────────────────────────────────────────────────────────
+class _Stats extends StatelessWidget {
+  const _Stats({required this.avatar});
+  final Avatar avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    Widget stat(String label, int value, IconData icon, Color color) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: p.letterSecondaryButton,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(children: [
+              AtlasIcon(icon, size: 20, filled: true, color: p.category(color)),
+              const SizedBox(height: 6),
+              CountUpText(
+                value: value,
+                style: AppTypography.display(size: 22, color: p.textPrimary),
+              ),
+              const SizedBox(height: 2),
+              Text(label, style: AppTypography.tiny.copyWith(color: p.textMuted)),
+            ]),
+          ),
+        );
+    return Row(children: [
+      stat('Body', avatar.strength, Symbols.directions_run_rounded, AppColors.coral),
+      const SizedBox(width: 8),
+      stat('Mind', avatar.wisdom, Symbols.self_improvement_rounded, AppColors.violet),
+      const SizedBox(width: 8),
+      stat('Craft', avatar.intelligence, Symbols.menu_book_rounded, AppColors.sky),
+    ]);
+  }
+}
 
 class _AvatarPreview extends StatelessWidget {
-  const _AvatarPreview({
-    required this.skin,
-    required this.hair,
-    required this.outfit,
-  });
+  const _AvatarPreview({required this.skin, required this.hair, required this.outfit});
 
   final Color skin;
   final Color hair;
@@ -169,73 +309,33 @@ class _AvatarPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return AnimatedContainer(
+      duration: AppMotion.medium,
+      curve: AppMotion.standard,
+      width: 164,
+      height: 164,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: hair),
       child: AnimatedContainer(
         duration: AppMotion.medium,
         curve: AppMotion.standard,
-        width: 180,
-        height: 180,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [outfit.withValues(alpha: 0.9), outfit],
+            colors: [Color.lerp(outfit, Colors.white, .25)!, outfit],
           ),
-          border: Border.all(color: hair, width: 6),
-          boxShadow: [
-            BoxShadow(
-              color: outfit.withValues(alpha: 0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
-            ),
-          ],
         ),
-        child: AnimatedContainer(
-          duration: AppMotion.medium,
-          curve: AppMotion.standard,
-          width: 140,
-          height: 140,
+        child: Container(
+          width: 120,
+          height: 120,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: skin.withValues(alpha: 0.28),
-          ),
-          child: Icon(Icons.face_rounded, size: 96, color: skin),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: skin.withValues(alpha: .35)),
+          child: AtlasIcon(Symbols.face_rounded, size: 88, filled: true, color: skin),
         ),
       ),
-    );
-  }
-}
-
-// ─── Swatches ───────────────────────────────────────────────────────
-
-class _SwatchWrap extends StatelessWidget {
-  const _SwatchWrap({
-    super.key,
-    required this.palette,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final List<Color> palette;
-  final int selected;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.md,
-      runSpacing: AppSpacing.md,
-      children: [
-        for (var i = 0; i < palette.length; i++)
-          _Swatch(
-            color: palette[i],
-            selected: i == selected,
-            onTap: () => onSelect(i),
-          ),
-      ],
     );
   }
 }
@@ -244,44 +344,38 @@ class _Swatch extends StatelessWidget {
   const _Swatch({
     required this.color,
     required this.selected,
+    required this.label,
     required this.onTap,
   });
 
   final Color color;
   final bool selected;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
+    final p = context.palette;
+    return Pressable(
       onTap: onTap,
+      circle: true,
+      semanticLabel: '$label${selected ? ', selected' : ''}',
       child: AnimatedContainer(
         duration: AppMotion.fast,
-        curve: AppMotion.standard,
-        width: 56,
-        height: 56,
-        alignment: Alignment.center,
+        curve: AppMotion.emphasized,
+        width: 52,
+        height: 52,
+        padding: EdgeInsets.all(selected ? 4 : 0),
         decoration: BoxDecoration(
-          color: color,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
-            width: selected ? 3 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                ]
+          border: Border.all(color: selected ? p.action : Colors.transparent, width: 2.5),
+        ),
+        child: Container(
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: selected
+              ? const AtlasIcon(Symbols.check_rounded, size: 20, color: AppColors.white, weight: 600)
               : null,
         ),
-        child: selected
-            ? const Icon(Icons.check_rounded, color: Colors.white, size: 24)
-            : null,
       ),
     );
   }

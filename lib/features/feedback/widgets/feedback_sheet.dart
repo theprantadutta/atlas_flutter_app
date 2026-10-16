@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:atlas_flutter_app/core/config/store_config.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
-import 'package:atlas_flutter_app/shared/themes/app_breakpoints.dart';
-import 'package:atlas_flutter_app/shared/themes/app_colors.dart';
-import 'package:atlas_flutter_app/shared/themes/app_motion.dart';
-import 'package:atlas_flutter_app/shared/themes/app_spacing.dart';
-import 'package:atlas_flutter_app/shared/widgets/app_button.dart';
-import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
+import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
 /// Invites the user to say how Atlas is treating them.
 ///
@@ -19,16 +13,7 @@ import 'package:atlas_flutter_app/shared/widgets/feedback/atlas_toast.dart';
 /// it does not need), and a public review both reaches us and helps the next
 /// person decide whether Atlas is for them.
 Future<void> showFeedbackSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    showDragHandle: true,
-    // A sheet pinned to the full width of an iPad puts its controls at the far
-    // edges of a 1366pt screen. Hold it to the same measure as the content.
-    constraints: const BoxConstraints(maxWidth: AppBreakpoints.readingColumn),
-    builder: (_) => const FeedbackSheet(),
-  );
+  return showAtlasSheet<void>(context, builder: (_) => const FeedbackSheet());
 }
 
 class FeedbackSheet extends StatefulWidget {
@@ -82,76 +67,52 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
     } else {
       AtlasToast.error(
         context,
-        'Could not open ${StoreConfig.storeName} from here. You can search for '
-        'Atlas there any time.',
+        'Could not open ${StoreConfig.storeName} from here. You can search for Atlas there any time.',
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+    final p = context.palette;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.gutter,
-        0,
-        AppSpacing.gutter,
-        AppSpacing.lg,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 64,
-              height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: AppColors.auroraGradient,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              ),
-              child: const Icon(
-                Icons.favorite_rounded,
-                color: Color(0xFF10243B),
-                size: 30,
-              ),
-            ),
-          ).animate().fadeIn(duration: AppMotion.medium).scale(
-                begin: const Offset(0.9, 0.9),
-                end: const Offset(1, 1),
-                curve: AppMotion.standard,
-              ),
-          AppSpacing.gapMd,
+          const Center(child: AtlasSpark(size: 64, animated: true)),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'How is Atlas treating you?',
             textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall,
+            style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary),
           ),
-          AppSpacing.gapXs,
+          const SizedBox(height: AppSpacing.xs),
           Text(
-            'Atlas is built by one person, and reviews are how it finds the '
-            'people it can help. Tell us what is working, or what is not, and '
-            'it goes straight onto the list.',
+            'Atlas is built by one person, and reviews are how it finds the people it '
+            'can help. Tell us what is working, or what is not, and it goes straight '
+            'onto the list.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
+            style: AppTypography.body.copyWith(color: p.textBody),
           ),
-          AppSpacing.gapLg,
-          AppButton(
+          const SizedBox(height: AppSpacing.lg),
+          PillButton(
             label: 'Write a review on ${StoreConfig.storeName}',
-            icon: Icons.rate_review_outlined,
-            isLoading: _opening,
-            onPressed: _opening ? null : _openStoreListing,
+            icon: Symbols.rate_review_rounded,
+            height: 56,
+            expand: true,
+            busy: _opening,
+            onTap: _opening ? null : _openStoreListing,
           ),
-          AppSpacing.gapXs,
-          AppButton(
+          const SizedBox(height: AppSpacing.xs),
+          PillButton(
             label: 'Maybe later',
-            variant: AppButtonVariant.ghost,
-            onPressed: _opening ? null : () => Navigator.of(context).pop(),
+            variant: PillVariant.track,
+            height: 56,
+            expand: true,
+            haptic: PressHaptic.selection,
+            onTap: _opening ? null : () => Navigator.of(context).pop(),
           ),
         ],
       ),

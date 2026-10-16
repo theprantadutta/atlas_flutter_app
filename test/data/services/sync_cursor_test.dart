@@ -7,7 +7,6 @@ import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
-import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
@@ -44,7 +43,6 @@ void main() {
         worldDao: WorldDao(db),
         achievementDao: AchievementDao(db),
         progressDao: ProgressDao(db),
-        notificationDao: NotificationDao(db),
         syncRepository: _UnusedSyncRepository(),
         conflictResolution: ConflictResolutionService(),
       );

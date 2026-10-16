@@ -15,8 +15,6 @@ import 'package:atlas_flutter_app/data/database/daos/aurora_reflection_dao.dart'
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
 import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 
-import 'package:atlas_flutter_app/data/repositories/task_repository.dart';
-import 'package:atlas_flutter_app/data/repositories/habit_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/goal_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/avatar_repository.dart';
 import 'package:atlas_flutter_app/data/repositories/achievement_repository.dart';
@@ -89,29 +87,12 @@ final offlineManagerProvider = Provider<OfflineManager>((ref) {
     worldDao: ref.read(worldDaoProvider),
     achievementDao: ref.read(achievementDaoProvider),
     progressDao: ref.read(progressDaoProvider),
-    notificationDao: ref.read(notificationDaoProvider),
     syncRepository: ref.read(syncRepositoryProvider),
     conflictResolution: ref.read(conflictResolutionServiceProvider),
   );
 });
 
 // ─── Repository Providers ──────────────────────────────────────
-
-final taskRepositoryProvider = Provider<TaskRepository>((ref) {
-  return TaskRepository(
-    ref.read(apiServiceProvider),
-    ref.read(offlineManagerProvider),
-    ref.read(taskDaoProvider),
-  );
-});
-
-final habitRepositoryProvider = Provider<HabitRepository>((ref) {
-  return HabitRepository(
-    ref.read(apiServiceProvider),
-    ref.read(offlineManagerProvider),
-    ref.read(habitDaoProvider),
-  );
-});
 
 final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   return GoalRepository(

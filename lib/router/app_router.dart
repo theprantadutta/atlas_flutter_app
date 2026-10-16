@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_letter_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_settings_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
@@ -108,7 +109,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const SplashScreen(),
+        // The launch screen holds perfectly still while the first real screen
+        // arrives over it; the app-wide transition would slide it off to the
+        // left, dragging the centered spark with it.
+        pageBuilder: (context, state) => CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const SplashScreen(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) => child,
+        ),
       ),
       GoRoute(
         path: '/login',
@@ -136,10 +146,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SetupScreen(),
       ),
 
-      // ─── Main shell: Home · Grow · Aurora · World · You ───
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            AppNavigationShell(navigationShell: navigationShell),
+      // ─── Main shell: Home · Grow · Aurora · Atlas (+ You, via the avatar) ───
+      StatefulShellRoute(
+        builder: (context, state, navigationShell) => navigationShell,
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            AppNavigationShell(
+          navigationShell: navigationShell,
+          location: GoRouterState.of(context).uri.path,
+          children: children,
+        ),
         branches: [
           // Home
           StatefulShellBranch(
@@ -148,24 +163,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 name: RouteNames.home,
                 builder: (context, state) => const HomeScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'analytics',
-                    name: RouteNames.analytics,
-                    builder: (context, state) => const AnalyticsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'progress',
-                    name: RouteNames.progress,
-                    builder: (context, state) => const ProgressScreen(),
-                  ),
-                  GoRoute(
-                    path: 'notifications',
-                    name: RouteNames.notificationCenter,
-                    builder: (context, state) =>
-                        const NotificationCenterScreen(),
-                  ),
-                ],
               ),
             ],
           ),
@@ -188,6 +185,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/aurora',
                 name: RouteNames.aurora,
                 builder: (context, state) => const AuroraScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'letter',
+                    name: RouteNames.auroraLetter,
+                    builder: (context, state) => const AuroraLetterScreen(),
+                  ),
+                  // The same voice settings as Profile, reachable without
+                  // leaving the Aurora tab.
+                  GoRoute(
+                    path: 'settings',
+                    name: RouteNames.auroraVoice,
+                    builder: (context, state) => const AuroraSettingsScreen(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -269,6 +280,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ─── Top-level overlays (above the nav shell) ───
+      // Insights, Day by day and the notification center are reachable from
+      // Home and from Profile; as top-level routes, back always returns to
+      // wherever you came from instead of switching tabs.
+      GoRoute(
+        path: '/analytics',
+        name: RouteNames.analytics,
+        builder: (context, state) => const AnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/progress',
+        name: RouteNames.progress,
+        builder: (context, state) => const ProgressScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: RouteNames.notificationCenter,
+        builder: (context, state) => const NotificationCenterScreen(),
+      ),
       GoRoute(
         path: '/aurora-chat',
         name: RouteNames.auroraChat,
