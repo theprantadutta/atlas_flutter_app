@@ -19,14 +19,19 @@ class AppTheme {
   static ThemeData get dark => _build(AtlasPalette.dark);
 
   /// Status and navigation bar style for a palette.
-  static SystemUiOverlayStyle overlayFor(AtlasPalette p) =>
-      (p.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
-          .copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: p.canvas,
-        systemNavigationBarDividerColor: p.canvas,
+  ///
+  /// The window is edge-to-edge, so the bars are transparent over the canvas
+  /// and only their icons follow the palette. No colours are set on purpose:
+  /// a bar colour makes the engine call Android's deprecated
+  /// setStatusBarColor/setNavigationBarColor, which Play flags.
+  static SystemUiOverlayStyle overlayFor(AtlasPalette p) => SystemUiOverlayStyle(
+        statusBarIconBrightness: p.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: p.isDark ? Brightness.dark : Brightness.light,
         systemNavigationBarIconBrightness:
             p.isDark ? Brightness.light : Brightness.dark,
+        // No grey scrim behind three-button navigation; the canvas shows.
+        systemNavigationBarContrastEnforced: false,
+        systemStatusBarContrastEnforced: false,
       );
 
   static ThemeData _build(AtlasPalette p) {

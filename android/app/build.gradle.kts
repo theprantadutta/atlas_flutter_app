@@ -70,9 +70,10 @@ android {
 
     buildTypes {
         release {
-            // Inert while minification is off, which it currently is; here so
-            // that turning R8 on later cannot silently strip the billing
-            // classes and break purchases only in release.
+            // Flutter turns R8 on for release builds (code and resource
+            // shrinking, with optimisation). These rules keep it from
+            // stripping the billing classes, which would break purchases only
+            // in release.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -96,6 +97,9 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // WindowCompat.enableEdgeToEdge, for the same edge-to-edge window on every
+    // Android version (15 and later enforce it anyway).
+    implementation("androidx.core:core-ktx:1.18.0")
 }
 
 flutter {
