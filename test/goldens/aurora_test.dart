@@ -51,6 +51,8 @@ class SampleChat extends AuroraChatNotifier {
 
 List common() => [
       auroraUsageProvider.overrideWithValue(null),
+      isPremiumProvider.overrideWithValue(false),
+      latestMonthlyReflectionProvider.overrideWith((ref) => Stream.value(null)),
       onlineProvider.overrideWith((ref) => Stream.value(true)),
     ];
 

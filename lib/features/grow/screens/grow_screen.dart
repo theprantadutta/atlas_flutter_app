@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/grow/providers/grow_providers.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/goal_steps_sheet.dart';
 import 'package:atlas_flutter_app/features/grow/widgets/item_actions.dart';
 import 'package:atlas_flutter_app/features/grow/widgets/item_editor_sheet.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
@@ -858,6 +859,24 @@ class _GoalProgressSheetState extends ConsumerState<_GoalProgressSheet> {
                 ),
             ],
           ),
+          if (widget.goal.progress < 1) ...[
+            const SizedBox(height: AppSpacing.md),
+            Center(
+              child: PillButton(
+                label: 'Break it down with Aurora',
+                icon: Symbols.auto_awesome_rounded,
+                variant: PillVariant.track,
+                height: 40,
+                haptic: PressHaptic.selection,
+                onTap: () {
+                  final nav = Navigator.of(context);
+                  final root = nav.context;
+                  nav.pop();
+                  showGoalStepsSheet(root, widget.goal);
+                },
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           PillButton(
             label: _value >= 1 && widget.goal.progress < 1

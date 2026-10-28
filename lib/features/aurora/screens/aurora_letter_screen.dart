@@ -11,9 +11,12 @@ import 'package:atlas_flutter_app/features/aurora/widgets/letter_widgets.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-/// The whole letter. Opening it marks it read (the Home tile goes quiet).
+/// The whole letter. Opening the weekly one marks it read (the Home tile
+/// goes quiet). With [period] month it shows the monthly letter (premium).
 class AuroraLetterScreen extends ConsumerStatefulWidget {
-  const AuroraLetterScreen({super.key});
+  const AuroraLetterScreen({super.key, this.period = AuroraLetterPeriod.week});
+
+  final AuroraLetterPeriod period;
 
   @override
   ConsumerState<AuroraLetterScreen> createState() => _AuroraLetterScreenState();
@@ -33,9 +36,17 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final reflection = ref.watch(latestReflectionProvider).value;
+    final monthly = widget.period == AuroraLetterPeriod.month;
+    final reflection =
+        ref.watch(monthly ? latestMonthlyReflectionProvider : latestReflectionProvider).value;
     final gen = ref.watch(reflectionGenProvider);
-    if (reflection != null) _markRead(reflection.id);
+    final writing = gen.generating && gen.period == widget.period;
+    if (reflection != null && !monthly) _markRead(reflection.id);
+    final kicker = reflection == null
+        ? ''
+        : monthly
+            ? 'YOUR MONTH'
+            : letterKicker(reflection);
 
     return Scaffold(
       body: SafeArea(
@@ -43,7 +54,8 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
             ? Column(children: [
                 Padding(
                   padding: readableInsets(context, top: AppSpacing.xs, bottom: 0),
-                  child: ScreenHeader(title: 'Letter', onBack: () => context.pop()),
+                  child: ScreenHeader(
+                      title: monthly ? 'Your month' : 'Letter', onBack: () => context.pop()),
                 ),
                 const Expanded(
                   child: Center(child: EmptyState(title: 'No letter yet.')),
@@ -80,7 +92,7 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
                         Row(children: [
                           const AtlasSpark(size: 26, animated: true),
                           const SizedBox(width: 10),
-                          Text(letterKicker(reflection),
+                          Text(kicker,
                               style: AppTypography.kicker.copyWith(color: p.textPrimary)),
                           const Spacer(),
                           Text(letterRange(reflection),
@@ -122,16 +134,22 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
                         icon: Symbols.forum_rounded,
                         height: 52,
                         onTap: () => context.push('/aurora-chat',
-                            extra: 'I just read my letter. Can we talk about it?'),
+                            extra: monthly
+                                ? 'I just read my month letter. Can we talk about it?'
+                                : 'I just read my letter. Can we talk about it?'),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
                     PillButton(
-                      label: gen.generating ? 'Writing' : 'Write a new one',
+                      label: writing ? 'Writing' : 'Write a new one',
                       variant: PillVariant.track,
                       height: 52,
-                      busy: gen.generating,
-                      onTap: () => ref.read(reflectionGenProvider.notifier).generate(),
+                      busy: writing,
+                      onTap: gen.generating
+                          ? null
+                          : () => ref
+                              .read(reflectionGenProvider.notifier)
+                              .generate(period: widget.period),
                     ),
                   ]),
                 ],

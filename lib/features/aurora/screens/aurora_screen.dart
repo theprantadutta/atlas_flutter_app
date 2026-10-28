@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
+import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/core/utils/prose.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/letter_tts_provider.dart';
 import 'package:atlas_flutter_app/features/aurora/widgets/letter_widgets.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/plan_day_sheet.dart';
+import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
+import 'package:atlas_flutter_app/features/check_in/widgets/check_in_sheet.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
@@ -64,7 +68,29 @@ class AuroraScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             const _LetterCard(),
+            const SizedBox(height: AppSpacing.xs),
+            const _MonthRow(),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionTitle('Today'),
             const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+              child: LinkRow(
+                icon: Symbols.sentiment_satisfied_rounded,
+                iconColor: AppColors.amber,
+                label: 'Check in',
+                detail: 'How are you, really?',
+                onTap: () => showCheckInSheet(context),
+              ),
+            ),
+            LinkRow(
+              icon: Symbols.wb_sunny_rounded,
+              iconColor: AppColors.coral,
+              label: 'Plan my day',
+              detail: 'Two to four things',
+              onTap: () => showPlanDaySheet(context),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             const SectionTitle('Start a conversation'),
             const SizedBox(height: AppSpacing.md),
             for (var i = 0; i < _starters.length; i++)
@@ -108,6 +134,7 @@ class _LetterCard extends ConsumerWidget {
     final p = context.palette;
     final async = ref.watch(latestReflectionProvider);
     final gen = ref.watch(reflectionGenProvider);
+    final writingWeek = gen.generating && gen.period == AuroraLetterPeriod.week;
     final reflection = async.value;
 
     if (async.isLoading && reflection == null) {
@@ -130,7 +157,7 @@ class _LetterCard extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(22),
             child: reflection == null
-                ? _Invitation(generating: gen.generating)
+                ? _Invitation(generating: writingWeek)
                 : _Letter(reflection: reflection),
           ),
           if (reflection != null) _ListenProgress(reflection: reflection),
@@ -264,6 +291,61 @@ class _Invitation extends ConsumerWidget {
           onTap: () => ref.read(reflectionGenProvider.notifier).generate(),
         ),
       ],
+    );
+  }
+}
+
+/// "Your month": the monthly letter (premium). Opens the latest one, or
+/// writes the first. Free users see a quiet locked row that opens the
+/// paywall.
+class _MonthRow extends ConsumerWidget {
+  const _MonthRow();
+
+  Future<void> _write(BuildContext context, WidgetRef ref) async {
+    final ok = await ref.read(reflectionGenProvider.notifier).generateMonthly();
+    if (ok && context.mounted) context.push('/aurora/letter?period=month');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    final premium = ref.watch(isPremiumProvider);
+    if (!premium) {
+      return LinkRow(
+        icon: Symbols.calendar_month_rounded,
+        iconColor: AppColors.violet,
+        label: 'Your month',
+        detail: 'Atlas Aurora',
+        trailing: AtlasIcon(Symbols.lock_rounded, size: 18, color: p.textMuted),
+        onTap: () => context.push('/paywall'),
+      );
+    }
+
+    final month = ref.watch(latestMonthlyReflectionProvider).value;
+    final gen = ref.watch(reflectionGenProvider);
+    final writing = gen.generating && gen.period == AuroraLetterPeriod.month;
+
+    if (month == null) {
+      return LinkRow(
+        icon: Symbols.calendar_month_rounded,
+        iconColor: AppColors.violet,
+        label: 'Your month, in a letter',
+        trailing: PillButton(
+          label: writing ? 'Writing' : 'Write',
+          height: 36,
+          busy: writing,
+          onTap: writing ? null : () => _write(context, ref),
+        ),
+        onTap: writing ? null : () => _write(context, ref),
+      );
+    }
+
+    return LinkRow(
+      icon: Symbols.calendar_month_rounded,
+      iconColor: AppColors.violet,
+      label: 'Your month',
+      detail: monthName(month.periodEnd),
+      onTap: () => context.push('/aurora/letter?period=month'),
     );
   }
 }

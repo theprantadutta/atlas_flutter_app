@@ -12,6 +12,8 @@ import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/conversation_history_sheet.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/memory_proposals.dart';
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart' show SendButton;
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
@@ -82,13 +84,30 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
       context,
       title: 'Aurora',
       actions: const [
-        SheetAction(value: 'new', label: 'New conversation', icon: Symbols.refresh_rounded),
+        SheetAction(value: 'new', label: 'New conversation', icon: Symbols.add_comment_rounded),
+        SheetAction(value: 'history', label: 'Conversations', icon: Symbols.history_rounded),
+        SheetAction(value: 'memories', label: 'What Aurora remembers', icon: Symbols.bookmark_rounded),
         SheetAction(value: 'voice', label: 'Aurora’s voice', icon: Symbols.tune_rounded),
       ],
     );
     if (!mounted) return;
-    if (choice == 'new') ref.read(auroraChatProvider.notifier).reset();
-    if (choice == 'voice') context.push('/aurora/settings');
+    switch (choice) {
+      case 'new':
+        _newConversation();
+      case 'history':
+        showConversationHistorySheet(context);
+      case 'memories':
+        context.push('/aurora-memories');
+      case 'voice':
+        context.push('/aurora/settings');
+    }
+  }
+
+  void _newConversation() {
+    if (ref.read(auroraChatProvider).sending) return;
+    HapticFeedback.selectionClick();
+    _input.clear();
+    ref.read(auroraChatProvider.notifier).reset();
   }
 
   @override
@@ -139,6 +158,13 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
                       ),
                     ],
                   ),
+                ),
+                CircleIconButton(
+                  icon: Symbols.history_rounded,
+                  semanticLabel: 'Conversations',
+                  background: Colors.transparent,
+                  iconColor: p.textMuted,
+                  onTap: () => showConversationHistorySheet(context),
                 ),
                 CircleIconButton(
                   icon: Symbols.more_horiz_rounded,
@@ -260,6 +286,8 @@ class _MessageView extends ConsumerWidget {
           const SizedBox(height: 8),
           for (final c in message.created) _CreatedNote(entity: c),
         ],
+        if (!message.fresh && message.memoriesProposed.isNotEmpty)
+          MemoryProposals(index: index),
         if (message.suggestions.isNotEmpty && !message.fresh) ...[
           const SizedBox(height: 8),
           for (var i = 0; i < message.suggestions.length; i++)

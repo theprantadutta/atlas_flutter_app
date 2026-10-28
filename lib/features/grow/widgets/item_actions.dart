@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
+import 'package:atlas_flutter_app/features/aurora/widgets/goal_steps_sheet.dart';
 import 'package:atlas_flutter_app/features/grow/widgets/item_editor_sheet.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_prefs.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 
-enum _ItemAction { edit, skip, tomorrow, delete }
+enum _ItemAction { edit, breakDown, skip, tomorrow, delete }
 
 /// The long-press menu for a task or habit: Edit, Skip today, Snooze to
-/// tomorrow, Delete (with Undo). Pass exactly one of [task] / [habit].
+/// tomorrow, Delete (with Undo). Pass exactly one of [task] / [habit] /
+/// [goal]; goals also get "Break it down with Aurora".
 Future<void> showItemMenu(
   BuildContext context,
   WidgetRef ref, {
@@ -28,6 +30,12 @@ Future<void> showItemMenu(
     title: title,
     actions: [
       const SheetAction(value: _ItemAction.edit, label: 'Edit', icon: Symbols.edit_rounded),
+      if (goal != null)
+        const SheetAction(
+            value: _ItemAction.breakDown,
+            label: 'Break it down with Aurora',
+            icon: Symbols.auto_awesome_rounded,
+            iconColor: AppColors.violet),
       if (allowSnooze && goal == null) ...[
         const SheetAction(
             value: _ItemAction.skip, label: 'Skip today', icon: Symbols.do_not_disturb_on_rounded),
@@ -42,6 +50,8 @@ Future<void> showItemMenu(
   switch (action) {
     case _ItemAction.edit:
       await showItemEditor(context, task: task, habit: habit, goal: goal);
+    case _ItemAction.breakDown:
+      await showGoalStepsSheet(context, goal!);
     case _ItemAction.skip:
       await ref.read(snoozeProvider.notifier).skipToday(id);
       if (context.mounted) {
