@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/world_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/check_in_dao.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/sync_repository.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
@@ -30,6 +31,7 @@ class OfflineManager {
   final WorldDao _worldDao;
   final AchievementDao _achievementDao;
   final ProgressDao _progressDao;
+  final CheckInDao _checkInDao;
   final SyncRepository _syncRepository;
   final ConflictResolutionService _conflictResolution;
   final _log = AppLog('Sync');
@@ -165,6 +167,7 @@ class OfflineManager {
     required WorldDao worldDao,
     required AchievementDao achievementDao,
     required ProgressDao progressDao,
+    required CheckInDao checkInDao,
     required SyncRepository syncRepository,
     required ConflictResolutionService conflictResolution,
   })  : _taskDao = taskDao,
@@ -174,6 +177,7 @@ class OfflineManager {
         _worldDao = worldDao,
         _achievementDao = achievementDao,
         _progressDao = progressDao,
+        _checkInDao = checkInDao,
         _syncRepository = syncRepository,
         _conflictResolution = conflictResolution;
 
@@ -248,6 +252,7 @@ class OfflineManager {
       await _pushWorldTiles();
       await _pushAchievements();
       await _pushProgress();
+      await _pushCheckIns();
       // The inbox is per device and never synced (see Inbox).
       final serverCursor = await _pullRows();
 
@@ -293,7 +298,7 @@ class OfflineManager {
       final db = _taskDao.attachedDatabase;
       const tables = [
         'tasks', 'habits', 'goals', 'avatars', 'world_tiles',
-        'achievements', 'progress_entries',
+        'achievements', 'progress_entries', 'check_ins',
       ];
       final sql = tables
           .map((t) => 'SELECT 1 FROM $t WHERE is_dirty = 1 AND updated_at >= ?')
@@ -433,6 +438,8 @@ class OfflineManager {
           await _applyRemoteAchievement(userId, remote);
         case 'progress_entry':
           await _applyRemoteProgress(userId, remote);
+        case 'check_in':
+          await _applyRemoteCheckIn(userId, remote);
         // 'notification': older servers still send these; inboxes are per
         // device now, so they are ignored.
       }
@@ -1195,6 +1202,126 @@ class OfflineManager {
       streakCount: Value((r['streak_count'] as num?)?.toInt() ?? 0),
       levelAtTime: Value((r['level_at_time'] as num?)?.toInt() ?? 1),
       additionalMetrics: Value(enc(r['additional_metrics'])),
+      createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
+      updatedAt: Value(updated ?? DateTime.now()),
+      isDirty: const Value(false),
+      isDeleted: const Value(false),
+      deletedAt: const Value(null),
+      lastSyncedAt: Value(DateTime.now()),
+    );
+  }
+
+  // ─── Row-based Check-in sync (offline-first) ──────────────
+
+  Future<void> _pushCheckIns() async {
+    final userId = _currentUserId;
+    if (userId == null) return;
+    final dirty = await _checkInDao.getDirty(userId);
+    if (dirty.isEmpty) return;
+
+    final ops = [
+      for (final c in dirty)
+        {
+          'operation_type': c.isDeleted ? 'Delete' : 'Update',
+          'entity_type': 'check_in',
+          'entity_id': c.id,
+          'data': jsonEncode(checkInWire(c)),
+          'timestamp': c.updatedAt.toUtc().toIso8601String(),
+          'version': 1,
+        }
+    ];
+
+    final resp = await _syncRepository.pushSync(ops);
+    final conflicts = _conflictedIds(resp, 'check_in');
+    final synced = {
+      for (final c in dirty)
+        if (!conflicts.contains(c.id)) c.id: c.updatedAt
+    };
+    await _checkInDao.markSynced(synced, DateTime.now());
+    await _checkInDao.purgeSyncedTombstones();
+    _log.d(
+        'OfflineManager: Pushed ${ops.length} check-in rows (${conflicts.length} conflicts kept dirty)');
+  }
+
+  /// Apply a remote check-in using last-write-wins with local winning ties.
+  /// Matched on id; two devices can each hold a row for the same moment, and
+  /// reads pick the most recently updated one.
+  Future<void> _applyRemoteCheckIn(
+      String userId, Map<String, dynamic> r) async {
+    await applyRemoteCheckIn(_checkInDao, userId, r);
+  }
+
+  /// [_applyRemoteCheckIn], exposed for tests.
+  static Future<void> applyRemoteCheckIn(
+      CheckInDao dao, String userId, Map<String, dynamic> r) async {
+    final id = r['id'].toString();
+    final remoteUpdated =
+        DateTime.tryParse(r['updated_at']?.toString() ?? '')?.toLocal();
+    final isDeleted = r['is_deleted'] == true;
+    final local = await dao.getById(id);
+
+    // Local wins ties: only apply when the server copy is strictly newer.
+    if (local != null &&
+        remoteUpdated != null &&
+        !remoteUpdated.isAfter(local.updatedAt)) {
+      return;
+    }
+    if (isDeleted) {
+      if (local != null) await dao.hardDelete(id);
+      return;
+    }
+    final incoming = checkInFromRemote(userId, r, remoteUpdated);
+
+    // The server keeps one live row per (user, date, moment). When two
+    // devices made the same slot with different ids it tombstones the older
+    // one (that tombstone arrives separately) and sends the winner. Keep the
+    // local invariant too: a different-id row in the same slot either loses
+    // to a strictly newer winner, or wins (local wins ties) and is pushed,
+    // after which the server tombstones the other id.
+    final day = incoming.date.value;
+    final slot = await dao.findForMoment(incoming.userId.value, day,
+        DateTime(day.year, day.month, day.day + 1), incoming.moment.value);
+    if (slot != null && slot.id != id && !slot.isDeleted) {
+      final remoteNewer =
+          remoteUpdated != null && remoteUpdated.isAfter(slot.updatedAt);
+      if (!remoteNewer) return;
+      await dao.hardDelete(slot.id);
+    }
+    await dao.upsert(incoming);
+  }
+
+  /// The `check_in` wire shape (snake_case, field-for-field with the backend
+  /// `CheckIn` entity).
+  static Map<String, dynamic> checkInWire(CheckIn c) => {
+        'id': c.id,
+        'user_id': c.userId,
+        'date': c.date.toUtc().toIso8601String(),
+        'moment': c.moment,
+        'mood': c.mood,
+        'note': c.note,
+        'aurora_reply': c.auroraReply,
+        'is_deleted': c.isDeleted,
+        'deleted_at': c.deletedAt?.toUtc().toIso8601String(),
+        'created_at': c.createdAt.toUtc().toIso8601String(),
+        'updated_at': c.updatedAt.toUtc().toIso8601String(),
+      };
+
+  static CheckInsCompanion checkInFromRemote(
+      String userId, Map<String, dynamic> r, DateTime? updated) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+    final date = parse(r['date']) ?? DateTime.now();
+    final moment = r['moment']?.toString().toLowerCase() == 'evening'
+        ? 'evening'
+        : 'morning';
+    return CheckInsCompanion(
+      id: Value(r['id'].toString()),
+      userId: Value((r['user_id'] ?? userId).toString()),
+      date: Value(DateTime(date.year, date.month, date.day)),
+      moment: Value(moment),
+      mood: Value(((r['mood'] as num?)?.toInt() ?? 3).clamp(1, 5)),
+      note: Value(r['note']?.toString()),
+      auroraReply: Value(r['aurora_reply']?.toString()),
       createdAt: Value(parse(r['created_at']) ?? DateTime.now()),
       updatedAt: Value(updated ?? DateTime.now()),
       isDirty: const Value(false),

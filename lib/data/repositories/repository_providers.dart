@@ -12,6 +12,9 @@ import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/aurora_reflection_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/check_in_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_conversation_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_memory_dao.dart';
 import 'package:atlas_flutter_app/data/services/conflict_resolution_service.dart';
 import 'package:atlas_flutter_app/data/services/offline_manager.dart';
 
@@ -67,6 +70,18 @@ final auroraReflectionDaoProvider = Provider<AuroraReflectionDao>((ref) {
   return AuroraReflectionDao(ref.read(databaseProvider));
 });
 
+final checkInDaoProvider = Provider<CheckInDao>((ref) {
+  return CheckInDao(ref.read(databaseProvider));
+});
+
+final auroraConversationDaoProvider = Provider<AuroraConversationDao>((ref) {
+  return AuroraConversationDao(ref.read(databaseProvider));
+});
+
+final auroraMemoryDaoProvider = Provider<AuroraMemoryDao>((ref) {
+  return AuroraMemoryDao(ref.read(databaseProvider));
+});
+
 // ─── Sync Infrastructure ───────────────────────────────────────
 
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {
@@ -87,6 +102,7 @@ final offlineManagerProvider = Provider<OfflineManager>((ref) {
     worldDao: ref.read(worldDaoProvider),
     achievementDao: ref.read(achievementDaoProvider),
     progressDao: ref.read(progressDaoProvider),
+    checkInDao: ref.read(checkInDaoProvider),
     syncRepository: ref.read(syncRepositoryProvider),
     conflictResolution: ref.read(conflictResolutionServiceProvider),
   );

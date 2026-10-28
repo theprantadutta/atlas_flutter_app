@@ -9,5 +9,5 @@
 /// with `package_info_plus` rather than reintroducing a constant.
 class AppConstants {
   static const String databaseName = 'atlas.db';
-  static const int databaseVersion = 11;
+  static const int databaseVersion = 12;
 }

@@ -9308,6 +9308,16 @@ class $AuroraReflectionsTable extends AuroraReflections
     requiredDuringInsert: false,
     defaultValue: const Constant('free'),
   );
+  static const VerificationMeta _periodMeta = const VerificationMeta('period');
+  @override
+  late final GeneratedColumn<String> period = GeneratedColumn<String>(
+    'period',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('week'),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -9327,6 +9337,7 @@ class $AuroraReflectionsTable extends AuroraReflections
     periodStart,
     periodEnd,
     modelTier,
+    period,
     createdAt,
   ];
   @override
@@ -9387,6 +9398,12 @@ class $AuroraReflectionsTable extends AuroraReflections
         modelTier.isAcceptableOrUnknown(data['model_tier']!, _modelTierMeta),
       );
     }
+    if (data.containsKey('period')) {
+      context.handle(
+        _periodMeta,
+        period.isAcceptableOrUnknown(data['period']!, _periodMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -9428,6 +9445,10 @@ class $AuroraReflectionsTable extends AuroraReflections
         DriftSqlType.string,
         data['${effectivePrefix}model_tier'],
       )!,
+      period: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -9449,6 +9470,9 @@ class AuroraReflection extends DataClass
   final DateTime periodStart;
   final DateTime periodEnd;
   final String modelTier;
+
+  /// `week` | `month` (schema 12). Month letters are premium.
+  final String period;
   final DateTime createdAt;
   const AuroraReflection({
     required this.id,
@@ -9457,6 +9481,7 @@ class AuroraReflection extends DataClass
     required this.periodStart,
     required this.periodEnd,
     required this.modelTier,
+    required this.period,
     required this.createdAt,
   });
   @override
@@ -9468,6 +9493,7 @@ class AuroraReflection extends DataClass
     map['period_start'] = Variable<DateTime>(periodStart);
     map['period_end'] = Variable<DateTime>(periodEnd);
     map['model_tier'] = Variable<String>(modelTier);
+    map['period'] = Variable<String>(period);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -9480,6 +9506,7 @@ class AuroraReflection extends DataClass
       periodStart: Value(periodStart),
       periodEnd: Value(periodEnd),
       modelTier: Value(modelTier),
+      period: Value(period),
       createdAt: Value(createdAt),
     );
   }
@@ -9496,6 +9523,7 @@ class AuroraReflection extends DataClass
       periodStart: serializer.fromJson<DateTime>(json['periodStart']),
       periodEnd: serializer.fromJson<DateTime>(json['periodEnd']),
       modelTier: serializer.fromJson<String>(json['modelTier']),
+      period: serializer.fromJson<String>(json['period']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -9509,6 +9537,7 @@ class AuroraReflection extends DataClass
       'periodStart': serializer.toJson<DateTime>(periodStart),
       'periodEnd': serializer.toJson<DateTime>(periodEnd),
       'modelTier': serializer.toJson<String>(modelTier),
+      'period': serializer.toJson<String>(period),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -9520,6 +9549,7 @@ class AuroraReflection extends DataClass
     DateTime? periodStart,
     DateTime? periodEnd,
     String? modelTier,
+    String? period,
     DateTime? createdAt,
   }) => AuroraReflection(
     id: id ?? this.id,
@@ -9528,6 +9558,7 @@ class AuroraReflection extends DataClass
     periodStart: periodStart ?? this.periodStart,
     periodEnd: periodEnd ?? this.periodEnd,
     modelTier: modelTier ?? this.modelTier,
+    period: period ?? this.period,
     createdAt: createdAt ?? this.createdAt,
   );
   AuroraReflection copyWithCompanion(AuroraReflectionsCompanion data) {
@@ -9540,6 +9571,7 @@ class AuroraReflection extends DataClass
           : this.periodStart,
       periodEnd: data.periodEnd.present ? data.periodEnd.value : this.periodEnd,
       modelTier: data.modelTier.present ? data.modelTier.value : this.modelTier,
+      period: data.period.present ? data.period.value : this.period,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -9553,6 +9585,7 @@ class AuroraReflection extends DataClass
           ..write('periodStart: $periodStart, ')
           ..write('periodEnd: $periodEnd, ')
           ..write('modelTier: $modelTier, ')
+          ..write('period: $period, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -9566,6 +9599,7 @@ class AuroraReflection extends DataClass
     periodStart,
     periodEnd,
     modelTier,
+    period,
     createdAt,
   );
   @override
@@ -9578,6 +9612,7 @@ class AuroraReflection extends DataClass
           other.periodStart == this.periodStart &&
           other.periodEnd == this.periodEnd &&
           other.modelTier == this.modelTier &&
+          other.period == this.period &&
           other.createdAt == this.createdAt);
 }
 
@@ -9588,6 +9623,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
   final Value<DateTime> periodStart;
   final Value<DateTime> periodEnd;
   final Value<String> modelTier;
+  final Value<String> period;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const AuroraReflectionsCompanion({
@@ -9597,6 +9633,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
     this.periodStart = const Value.absent(),
     this.periodEnd = const Value.absent(),
     this.modelTier = const Value.absent(),
+    this.period = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -9607,6 +9644,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
     required DateTime periodStart,
     required DateTime periodEnd,
     this.modelTier = const Value.absent(),
+    this.period = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -9622,6 +9660,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
     Expression<DateTime>? periodStart,
     Expression<DateTime>? periodEnd,
     Expression<String>? modelTier,
+    Expression<String>? period,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -9632,6 +9671,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
       if (periodStart != null) 'period_start': periodStart,
       if (periodEnd != null) 'period_end': periodEnd,
       if (modelTier != null) 'model_tier': modelTier,
+      if (period != null) 'period': period,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -9644,6 +9684,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
     Value<DateTime>? periodStart,
     Value<DateTime>? periodEnd,
     Value<String>? modelTier,
+    Value<String>? period,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -9654,6 +9695,7 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
       periodStart: periodStart ?? this.periodStart,
       periodEnd: periodEnd ?? this.periodEnd,
       modelTier: modelTier ?? this.modelTier,
+      period: period ?? this.period,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -9680,6 +9722,9 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
     if (modelTier.present) {
       map['model_tier'] = Variable<String>(modelTier.value);
     }
+    if (period.present) {
+      map['period'] = Variable<String>(period.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -9698,7 +9743,2091 @@ class AuroraReflectionsCompanion extends UpdateCompanion<AuroraReflection> {
           ..write('periodStart: $periodStart, ')
           ..write('periodEnd: $periodEnd, ')
           ..write('modelTier: $modelTier, ')
+          ..write('period: $period, ')
           ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CheckInsTable extends CheckIns with TableInfo<$CheckInsTable, CheckIn> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CheckInsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _momentMeta = const VerificationMeta('moment');
+  @override
+  late final GeneratedColumn<String> moment = GeneratedColumn<String>(
+    'moment',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _moodMeta = const VerificationMeta('mood');
+  @override
+  late final GeneratedColumn<int> mood = GeneratedColumn<int>(
+    'mood',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _auroraReplyMeta = const VerificationMeta(
+    'auroraReply',
+  );
+  @override
+  late final GeneratedColumn<String> auroraReply = GeneratedColumn<String>(
+    'aurora_reply',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDirtyMeta = const VerificationMeta(
+    'isDirty',
+  );
+  @override
+  late final GeneratedColumn<bool> isDirty = GeneratedColumn<bool>(
+    'is_dirty',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_dirty" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
+    'lastSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+    'last_synced_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    date,
+    moment,
+    mood,
+    note,
+    auroraReply,
+    createdAt,
+    updatedAt,
+    isDirty,
+    isDeleted,
+    deletedAt,
+    lastSyncedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'check_ins';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CheckIn> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('moment')) {
+      context.handle(
+        _momentMeta,
+        moment.isAcceptableOrUnknown(data['moment']!, _momentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_momentMeta);
+    }
+    if (data.containsKey('mood')) {
+      context.handle(
+        _moodMeta,
+        mood.isAcceptableOrUnknown(data['mood']!, _moodMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_moodMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('aurora_reply')) {
+      context.handle(
+        _auroraReplyMeta,
+        auroraReply.isAcceptableOrUnknown(
+          data['aurora_reply']!,
+          _auroraReplyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('is_dirty')) {
+      context.handle(
+        _isDirtyMeta,
+        isDirty.isAcceptableOrUnknown(data['is_dirty']!, _isDirtyMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+        _lastSyncedAtMeta,
+        lastSyncedAt.isAcceptableOrUnknown(
+          data['last_synced_at']!,
+          _lastSyncedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CheckIn map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CheckIn(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      moment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}moment'],
+      )!,
+      mood: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mood'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      auroraReply: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}aurora_reply'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      isDirty: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_dirty'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_synced_at'],
+      ),
+    );
+  }
+
+  @override
+  $CheckInsTable createAlias(String alias) {
+    return $CheckInsTable(attachedDatabase, alias);
+  }
+}
+
+class CheckIn extends DataClass implements Insertable<CheckIn> {
+  final String id;
+  final String userId;
+
+  /// The local day, stored like ledger days (local midnight).
+  final DateTime date;
+
+  /// `morning` | `evening`
+  final String moment;
+
+  /// 1 heavy, 2 low, 3 okay, 4 good, 5 bright.
+  final int mood;
+
+  /// Max 200 chars.
+  final String? note;
+
+  /// Aurora's reply, kept so it shows again.
+  final String? auroraReply;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool isDirty;
+  final bool isDeleted;
+  final DateTime? deletedAt;
+  final DateTime? lastSyncedAt;
+  const CheckIn({
+    required this.id,
+    required this.userId,
+    required this.date,
+    required this.moment,
+    required this.mood,
+    this.note,
+    this.auroraReply,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.isDirty,
+    required this.isDeleted,
+    this.deletedAt,
+    this.lastSyncedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['date'] = Variable<DateTime>(date);
+    map['moment'] = Variable<String>(moment);
+    map['mood'] = Variable<int>(mood);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || auroraReply != null) {
+      map['aurora_reply'] = Variable<String>(auroraReply);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_dirty'] = Variable<bool>(isDirty);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || lastSyncedAt != null) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    }
+    return map;
+  }
+
+  CheckInsCompanion toCompanion(bool nullToAbsent) {
+    return CheckInsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      date: Value(date),
+      moment: Value(moment),
+      mood: Value(mood),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      auroraReply: auroraReply == null && nullToAbsent
+          ? const Value.absent()
+          : Value(auroraReply),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      isDirty: Value(isDirty),
+      isDeleted: Value(isDeleted),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      lastSyncedAt: lastSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncedAt),
+    );
+  }
+
+  factory CheckIn.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CheckIn(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      moment: serializer.fromJson<String>(json['moment']),
+      mood: serializer.fromJson<int>(json['mood']),
+      note: serializer.fromJson<String?>(json['note']),
+      auroraReply: serializer.fromJson<String?>(json['auroraReply']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isDirty: serializer.fromJson<bool>(json['isDirty']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'date': serializer.toJson<DateTime>(date),
+      'moment': serializer.toJson<String>(moment),
+      'mood': serializer.toJson<int>(mood),
+      'note': serializer.toJson<String?>(note),
+      'auroraReply': serializer.toJson<String?>(auroraReply),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isDirty': serializer.toJson<bool>(isDirty),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
+    };
+  }
+
+  CheckIn copyWith({
+    String? id,
+    String? userId,
+    DateTime? date,
+    String? moment,
+    int? mood,
+    Value<String?> note = const Value.absent(),
+    Value<String?> auroraReply = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isDirty,
+    bool? isDeleted,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    Value<DateTime?> lastSyncedAt = const Value.absent(),
+  }) => CheckIn(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    date: date ?? this.date,
+    moment: moment ?? this.moment,
+    mood: mood ?? this.mood,
+    note: note.present ? note.value : this.note,
+    auroraReply: auroraReply.present ? auroraReply.value : this.auroraReply,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    isDirty: isDirty ?? this.isDirty,
+    isDeleted: isDeleted ?? this.isDeleted,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    lastSyncedAt: lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
+  );
+  CheckIn copyWithCompanion(CheckInsCompanion data) {
+    return CheckIn(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      date: data.date.present ? data.date.value : this.date,
+      moment: data.moment.present ? data.moment.value : this.moment,
+      mood: data.mood.present ? data.mood.value : this.mood,
+      note: data.note.present ? data.note.value : this.note,
+      auroraReply: data.auroraReply.present
+          ? data.auroraReply.value
+          : this.auroraReply,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isDirty: data.isDirty.present ? data.isDirty.value : this.isDirty,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CheckIn(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('date: $date, ')
+          ..write('moment: $moment, ')
+          ..write('mood: $mood, ')
+          ..write('note: $note, ')
+          ..write('auroraReply: $auroraReply, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDirty: $isDirty, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    date,
+    moment,
+    mood,
+    note,
+    auroraReply,
+    createdAt,
+    updatedAt,
+    isDirty,
+    isDeleted,
+    deletedAt,
+    lastSyncedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CheckIn &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.date == this.date &&
+          other.moment == this.moment &&
+          other.mood == this.mood &&
+          other.note == this.note &&
+          other.auroraReply == this.auroraReply &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.isDirty == this.isDirty &&
+          other.isDeleted == this.isDeleted &&
+          other.deletedAt == this.deletedAt &&
+          other.lastSyncedAt == this.lastSyncedAt);
+}
+
+class CheckInsCompanion extends UpdateCompanion<CheckIn> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<DateTime> date;
+  final Value<String> moment;
+  final Value<int> mood;
+  final Value<String?> note;
+  final Value<String?> auroraReply;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<bool> isDirty;
+  final Value<bool> isDeleted;
+  final Value<DateTime?> deletedAt;
+  final Value<DateTime?> lastSyncedAt;
+  final Value<int> rowid;
+  const CheckInsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.date = const Value.absent(),
+    this.moment = const Value.absent(),
+    this.mood = const Value.absent(),
+    this.note = const Value.absent(),
+    this.auroraReply = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isDirty = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CheckInsCompanion.insert({
+    required String id,
+    required String userId,
+    required DateTime date,
+    required String moment,
+    required int mood,
+    this.note = const Value.absent(),
+    this.auroraReply = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.isDirty = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       date = Value(date),
+       moment = Value(moment),
+       mood = Value(mood),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<CheckIn> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<DateTime>? date,
+    Expression<String>? moment,
+    Expression<int>? mood,
+    Expression<String>? note,
+    Expression<String>? auroraReply,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? isDirty,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? deletedAt,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (date != null) 'date': date,
+      if (moment != null) 'moment': moment,
+      if (mood != null) 'mood': mood,
+      if (note != null) 'note': note,
+      if (auroraReply != null) 'aurora_reply': auroraReply,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (isDirty != null) 'is_dirty': isDirty,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CheckInsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<DateTime>? date,
+    Value<String>? moment,
+    Value<int>? mood,
+    Value<String?>? note,
+    Value<String?>? auroraReply,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<bool>? isDirty,
+    Value<bool>? isDeleted,
+    Value<DateTime?>? deletedAt,
+    Value<DateTime?>? lastSyncedAt,
+    Value<int>? rowid,
+  }) {
+    return CheckInsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      date: date ?? this.date,
+      moment: moment ?? this.moment,
+      mood: mood ?? this.mood,
+      note: note ?? this.note,
+      auroraReply: auroraReply ?? this.auroraReply,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isDirty: isDirty ?? this.isDirty,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (moment.present) {
+      map['moment'] = Variable<String>(moment.value);
+    }
+    if (mood.present) {
+      map['mood'] = Variable<int>(mood.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (auroraReply.present) {
+      map['aurora_reply'] = Variable<String>(auroraReply.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (isDirty.present) {
+      map['is_dirty'] = Variable<bool>(isDirty.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CheckInsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('date: $date, ')
+          ..write('moment: $moment, ')
+          ..write('mood: $mood, ')
+          ..write('note: $note, ')
+          ..write('auroraReply: $auroraReply, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isDirty: $isDirty, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AuroraConversationsTable extends AuroraConversations
+    with TableInfo<$AuroraConversationsTable, AuroraConversation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuroraConversationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    title,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'aurora_conversations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuroraConversation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuroraConversation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuroraConversation(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AuroraConversationsTable createAlias(String alias) {
+    return $AuroraConversationsTable(attachedDatabase, alias);
+  }
+}
+
+class AuroraConversation extends DataClass
+    implements Insertable<AuroraConversation> {
+  final String id;
+  final String userId;
+
+  /// The first user message, capped at 60 chars.
+  final String title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const AuroraConversation({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['title'] = Variable<String>(title);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AuroraConversationsCompanion toCompanion(bool nullToAbsent) {
+    return AuroraConversationsCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      title: Value(title),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AuroraConversation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuroraConversation(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      title: serializer.fromJson<String>(json['title']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'title': serializer.toJson<String>(title),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AuroraConversation copyWith({
+    String? id,
+    String? userId,
+    String? title,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => AuroraConversation(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    title: title ?? this.title,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AuroraConversation copyWithCompanion(AuroraConversationsCompanion data) {
+    return AuroraConversation(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      title: data.title.present ? data.title.value : this.title,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraConversation(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, userId, title, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuroraConversation &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.title == this.title &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AuroraConversationsCompanion extends UpdateCompanion<AuroraConversation> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> title;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AuroraConversationsCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AuroraConversationsCompanion.insert({
+    required String id,
+    required String userId,
+    required String title,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       title = Value(title),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<AuroraConversation> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? title,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (title != null) 'title': title,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AuroraConversationsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? title,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AuroraConversationsCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraConversationsCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AuroraMessagesTable extends AuroraMessages
+    with TableInfo<$AuroraMessagesTable, AuroraMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuroraMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES aurora_conversations (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _suggestionsJsonMeta = const VerificationMeta(
+    'suggestionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> suggestionsJson = GeneratedColumn<String>(
+    'suggestions_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _followUpsJsonMeta = const VerificationMeta(
+    'followUpsJson',
+  );
+  @override
+  late final GeneratedColumn<String> followUpsJson = GeneratedColumn<String>(
+    'follow_ups_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdJsonMeta = const VerificationMeta(
+    'createdJson',
+  );
+  @override
+  late final GeneratedColumn<String> createdJson = GeneratedColumn<String>(
+    'created_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    conversationId,
+    role,
+    content,
+    suggestionsJson,
+    followUpsJson,
+    createdJson,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'aurora_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuroraMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('suggestions_json')) {
+      context.handle(
+        _suggestionsJsonMeta,
+        suggestionsJson.isAcceptableOrUnknown(
+          data['suggestions_json']!,
+          _suggestionsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('follow_ups_json')) {
+      context.handle(
+        _followUpsJsonMeta,
+        followUpsJson.isAcceptableOrUnknown(
+          data['follow_ups_json']!,
+          _followUpsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_json')) {
+      context.handle(
+        _createdJsonMeta,
+        createdJson.isAcceptableOrUnknown(
+          data['created_json']!,
+          _createdJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuroraMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuroraMessage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      suggestionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}suggestions_json'],
+      ),
+      followUpsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}follow_ups_json'],
+      ),
+      createdJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_json'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AuroraMessagesTable createAlias(String alias) {
+    return $AuroraMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class AuroraMessage extends DataClass implements Insertable<AuroraMessage> {
+  final String id;
+  final String conversationId;
+
+  /// `user` | `aurora`
+  final String role;
+  final String content;
+
+  /// JSON list of suggestion cards shown under an Aurora reply.
+  final String? suggestionsJson;
+
+  /// JSON list of follow-up chips.
+  final String? followUpsJson;
+
+  /// JSON list of the entities Aurora created from this turn.
+  final String? createdJson;
+  final DateTime createdAt;
+  const AuroraMessage({
+    required this.id,
+    required this.conversationId,
+    required this.role,
+    required this.content,
+    this.suggestionsJson,
+    this.followUpsJson,
+    this.createdJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['role'] = Variable<String>(role);
+    map['content'] = Variable<String>(content);
+    if (!nullToAbsent || suggestionsJson != null) {
+      map['suggestions_json'] = Variable<String>(suggestionsJson);
+    }
+    if (!nullToAbsent || followUpsJson != null) {
+      map['follow_ups_json'] = Variable<String>(followUpsJson);
+    }
+    if (!nullToAbsent || createdJson != null) {
+      map['created_json'] = Variable<String>(createdJson);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AuroraMessagesCompanion toCompanion(bool nullToAbsent) {
+    return AuroraMessagesCompanion(
+      id: Value(id),
+      conversationId: Value(conversationId),
+      role: Value(role),
+      content: Value(content),
+      suggestionsJson: suggestionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(suggestionsJson),
+      followUpsJson: followUpsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(followUpsJson),
+      createdJson: createdJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory AuroraMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuroraMessage(
+      id: serializer.fromJson<String>(json['id']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      role: serializer.fromJson<String>(json['role']),
+      content: serializer.fromJson<String>(json['content']),
+      suggestionsJson: serializer.fromJson<String?>(json['suggestionsJson']),
+      followUpsJson: serializer.fromJson<String?>(json['followUpsJson']),
+      createdJson: serializer.fromJson<String?>(json['createdJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'role': serializer.toJson<String>(role),
+      'content': serializer.toJson<String>(content),
+      'suggestionsJson': serializer.toJson<String?>(suggestionsJson),
+      'followUpsJson': serializer.toJson<String?>(followUpsJson),
+      'createdJson': serializer.toJson<String?>(createdJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  AuroraMessage copyWith({
+    String? id,
+    String? conversationId,
+    String? role,
+    String? content,
+    Value<String?> suggestionsJson = const Value.absent(),
+    Value<String?> followUpsJson = const Value.absent(),
+    Value<String?> createdJson = const Value.absent(),
+    DateTime? createdAt,
+  }) => AuroraMessage(
+    id: id ?? this.id,
+    conversationId: conversationId ?? this.conversationId,
+    role: role ?? this.role,
+    content: content ?? this.content,
+    suggestionsJson: suggestionsJson.present
+        ? suggestionsJson.value
+        : this.suggestionsJson,
+    followUpsJson: followUpsJson.present
+        ? followUpsJson.value
+        : this.followUpsJson,
+    createdJson: createdJson.present ? createdJson.value : this.createdJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  AuroraMessage copyWithCompanion(AuroraMessagesCompanion data) {
+    return AuroraMessage(
+      id: data.id.present ? data.id.value : this.id,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      role: data.role.present ? data.role.value : this.role,
+      content: data.content.present ? data.content.value : this.content,
+      suggestionsJson: data.suggestionsJson.present
+          ? data.suggestionsJson.value
+          : this.suggestionsJson,
+      followUpsJson: data.followUpsJson.present
+          ? data.followUpsJson.value
+          : this.followUpsJson,
+      createdJson: data.createdJson.present
+          ? data.createdJson.value
+          : this.createdJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraMessage(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('suggestionsJson: $suggestionsJson, ')
+          ..write('followUpsJson: $followUpsJson, ')
+          ..write('createdJson: $createdJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    conversationId,
+    role,
+    content,
+    suggestionsJson,
+    followUpsJson,
+    createdJson,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuroraMessage &&
+          other.id == this.id &&
+          other.conversationId == this.conversationId &&
+          other.role == this.role &&
+          other.content == this.content &&
+          other.suggestionsJson == this.suggestionsJson &&
+          other.followUpsJson == this.followUpsJson &&
+          other.createdJson == this.createdJson &&
+          other.createdAt == this.createdAt);
+}
+
+class AuroraMessagesCompanion extends UpdateCompanion<AuroraMessage> {
+  final Value<String> id;
+  final Value<String> conversationId;
+  final Value<String> role;
+  final Value<String> content;
+  final Value<String?> suggestionsJson;
+  final Value<String?> followUpsJson;
+  final Value<String?> createdJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const AuroraMessagesCompanion({
+    this.id = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.role = const Value.absent(),
+    this.content = const Value.absent(),
+    this.suggestionsJson = const Value.absent(),
+    this.followUpsJson = const Value.absent(),
+    this.createdJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AuroraMessagesCompanion.insert({
+    required String id,
+    required String conversationId,
+    required String role,
+    required String content,
+    this.suggestionsJson = const Value.absent(),
+    this.followUpsJson = const Value.absent(),
+    this.createdJson = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       conversationId = Value(conversationId),
+       role = Value(role),
+       content = Value(content),
+       createdAt = Value(createdAt);
+  static Insertable<AuroraMessage> custom({
+    Expression<String>? id,
+    Expression<String>? conversationId,
+    Expression<String>? role,
+    Expression<String>? content,
+    Expression<String>? suggestionsJson,
+    Expression<String>? followUpsJson,
+    Expression<String>? createdJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (role != null) 'role': role,
+      if (content != null) 'content': content,
+      if (suggestionsJson != null) 'suggestions_json': suggestionsJson,
+      if (followUpsJson != null) 'follow_ups_json': followUpsJson,
+      if (createdJson != null) 'created_json': createdJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AuroraMessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? conversationId,
+    Value<String>? role,
+    Value<String>? content,
+    Value<String?>? suggestionsJson,
+    Value<String?>? followUpsJson,
+    Value<String?>? createdJson,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return AuroraMessagesCompanion(
+      id: id ?? this.id,
+      conversationId: conversationId ?? this.conversationId,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      suggestionsJson: suggestionsJson ?? this.suggestionsJson,
+      followUpsJson: followUpsJson ?? this.followUpsJson,
+      createdJson: createdJson ?? this.createdJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (suggestionsJson.present) {
+      map['suggestions_json'] = Variable<String>(suggestionsJson.value);
+    }
+    if (followUpsJson.present) {
+      map['follow_ups_json'] = Variable<String>(followUpsJson.value);
+    }
+    if (createdJson.present) {
+      map['created_json'] = Variable<String>(createdJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraMessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('role: $role, ')
+          ..write('content: $content, ')
+          ..write('suggestionsJson: $suggestionsJson, ')
+          ..write('followUpsJson: $followUpsJson, ')
+          ..write('createdJson: $createdJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AuroraMemoriesTable extends AuroraMemories
+    with TableInfo<$AuroraMemoriesTable, AuroraMemory> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuroraMemoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceMeta = const VerificationMeta('source');
+  @override
+  late final GeneratedColumn<String> source = GeneratedColumn<String>(
+    'source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('you'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    content,
+    source,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'aurora_memories';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuroraMemory> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('text')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['text']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('source')) {
+      context.handle(
+        _sourceMeta,
+        source.isAcceptableOrUnknown(data['source']!, _sourceMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuroraMemory map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuroraMemory(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}text'],
+      )!,
+      source: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AuroraMemoriesTable createAlias(String alias) {
+    return $AuroraMemoriesTable(attachedDatabase, alias);
+  }
+}
+
+class AuroraMemory extends DataClass implements Insertable<AuroraMemory> {
+  final String id;
+  final String userId;
+
+  /// The remembered fact, max 200 chars. (`text` in SQL; renamed in Dart
+  /// because a column getter can't shadow the `text()` builder.)
+  final String content;
+
+  /// `aurora` (proposed in chat, saved by a tap) | `you` (typed by the user).
+  final String source;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const AuroraMemory({
+    required this.id,
+    required this.userId,
+    required this.content,
+    required this.source,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['text'] = Variable<String>(content);
+    map['source'] = Variable<String>(source);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AuroraMemoriesCompanion toCompanion(bool nullToAbsent) {
+    return AuroraMemoriesCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      content: Value(content),
+      source: Value(source),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AuroraMemory.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuroraMemory(
+      id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      content: serializer.fromJson<String>(json['content']),
+      source: serializer.fromJson<String>(json['source']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String>(userId),
+      'content': serializer.toJson<String>(content),
+      'source': serializer.toJson<String>(source),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AuroraMemory copyWith({
+    String? id,
+    String? userId,
+    String? content,
+    String? source,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => AuroraMemory(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    content: content ?? this.content,
+    source: source ?? this.source,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AuroraMemory copyWithCompanion(AuroraMemoriesCompanion data) {
+    return AuroraMemory(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      content: data.content.present ? data.content.value : this.content,
+      source: data.source.present ? data.source.value : this.source,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraMemory(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('content: $content, ')
+          ..write('source: $source, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, userId, content, source, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuroraMemory &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.content == this.content &&
+          other.source == this.source &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AuroraMemoriesCompanion extends UpdateCompanion<AuroraMemory> {
+  final Value<String> id;
+  final Value<String> userId;
+  final Value<String> content;
+  final Value<String> source;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AuroraMemoriesCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.content = const Value.absent(),
+    this.source = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AuroraMemoriesCompanion.insert({
+    required String id,
+    required String userId,
+    required String content,
+    this.source = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       userId = Value(userId),
+       content = Value(content),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<AuroraMemory> custom({
+    Expression<String>? id,
+    Expression<String>? userId,
+    Expression<String>? content,
+    Expression<String>? source,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (content != null) 'text': content,
+      if (source != null) 'source': source,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AuroraMemoriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? userId,
+    Value<String>? content,
+    Value<String>? source,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AuroraMemoriesCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      content: content ?? this.content,
+      source: source ?? this.source,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (content.present) {
+      map['text'] = Variable<String>(content.value);
+    }
+    if (source.present) {
+      map['source'] = Variable<String>(source.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuroraMemoriesCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('content: $content, ')
+          ..write('source: $source, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9722,6 +11851,11 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
   late final $NotificationsTable notifications = $NotificationsTable(this);
   late final $AuroraReflectionsTable auroraReflections =
       $AuroraReflectionsTable(this);
+  late final $CheckInsTable checkIns = $CheckInsTable(this);
+  late final $AuroraConversationsTable auroraConversations =
+      $AuroraConversationsTable(this);
+  late final $AuroraMessagesTable auroraMessages = $AuroraMessagesTable(this);
+  late final $AuroraMemoriesTable auroraMemories = $AuroraMemoriesTable(this);
   late final TaskDao taskDao = TaskDao(this as AtlasDatabase);
   late final HabitDao habitDao = HabitDao(this as AtlasDatabase);
   late final GoalDao goalDao = GoalDao(this as AtlasDatabase);
@@ -9736,6 +11870,12 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
     this as AtlasDatabase,
   );
   late final AuroraReflectionDao auroraReflectionDao = AuroraReflectionDao(
+    this as AtlasDatabase,
+  );
+  late final CheckInDao checkInDao = CheckInDao(this as AtlasDatabase);
+  late final AuroraConversationDao auroraConversationDao =
+      AuroraConversationDao(this as AtlasDatabase);
+  late final AuroraMemoryDao auroraMemoryDao = AuroraMemoryDao(
     this as AtlasDatabase,
   );
   @override
@@ -9754,7 +11894,21 @@ abstract class _$AtlasDatabase extends GeneratedDatabase {
     syncOperations,
     notifications,
     auroraReflections,
+    checkIns,
+    auroraConversations,
+    auroraMessages,
+    auroraMemories,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'aurora_conversations',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('aurora_messages', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$UsersTableCreateCompanionBuilder =
@@ -13963,6 +16117,7 @@ typedef $$AuroraReflectionsTableCreateCompanionBuilder =
       required DateTime periodStart,
       required DateTime periodEnd,
       Value<String> modelTier,
+      Value<String> period,
       required DateTime createdAt,
       Value<int> rowid,
     });
@@ -13974,6 +16129,7 @@ typedef $$AuroraReflectionsTableUpdateCompanionBuilder =
       Value<DateTime> periodStart,
       Value<DateTime> periodEnd,
       Value<String> modelTier,
+      Value<String> period,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -14014,6 +16170,11 @@ class $$AuroraReflectionsTableFilterComposer
 
   ColumnFilters<String> get modelTier => $composableBuilder(
     column: $table.modelTier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get period => $composableBuilder(
+    column: $table.period,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14062,6 +16223,11 @@ class $$AuroraReflectionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get period => $composableBuilder(
+    column: $table.period,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -14096,6 +16262,9 @@ class $$AuroraReflectionsTableAnnotationComposer
 
   GeneratedColumn<String> get modelTier =>
       $composableBuilder(column: $table.modelTier, builder: (column) => column);
+
+  GeneratedColumn<String> get period =>
+      $composableBuilder(column: $table.period, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -14147,6 +16316,7 @@ class $$AuroraReflectionsTableTableManager
                 Value<DateTime> periodStart = const Value.absent(),
                 Value<DateTime> periodEnd = const Value.absent(),
                 Value<String> modelTier = const Value.absent(),
+                Value<String> period = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AuroraReflectionsCompanion(
@@ -14156,6 +16326,7 @@ class $$AuroraReflectionsTableTableManager
                 periodStart: periodStart,
                 periodEnd: periodEnd,
                 modelTier: modelTier,
+                period: period,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -14167,6 +16338,7 @@ class $$AuroraReflectionsTableTableManager
                 required DateTime periodStart,
                 required DateTime periodEnd,
                 Value<String> modelTier = const Value.absent(),
+                Value<String> period = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => AuroraReflectionsCompanion.insert(
@@ -14176,6 +16348,7 @@ class $$AuroraReflectionsTableTableManager
                 periodStart: periodStart,
                 periodEnd: periodEnd,
                 modelTier: modelTier,
+                period: period,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -14208,6 +16381,1291 @@ typedef $$AuroraReflectionsTableProcessedTableManager =
       AuroraReflection,
       PrefetchHooks Function()
     >;
+typedef $$CheckInsTableCreateCompanionBuilder =
+    CheckInsCompanion Function({
+      required String id,
+      required String userId,
+      required DateTime date,
+      required String moment,
+      required int mood,
+      Value<String?> note,
+      Value<String?> auroraReply,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<bool> isDirty,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> lastSyncedAt,
+      Value<int> rowid,
+    });
+typedef $$CheckInsTableUpdateCompanionBuilder =
+    CheckInsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<DateTime> date,
+      Value<String> moment,
+      Value<int> mood,
+      Value<String?> note,
+      Value<String?> auroraReply,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<bool> isDirty,
+      Value<bool> isDeleted,
+      Value<DateTime?> deletedAt,
+      Value<DateTime?> lastSyncedAt,
+      Value<int> rowid,
+    });
+
+class $$CheckInsTableFilterComposer
+    extends Composer<_$AtlasDatabase, $CheckInsTable> {
+  $$CheckInsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get moment => $composableBuilder(
+    column: $table.moment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mood => $composableBuilder(
+    column: $table.mood,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get auroraReply => $composableBuilder(
+    column: $table.auroraReply,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDirty => $composableBuilder(
+    column: $table.isDirty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CheckInsTableOrderingComposer
+    extends Composer<_$AtlasDatabase, $CheckInsTable> {
+  $$CheckInsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get moment => $composableBuilder(
+    column: $table.moment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mood => $composableBuilder(
+    column: $table.mood,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get auroraReply => $composableBuilder(
+    column: $table.auroraReply,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDirty => $composableBuilder(
+    column: $table.isDirty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CheckInsTableAnnotationComposer
+    extends Composer<_$AtlasDatabase, $CheckInsTable> {
+  $$CheckInsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get moment =>
+      $composableBuilder(column: $table.moment, builder: (column) => column);
+
+  GeneratedColumn<int> get mood =>
+      $composableBuilder(column: $table.mood, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get auroraReply => $composableBuilder(
+    column: $table.auroraReply,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDirty =>
+      $composableBuilder(column: $table.isDirty, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$CheckInsTableTableManager
+    extends
+        RootTableManager<
+          _$AtlasDatabase,
+          $CheckInsTable,
+          CheckIn,
+          $$CheckInsTableFilterComposer,
+          $$CheckInsTableOrderingComposer,
+          $$CheckInsTableAnnotationComposer,
+          $$CheckInsTableCreateCompanionBuilder,
+          $$CheckInsTableUpdateCompanionBuilder,
+          (CheckIn, BaseReferences<_$AtlasDatabase, $CheckInsTable, CheckIn>),
+          CheckIn,
+          PrefetchHooks Function()
+        > {
+  $$CheckInsTableTableManager(_$AtlasDatabase db, $CheckInsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CheckInsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CheckInsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CheckInsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<String> moment = const Value.absent(),
+                Value<int> mood = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> auroraReply = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isDirty = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CheckInsCompanion(
+                id: id,
+                userId: userId,
+                date: date,
+                moment: moment,
+                mood: mood,
+                note: note,
+                auroraReply: auroraReply,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDirty: isDirty,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required DateTime date,
+                required String moment,
+                required int mood,
+                Value<String?> note = const Value.absent(),
+                Value<String?> auroraReply = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<bool> isDirty = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<DateTime?> lastSyncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CheckInsCompanion.insert(
+                id: id,
+                userId: userId,
+                date: date,
+                moment: moment,
+                mood: mood,
+                note: note,
+                auroraReply: auroraReply,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDirty: isDirty,
+                isDeleted: isDeleted,
+                deletedAt: deletedAt,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CheckInsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtlasDatabase,
+      $CheckInsTable,
+      CheckIn,
+      $$CheckInsTableFilterComposer,
+      $$CheckInsTableOrderingComposer,
+      $$CheckInsTableAnnotationComposer,
+      $$CheckInsTableCreateCompanionBuilder,
+      $$CheckInsTableUpdateCompanionBuilder,
+      (CheckIn, BaseReferences<_$AtlasDatabase, $CheckInsTable, CheckIn>),
+      CheckIn,
+      PrefetchHooks Function()
+    >;
+typedef $$AuroraConversationsTableCreateCompanionBuilder =
+    AuroraConversationsCompanion Function({
+      required String id,
+      required String userId,
+      required String title,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$AuroraConversationsTableUpdateCompanionBuilder =
+    AuroraConversationsCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> title,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$AuroraConversationsTableReferences
+    extends
+        BaseReferences<
+          _$AtlasDatabase,
+          $AuroraConversationsTable,
+          AuroraConversation
+        > {
+  $$AuroraConversationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$AuroraMessagesTable, List<AuroraMessage>>
+  _auroraMessagesRefsTable(_$AtlasDatabase db) => MultiTypedResultKey.fromTable(
+    db.auroraMessages,
+    aliasName: 'aurora_conversations__id__aurora_messages__conversation_id',
+  );
+
+  $$AuroraMessagesTableProcessedTableManager get auroraMessagesRefs {
+    final manager = $$AuroraMessagesTableTableManager(
+      $_db,
+      $_db.auroraMessages,
+    ).filter((f) => f.conversationId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_auroraMessagesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$AuroraConversationsTableFilterComposer
+    extends Composer<_$AtlasDatabase, $AuroraConversationsTable> {
+  $$AuroraConversationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> auroraMessagesRefs(
+    Expression<bool> Function($$AuroraMessagesTableFilterComposer f) f,
+  ) {
+    final $$AuroraMessagesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.auroraMessages,
+      getReferencedColumn: (t) => t.conversationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AuroraMessagesTableFilterComposer(
+            $db: $db,
+            $table: $db.auroraMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AuroraConversationsTableOrderingComposer
+    extends Composer<_$AtlasDatabase, $AuroraConversationsTable> {
+  $$AuroraConversationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AuroraConversationsTableAnnotationComposer
+    extends Composer<_$AtlasDatabase, $AuroraConversationsTable> {
+  $$AuroraConversationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  Expression<T> auroraMessagesRefs<T extends Object>(
+    Expression<T> Function($$AuroraMessagesTableAnnotationComposer a) f,
+  ) {
+    final $$AuroraMessagesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.auroraMessages,
+      getReferencedColumn: (t) => t.conversationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AuroraMessagesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.auroraMessages,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AuroraConversationsTableTableManager
+    extends
+        RootTableManager<
+          _$AtlasDatabase,
+          $AuroraConversationsTable,
+          AuroraConversation,
+          $$AuroraConversationsTableFilterComposer,
+          $$AuroraConversationsTableOrderingComposer,
+          $$AuroraConversationsTableAnnotationComposer,
+          $$AuroraConversationsTableCreateCompanionBuilder,
+          $$AuroraConversationsTableUpdateCompanionBuilder,
+          (AuroraConversation, $$AuroraConversationsTableReferences),
+          AuroraConversation,
+          PrefetchHooks Function({bool auroraMessagesRefs})
+        > {
+  $$AuroraConversationsTableTableManager(
+    _$AtlasDatabase db,
+    $AuroraConversationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuroraConversationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuroraConversationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AuroraConversationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraConversationsCompanion(
+                id: id,
+                userId: userId,
+                title: title,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String title,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraConversationsCompanion.insert(
+                id: id,
+                userId: userId,
+                title: title,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AuroraConversationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({auroraMessagesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (auroraMessagesRefs) db.auroraMessages,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (auroraMessagesRefs)
+                    await $_getPrefetchedData<
+                      AuroraConversation,
+                      $AuroraConversationsTable,
+                      AuroraMessage
+                    >(
+                      currentTable: table,
+                      referencedTable: $$AuroraConversationsTableReferences
+                          ._auroraMessagesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$AuroraConversationsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).auroraMessagesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.conversationId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AuroraConversationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtlasDatabase,
+      $AuroraConversationsTable,
+      AuroraConversation,
+      $$AuroraConversationsTableFilterComposer,
+      $$AuroraConversationsTableOrderingComposer,
+      $$AuroraConversationsTableAnnotationComposer,
+      $$AuroraConversationsTableCreateCompanionBuilder,
+      $$AuroraConversationsTableUpdateCompanionBuilder,
+      (AuroraConversation, $$AuroraConversationsTableReferences),
+      AuroraConversation,
+      PrefetchHooks Function({bool auroraMessagesRefs})
+    >;
+typedef $$AuroraMessagesTableCreateCompanionBuilder =
+    AuroraMessagesCompanion Function({
+      required String id,
+      required String conversationId,
+      required String role,
+      required String content,
+      Value<String?> suggestionsJson,
+      Value<String?> followUpsJson,
+      Value<String?> createdJson,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$AuroraMessagesTableUpdateCompanionBuilder =
+    AuroraMessagesCompanion Function({
+      Value<String> id,
+      Value<String> conversationId,
+      Value<String> role,
+      Value<String> content,
+      Value<String?> suggestionsJson,
+      Value<String?> followUpsJson,
+      Value<String?> createdJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$AuroraMessagesTableReferences
+    extends
+        BaseReferences<_$AtlasDatabase, $AuroraMessagesTable, AuroraMessage> {
+  $$AuroraMessagesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $AuroraConversationsTable _conversationIdTable(_$AtlasDatabase db) =>
+      db.auroraConversations.createAlias(
+        'aurora_messages__conversation_id__aurora_conversations__id',
+      );
+
+  $$AuroraConversationsTableProcessedTableManager get conversationId {
+    final $_column = $_itemColumn<String>('conversation_id')!;
+
+    final manager = $$AuroraConversationsTableTableManager(
+      $_db,
+      $_db.auroraConversations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_conversationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$AuroraMessagesTableFilterComposer
+    extends Composer<_$AtlasDatabase, $AuroraMessagesTable> {
+  $$AuroraMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get suggestionsJson => $composableBuilder(
+    column: $table.suggestionsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get followUpsJson => $composableBuilder(
+    column: $table.followUpsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdJson => $composableBuilder(
+    column: $table.createdJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$AuroraConversationsTableFilterComposer get conversationId {
+    final $$AuroraConversationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.conversationId,
+      referencedTable: $db.auroraConversations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AuroraConversationsTableFilterComposer(
+            $db: $db,
+            $table: $db.auroraConversations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$AuroraMessagesTableOrderingComposer
+    extends Composer<_$AtlasDatabase, $AuroraMessagesTable> {
+  $$AuroraMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get suggestionsJson => $composableBuilder(
+    column: $table.suggestionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get followUpsJson => $composableBuilder(
+    column: $table.followUpsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdJson => $composableBuilder(
+    column: $table.createdJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$AuroraConversationsTableOrderingComposer get conversationId {
+    final $$AuroraConversationsTableOrderingComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.conversationId,
+          referencedTable: $db.auroraConversations,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AuroraConversationsTableOrderingComposer(
+                $db: $db,
+                $table: $db.auroraConversations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+}
+
+class $$AuroraMessagesTableAnnotationComposer
+    extends Composer<_$AtlasDatabase, $AuroraMessagesTable> {
+  $$AuroraMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get suggestionsJson => $composableBuilder(
+    column: $table.suggestionsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get followUpsJson => $composableBuilder(
+    column: $table.followUpsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdJson => $composableBuilder(
+    column: $table.createdJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$AuroraConversationsTableAnnotationComposer get conversationId {
+    final $$AuroraConversationsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.conversationId,
+          referencedTable: $db.auroraConversations,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$AuroraConversationsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.auroraConversations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+}
+
+class $$AuroraMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AtlasDatabase,
+          $AuroraMessagesTable,
+          AuroraMessage,
+          $$AuroraMessagesTableFilterComposer,
+          $$AuroraMessagesTableOrderingComposer,
+          $$AuroraMessagesTableAnnotationComposer,
+          $$AuroraMessagesTableCreateCompanionBuilder,
+          $$AuroraMessagesTableUpdateCompanionBuilder,
+          (AuroraMessage, $$AuroraMessagesTableReferences),
+          AuroraMessage,
+          PrefetchHooks Function({bool conversationId})
+        > {
+  $$AuroraMessagesTableTableManager(
+    _$AtlasDatabase db,
+    $AuroraMessagesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuroraMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuroraMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AuroraMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String?> suggestionsJson = const Value.absent(),
+                Value<String?> followUpsJson = const Value.absent(),
+                Value<String?> createdJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraMessagesCompanion(
+                id: id,
+                conversationId: conversationId,
+                role: role,
+                content: content,
+                suggestionsJson: suggestionsJson,
+                followUpsJson: followUpsJson,
+                createdJson: createdJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String conversationId,
+                required String role,
+                required String content,
+                Value<String?> suggestionsJson = const Value.absent(),
+                Value<String?> followUpsJson = const Value.absent(),
+                Value<String?> createdJson = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraMessagesCompanion.insert(
+                id: id,
+                conversationId: conversationId,
+                role: role,
+                content: content,
+                suggestionsJson: suggestionsJson,
+                followUpsJson: followUpsJson,
+                createdJson: createdJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AuroraMessagesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({conversationId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (conversationId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.conversationId,
+                                referencedTable: $$AuroraMessagesTableReferences
+                                    ._conversationIdTable(db),
+                                referencedColumn:
+                                    $$AuroraMessagesTableReferences
+                                        ._conversationIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AuroraMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtlasDatabase,
+      $AuroraMessagesTable,
+      AuroraMessage,
+      $$AuroraMessagesTableFilterComposer,
+      $$AuroraMessagesTableOrderingComposer,
+      $$AuroraMessagesTableAnnotationComposer,
+      $$AuroraMessagesTableCreateCompanionBuilder,
+      $$AuroraMessagesTableUpdateCompanionBuilder,
+      (AuroraMessage, $$AuroraMessagesTableReferences),
+      AuroraMessage,
+      PrefetchHooks Function({bool conversationId})
+    >;
+typedef $$AuroraMemoriesTableCreateCompanionBuilder =
+    AuroraMemoriesCompanion Function({
+      required String id,
+      required String userId,
+      required String content,
+      Value<String> source,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$AuroraMemoriesTableUpdateCompanionBuilder =
+    AuroraMemoriesCompanion Function({
+      Value<String> id,
+      Value<String> userId,
+      Value<String> content,
+      Value<String> source,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$AuroraMemoriesTableFilterComposer
+    extends Composer<_$AtlasDatabase, $AuroraMemoriesTable> {
+  $$AuroraMemoriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AuroraMemoriesTableOrderingComposer
+    extends Composer<_$AtlasDatabase, $AuroraMemoriesTable> {
+  $$AuroraMemoriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get source => $composableBuilder(
+    column: $table.source,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AuroraMemoriesTableAnnotationComposer
+    extends Composer<_$AtlasDatabase, $AuroraMemoriesTable> {
+  $$AuroraMemoriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get source =>
+      $composableBuilder(column: $table.source, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AuroraMemoriesTableTableManager
+    extends
+        RootTableManager<
+          _$AtlasDatabase,
+          $AuroraMemoriesTable,
+          AuroraMemory,
+          $$AuroraMemoriesTableFilterComposer,
+          $$AuroraMemoriesTableOrderingComposer,
+          $$AuroraMemoriesTableAnnotationComposer,
+          $$AuroraMemoriesTableCreateCompanionBuilder,
+          $$AuroraMemoriesTableUpdateCompanionBuilder,
+          (
+            AuroraMemory,
+            BaseReferences<_$AtlasDatabase, $AuroraMemoriesTable, AuroraMemory>,
+          ),
+          AuroraMemory,
+          PrefetchHooks Function()
+        > {
+  $$AuroraMemoriesTableTableManager(
+    _$AtlasDatabase db,
+    $AuroraMemoriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AuroraMemoriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AuroraMemoriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AuroraMemoriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<String> source = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraMemoriesCompanion(
+                id: id,
+                userId: userId,
+                content: content,
+                source: source,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String userId,
+                required String content,
+                Value<String> source = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AuroraMemoriesCompanion.insert(
+                id: id,
+                userId: userId,
+                content: content,
+                source: source,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AuroraMemoriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AtlasDatabase,
+      $AuroraMemoriesTable,
+      AuroraMemory,
+      $$AuroraMemoriesTableFilterComposer,
+      $$AuroraMemoriesTableOrderingComposer,
+      $$AuroraMemoriesTableAnnotationComposer,
+      $$AuroraMemoriesTableCreateCompanionBuilder,
+      $$AuroraMemoriesTableUpdateCompanionBuilder,
+      (
+        AuroraMemory,
+        BaseReferences<_$AtlasDatabase, $AuroraMemoriesTable, AuroraMemory>,
+      ),
+      AuroraMemory,
+      PrefetchHooks Function()
+    >;
 
 class $AtlasDatabaseManager {
   final _$AtlasDatabase _db;
@@ -14234,4 +17692,12 @@ class $AtlasDatabaseManager {
       $$NotificationsTableTableManager(_db, _db.notifications);
   $$AuroraReflectionsTableTableManager get auroraReflections =>
       $$AuroraReflectionsTableTableManager(_db, _db.auroraReflections);
+  $$CheckInsTableTableManager get checkIns =>
+      $$CheckInsTableTableManager(_db, _db.checkIns);
+  $$AuroraConversationsTableTableManager get auroraConversations =>
+      $$AuroraConversationsTableTableManager(_db, _db.auroraConversations);
+  $$AuroraMessagesTableTableManager get auroraMessages =>
+      $$AuroraMessagesTableTableManager(_db, _db.auroraMessages);
+  $$AuroraMemoriesTableTableManager get auroraMemories =>
+      $$AuroraMemoriesTableTableManager(_db, _db.auroraMemories);
 }
