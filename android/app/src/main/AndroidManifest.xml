@@ -12,6 +12,10 @@
     <!-- No ads, so no advertising ID. Firebase Analytics would otherwise
          merge this permission in, and the store listing says we don't use it. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <!-- The Privacy Sandbox ad services permissions Firebase Analytics adds,
+         for ad attribution we don't do. -->
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION" tools:node="remove" />
 
     <!-- Reminders (habits, tasks, the morning note, the weekly letter,
          Aurora's "Remind me") are scheduled on the device, inexactly
