@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Effective date:** 2 August 2026
+**Effective date:** 28 October 2026
 
-**Document version:** 1
+**Document version:** 2
 
 Atlas is a personal self-care companion, developed and operated by Pranta Dutta ("we", "us"). This policy explains what we collect, why, and the control you have over it. We have tried to write it in plain language rather than legalese.
 
@@ -12,6 +12,7 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 - Your habits, tasks, goals and progress live **on your device** by default.
 - We only receive that content if you turn on **cloud sync**, which is optional.
+- To fix bugs and improve Atlas we collect **crash reports and basic usage statistics**. These never include what you write.
 - We do **not** sell your personal information, and we do **not** show ads.
 - You can delete your data, or your whole account, at any time.
 
@@ -25,7 +26,11 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 **Companion (AI) interactions.** When you use Aurora, the in-app companion, the message you send, along with a short summary of your recent activity (for example your current streak, level and number of active habits), is sent to our servers and on to an AI processing provider so a reply can be generated.
 
-**Technical information.** When your device contacts our servers, standard request logs are recorded so we can keep the service running and investigate faults. Atlas does not include crash-reporting or analytics software.
+**Technical information.** When your device contacts our servers, standard request logs are recorded so we can keep the service running and investigate faults.
+
+**Crash reports and diagnostics.** If Atlas crashes or hits an error, a report is sent to our crash-reporting provider (Firebase Crashlytics, run by Google). A report contains the technical details of the fault (such as the code location and error message), the app version, device model, operating system version, and an internal account identifier so we can follow up on a fault you report to us. It does not include your email address, your name or the content you create.
+
+**Usage statistics.** Atlas uses an analytics provider (Google Analytics for Firebase) to understand how the app is used, so we can see what works and what to improve. It records which screens are opened and a small set of actions, such as completing a habit or task, finishing a day, sending a message to Aurora, viewing the upgrade screen, making a purchase, and signing in or signing up. Each action carries only app-defined details (for example the category of a habit or the product purchased), never anything you typed. The provider also records general information such as app version, device model, operating system, approximate country and an app-instance identifier, and the internal account identifier described above. We do not collect your device's advertising identifier, and we do not use this information for advertising.
 
 **Notification token.** If you enable notifications, we store a device token so reminders can reach you.
 
@@ -33,7 +38,7 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 ## 2. What we do not collect
 
-We do not collect your contacts, photos, precise location, health records, or browsing activity outside Atlas. We do not use advertising or tracking software development kits, and we do not build advertising profiles.
+We do not collect your contacts, photos, precise location, health records, or browsing activity outside Atlas. We do not use advertising software development kits, we do not collect your advertising identifier, and we do not build advertising profiles. Our analytics are used only to understand and improve Atlas.
 
 ## 3. How we use information
 
@@ -43,6 +48,7 @@ We do not collect your contacts, photos, precise location, health records, or br
 - To send the reminders and notifications you have turned on
 - To confirm your access to paid features
 - To diagnose faults, prevent abuse and improve reliability
+- To understand, in aggregate, how features are used so we can improve them
 
 We do not use your personal content to train AI models.
 
@@ -58,6 +64,7 @@ We share information only with service providers who help us run Atlas, and only
 - **Cloud hosting and database provider**: stores synced content
 - **AI processing provider**: generates companion replies
 - **Notification delivery provider**: delivers reminders
+- **Analytics and crash-reporting provider (Google Firebase)**: receives the crash reports and usage statistics described above
 - **The distribution platform you obtained Atlas from**: processes payments and confirms purchase status
 
 These providers are bound to use the information only to provide their service to us. We may also disclose information if required by law, or to protect the rights and safety of our users.
@@ -70,7 +77,7 @@ Our providers may process information in countries other than yours. Where requi
 
 ## 7. Retention
 
-Content you create is kept until you delete it, or until you delete your account. Diagnostic records are kept for a limited period and then removed. Records we must keep for legal, tax or accounting reasons are retained for the period the law requires.
+Content you create is kept until you delete it, or until you delete your account. Diagnostic records are kept for a limited period and then removed: crash reports for about 90 days, and usage statistics linked to an identifier for no more than 14 months, after which they remain only as aggregate totals. Records we must keep for legal, tax or accounting reasons are retained for the period the law requires.
 
 ## 8. Your choices and rights
 
@@ -78,6 +85,7 @@ Content you create is kept until you delete it, or until you delete your account
 - **Correction**: edit your content in the app at any time
 - **Deletion**: delete individual items, remove example content, or delete your entire account
 - **Withdraw consent**: turn off notifications or cloud sync at any time
+- **Diagnostics and statistics**: ask us to delete the crash reports and usage statistics linked to your account
 - **Object or restrict**: ask us to limit certain processing
 
 Depending on where you live you may also have the right to complain to your local data protection authority. To make a request, contact us using the details below. We will not treat you differently for exercising a right.

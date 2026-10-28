@@ -266,6 +266,9 @@ class AuthNotifier extends Notifier<AuthState> {
       } catch (_) {/* best-effort */}
 
       await _authService.deleteAccount();
+      try {
+        await Telemetry.forgetDevice();
+      } catch (_) {/* best-effort */}
 
       ref.read(signalRServiceProvider).disconnect();
       // Purge the local database — deletion must leave nothing behind, and the

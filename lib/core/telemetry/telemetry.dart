@@ -103,6 +103,13 @@ class Telemetry {
     await _analytics!.setUserId(id: userId);
   }
 
+  /// After account deletion: drop this device's analytics data and identity,
+  /// so nothing carries over to whoever signs in next.
+  static Future<void> forgetDevice() async {
+    if (!_ready) return;
+    await _analytics!.resetAnalyticsData();
+  }
+
   /// For checking the pipeline end to end from a test build.
   static void sendTestCrash() {
     if (!_ready || !canSendTestCrash) return;
