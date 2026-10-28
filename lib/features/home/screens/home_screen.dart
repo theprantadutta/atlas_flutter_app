@@ -21,6 +21,7 @@ import 'package:atlas_flutter_app/features/onboarding/widgets/starter_choice_she
 import 'package:atlas_flutter_app/features/updates/widgets/update_banner.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Home: how today is going, and the next thing to tend.
 ///
@@ -123,6 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await notifier.markCelebrated(view.today);
+      Telemetry.dayComplete();
       HapticFeedback.heavyImpact();
       setState(() {
         _celebrating = true;

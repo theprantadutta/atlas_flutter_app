@@ -48,6 +48,34 @@ class AppErrors {
     return text.contains('cancel') || text.contains('aborted');
   }
 
+  /// True for failures that are part of normal life rather than bugs: no
+  /// network, a slow or unreachable server, a cancelled sign-in, a wrong
+  /// password. Atlas runs offline by design, so these happen constantly and
+  /// are not worth a crash report.
+  static bool isExpected(Object? error) {
+    if (error == null || isCancellation(error)) return true;
+    if (error is SocketException ||
+        error is TimeoutException ||
+        error is HttpException ||
+        error is NetworkException ||
+        error is AuthException ||
+        error is FirebaseAuthException) {
+      return true;
+    }
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      return error.type != DioExceptionType.badResponse ||
+          (status != null && status < 500);
+    }
+    if (error is AppException) {
+      // A 4xx is the server saying no for a reason (limits, validation);
+      // a 5xx or an unexplained failure is worth a look.
+      final status = error.statusCode;
+      return status != null && status < 500;
+    }
+    return false;
+  }
+
   /// Map any error to something worth showing.
   static String message(Object? error) {
     if (error == null) return generic;

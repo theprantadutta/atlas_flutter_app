@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/features/goals/providers/goal_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// HTTP 402 from the backend means "free limit reached → show the paywall".
 const _paywallStatus = 402;
@@ -145,6 +146,7 @@ class ReflectionGenNotifier extends Notifier<ReflectionGenState> {
             userId,
             preferences: ref.read(auroraPreferencesProvider).toWire(),
           );
+      Telemetry.letterWritten();
       state = state.copyWith(generating: false);
       return true;
     } catch (e) {
@@ -314,6 +316,7 @@ class AuroraChatNotifier extends Notifier<AuroraChatState> {
         // A streamed reply was already revealed word by word.
         fresh: !streamed,
       ));
+      Telemetry.auroraMessage(streamed: streamed);
       state = state.copyWith(sending: false);
     } catch (e) {
       _removePending();

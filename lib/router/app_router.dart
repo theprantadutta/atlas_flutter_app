@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/config/demo_config.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 import 'package:atlas_flutter_app/features/about/screens/about_screen.dart';
 import 'package:atlas_flutter_app/features/achievements/screens/achievements_screen.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
@@ -57,7 +58,7 @@ class _AuthRefreshNotifier extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   final authRefresh = _AuthRefreshNotifier(ref);
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: false,
     refreshListenable: authRefresh,
@@ -311,4 +312,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  // One screen view per route change, named by the route pattern
+  // (`/grow/habit/:id`), so no ids reach Analytics.
+  void reportScreen() {
+    final path = router.routerDelegate.currentConfiguration.fullPath;
+    if (path.isNotEmpty) Telemetry.screen(path);
+  }
+
+  router.routerDelegate.addListener(reportScreen);
+  ref.onDispose(() => router.routerDelegate.removeListener(reportScreen));
+  return router;
 });

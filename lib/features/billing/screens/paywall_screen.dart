@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 final _log = AppLog('Billing');
 
@@ -104,6 +105,12 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   String _selected = _plans.first.productId;
   bool _purchasing = false;
   bool _restoring = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Telemetry.paywallViewed();
+  }
 
   /// Store offers keyed by product id. Empty until the store answers (and in
   /// development, when no listing exists yet) — every read falls back to the

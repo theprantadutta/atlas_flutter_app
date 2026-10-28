@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// documents in `assets/legal/` changes materially** — every user is then asked
 /// to review and accept again before they can continue using the app. Keep the
 /// `Document version:` line inside each markdown file in step with it.
-const int kLegalVersion = 1;
+const int kLegalVersion = 2;
 
 const _kAcceptedVersion = 'atlas_legal_accepted_version';
 

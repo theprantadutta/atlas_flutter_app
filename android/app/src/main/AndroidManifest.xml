@@ -9,6 +9,9 @@
     <!-- Hold the mic to talk to Aurora (speech to text). Asked for only when
          the user first presses the mic. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- No ads, so no advertising ID. Firebase Analytics would otherwise
+         merge this permission in, and the store listing says we don't use it. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
     <!-- Reminders (habits, tasks, the morning note, the weekly letter,
          Aurora's "Remind me") are scheduled on the device, inexactly
@@ -74,6 +77,17 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="atlas_account" />
+        <!-- Screens are reported by route from the app; the automatic
+             activity-based report would only ever say "MainActivity". -->
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

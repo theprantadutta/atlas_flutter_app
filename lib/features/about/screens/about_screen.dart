@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/about/providers/app_info_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// The person behind Atlas, and which build you are holding.
 const _developerName = 'Pranta Dutta';
@@ -162,7 +163,16 @@ class _BuildDetails extends StatelessWidget {
       data: (i) => RowGroup(
         title: 'This build',
         children: [
-          row('Version', i.version),
+          // Telemetry test builds only: long-press sends a deliberate crash,
+          // to check reports reach Crashlytics end to end.
+          if (Telemetry.canSendTestCrash)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onLongPress: Telemetry.sendTestCrash,
+              child: row('Version', i.version),
+            )
+          else
+            row('Version', i.version),
           if (i.buildNumber.isNotEmpty) row('Build', i.buildNumber),
           row('Package', i.packageName),
         ],

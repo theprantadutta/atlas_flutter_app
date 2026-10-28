@@ -1,8 +1,8 @@
 # Terms of Service
 
-**Effective date:** 2 August 2026
+**Effective date:** 28 October 2026
 
-**Document version:** 1
+**Document version:** 2
 
 These terms are the agreement between you and Pranta Dutta ("we", "us"), the developer and operator of Atlas, for use of the Atlas application. By accepting them you agree to be bound by them. If you do not agree, please do not use Atlas.
 

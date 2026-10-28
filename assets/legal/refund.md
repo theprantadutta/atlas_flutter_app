@@ -1,8 +1,8 @@
 # Refund Policy
 
-**Effective date:** 2 August 2026
+**Effective date:** 28 October 2026
 
-**Document version:** 1
+**Document version:** 2
 
 Atlas is developed and operated by Pranta Dutta ("we", "us"). We want Atlas to be genuinely worth paying for. If it is not right for you, here is how refunds work.
 
