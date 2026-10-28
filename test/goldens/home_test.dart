@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/gamification/ledger.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/nudge_provider.dart';
+import 'package:atlas_flutter_app/features/check_in/providers/check_in_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/home/providers/home_provider.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
@@ -52,6 +53,8 @@ List overridesFor(HomeView view) => [
       homeProvider.overrideWithValue(view),
       unreadNotificationCountProvider.overrideWith((ref) => Stream.value(2)),
       auroraNudgeProvider.overrideWithValue(null),
+      // The check-in card depends on the clock; goldens show Home without it.
+      checkInPromptProvider.overrideWithValue(null),
       dailyRolloverProvider.overrideWithValue(null),
       starterDataProvider.overrideWith(_Chosen.new),
     ];

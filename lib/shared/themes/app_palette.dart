@@ -42,6 +42,11 @@ class AtlasPalette extends ThemeExtension<AtlasPalette> {
     required this.skeleton,
     required this.skeletonHighlight,
     required this.pine,
+    required this.moodHeavy,
+    required this.moodLow,
+    required this.moodOkay,
+    required this.moodGood,
+    required this.moodBright,
     required this.tintAlpha,
     required this.isDark,
   });
@@ -77,6 +82,18 @@ class AtlasPalette extends ThemeExtension<AtlasPalette> {
 
   /// The deep-green category color, lifted in dark for contrast.
   final Color pine;
+
+  /// Check-in moods, 1 (heavy) to 5 (bright). Calm and ungraded.
+  final Color moodHeavy, moodLow, moodOkay, moodGood, moodBright;
+
+  /// The colour for check-in [mood] (1 to 5).
+  Color mood(int mood) => switch (mood) {
+        <= 1 => moodHeavy,
+        2 => moodLow,
+        3 => moodOkay,
+        4 => moodGood,
+        _ => moodBright,
+      };
 
   /// Light uses solid pastel tints; dark uses the category fg at this alpha.
   final double? tintAlpha;
@@ -141,6 +158,11 @@ class AtlasPalette extends ThemeExtension<AtlasPalette> {
     skeleton: AppColors.track,
     skeletonHighlight: Color(0xFFF7F4EE),
     pine: AppColors.pine,
+    moodHeavy: AppColors.moodHeavy,
+    moodLow: AppColors.moodLow,
+    moodOkay: AppColors.moodOkay,
+    moodGood: AppColors.moodGood,
+    moodBright: AppColors.moodBright,
     tintAlpha: null,
     isDark: false,
   );
@@ -185,6 +207,11 @@ class AtlasPalette extends ThemeExtension<AtlasPalette> {
     skeleton: AppColors.trackDark,
     skeletonHighlight: AppColors.borderDark,
     pine: AppColors.successDark,
+    moodHeavy: AppColors.moodHeavyDark,
+    moodLow: AppColors.moodLowDark,
+    moodOkay: AppColors.moodOkayDark,
+    moodGood: AppColors.moodGoodDark,
+    moodBright: AppColors.moodBrightDark,
     tintAlpha: .18,
     isDark: true,
   );
@@ -231,6 +258,11 @@ class AtlasPalette extends ThemeExtension<AtlasPalette> {
       skeleton: c(skeleton, other.skeleton),
       skeletonHighlight: c(skeletonHighlight, other.skeletonHighlight),
       pine: c(pine, other.pine),
+      moodHeavy: c(moodHeavy, other.moodHeavy),
+      moodLow: c(moodLow, other.moodLow),
+      moodOkay: c(moodOkay, other.moodOkay),
+      moodGood: c(moodGood, other.moodGood),
+      moodBright: c(moodBright, other.moodBright),
       tintAlpha: t < .5 ? tintAlpha : other.tintAlpha,
       isDark: t < .5 ? isDark : other.isDark,
     );

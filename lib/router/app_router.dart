@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 import 'package:atlas_flutter_app/features/about/screens/about_screen.dart';
 import 'package:atlas_flutter_app/features/achievements/screens/achievements_screen.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
+import 'package:atlas_flutter_app/features/analytics/screens/year_in_review_screen.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
@@ -296,6 +297,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/analytics',
         name: RouteNames.analytics,
         builder: (context, state) => const AnalyticsScreen(),
+      ),
+      GoRoute(
+        path: '/year-in-review',
+        builder: (context, state) => YearInReviewScreen(
+          year: int.tryParse(state.uri.queryParameters['year'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/progress',

@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
-import 'package:atlas_flutter_app/features/aurora/widgets/aurora_nudge_card.dart';
+import 'package:atlas_flutter_app/features/home/widgets/check_in_card.dart';
 import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/grow/widgets/item_actions.dart';
@@ -211,7 +211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              const AuroraNudgeCard(),
+              // The check-in card, or else Aurora's nudge (never both).
+              const HomeAuroraSlot(),
               const SizedBox(height: 14),
               if (!view.ready)
                 const SizedBox.shrink()
