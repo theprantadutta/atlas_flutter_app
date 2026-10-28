@@ -17,6 +17,10 @@ import 'package:atlas_flutter_app/data/database/tables/progress_entries_table.da
 import 'package:atlas_flutter_app/data/database/tables/sync_operations_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/notifications_table.dart';
 import 'package:atlas_flutter_app/data/database/tables/aurora_reflections_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/check_ins_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/aurora_conversations_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/aurora_messages_table.dart';
+import 'package:atlas_flutter_app/data/database/tables/aurora_memories_table.dart';
 import 'package:atlas_flutter_app/data/database/daos/task_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
@@ -27,6 +31,9 @@ import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/sync_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/notification_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/aurora_reflection_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/check_in_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_conversation_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/aurora_memory_dao.dart';
 
 part 'atlas_database.g.dart';
 
@@ -43,6 +50,10 @@ part 'atlas_database.g.dart';
     SyncOperations,
     Notifications,
     AuroraReflections,
+    CheckIns,
+    AuroraConversations,
+    AuroraMessages,
+    AuroraMemories,
   ],
   daos: [
     TaskDao,
@@ -55,6 +66,9 @@ part 'atlas_database.g.dart';
     SyncDao,
     NotificationDao,
     AuroraReflectionDao,
+    CheckInDao,
+    AuroraConversationDao,
+    AuroraMemoryDao,
   ],
 )
 class AtlasDatabase extends _$AtlasDatabase {
@@ -137,6 +151,23 @@ class AtlasDatabase extends _$AtlasDatabase {
         if (from < 11) {
           // Aurora reflection local cache.
           await m.createTable(auroraReflections);
+        }
+        if (from < 12) {
+          // Aurora companion: synced daily check-ins, plus local-only chat
+          // history and memories (deliberately not synced), and the letter
+          // period on the reflection cache.
+          await m.createTable(checkIns);
+          await m.createTable(auroraConversations);
+          await m.createTable(auroraMessages);
+          await m.createTable(auroraMemories);
+          // A database created at version 11 already has the table; only add
+          // the column when it is missing.
+          final cols = await customSelect(
+                  "SELECT name FROM pragma_table_info('aurora_reflections')")
+              .get();
+          if (!cols.any((c) => c.read<String>('name') == 'period')) {
+            await m.addColumn(auroraReflections, auroraReflections.period);
+          }
         }
       },
       beforeOpen: (details) async {

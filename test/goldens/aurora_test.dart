@@ -21,6 +21,7 @@ final sampleLetter = AuroraReflection(
   periodStart: DateTime(2025, 7, 26),
   periodEnd: DateTime(2025, 8, 2),
   modelTier: 'paid',
+  period: 'week',
   createdAt: DateTime(2025, 8, 3),
 );
 
@@ -50,6 +51,8 @@ class SampleChat extends AuroraChatNotifier {
 
 List common() => [
       auroraUsageProvider.overrideWithValue(null),
+      isPremiumProvider.overrideWithValue(false),
+      latestMonthlyReflectionProvider.overrideWith((ref) => Stream.value(null)),
       onlineProvider.overrideWith((ref) => Stream.value(true)),
     ];
 

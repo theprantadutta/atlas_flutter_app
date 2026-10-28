@@ -7,12 +7,16 @@ import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 import 'package:atlas_flutter_app/features/about/screens/about_screen.dart';
 import 'package:atlas_flutter_app/features/achievements/screens/achievements_screen.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
+import 'package:atlas_flutter_app/features/analytics/screens/year_in_review_screen.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/auth/screens/login_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/signup_screen.dart';
 import 'package:atlas_flutter_app/features/auth/screens/splash_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart'
+    show AuroraLetterPeriod;
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_letter_screen.dart';
+import 'package:atlas_flutter_app/features/aurora/screens/aurora_memories_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_settings_screen.dart';
 import 'package:atlas_flutter_app/features/avatar/screens/avatar_screen.dart';
@@ -190,7 +194,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'letter',
                     name: RouteNames.auroraLetter,
-                    builder: (context, state) => const AuroraLetterScreen(),
+                    // `?period=month` opens the monthly letter.
+                    builder: (context, state) => AuroraLetterScreen(
+                      period: state.uri.queryParameters['period'] == 'month'
+                          ? AuroraLetterPeriod.month
+                          : AuroraLetterPeriod.week,
+                    ),
                   ),
                   // The same voice settings as Profile, reachable without
                   // leaving the Aurora tab.
@@ -290,6 +299,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AnalyticsScreen(),
       ),
       GoRoute(
+        path: '/year-in-review',
+        builder: (context, state) => YearInReviewScreen(
+          year: int.tryParse(state.uri.queryParameters['year'] ?? ''),
+        ),
+      ),
+      GoRoute(
         path: '/progress',
         name: RouteNames.progress,
         builder: (context, state) => const ProgressScreen(),
@@ -304,6 +319,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: RouteNames.auroraChat,
         builder: (context, state) =>
             AuroraChatScreen(initialPrompt: state.extra as String?),
+      ),
+      // Reached from Aurora's settings (both the Aurora tab and Profile).
+      GoRoute(
+        path: '/aurora-memories',
+        builder: (context, state) => const AuroraMemoriesScreen(),
       ),
       GoRoute(
         path: '/paywall',

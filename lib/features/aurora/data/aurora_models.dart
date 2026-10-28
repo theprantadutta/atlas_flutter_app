@@ -18,6 +18,7 @@ class AuroraReflectionData {
     required this.periodEnd,
     required this.modelTier,
     required this.createdAt,
+    this.period = 'week',
   });
 
   final String id;
@@ -27,6 +28,9 @@ class AuroraReflectionData {
   final String modelTier;
   final DateTime createdAt;
 
+  /// `week` | `month`.
+  final String period;
+
   factory AuroraReflectionData.fromJson(Map<String, dynamic> json) {
     return AuroraReflectionData(
       id: json['id'] as String,
@@ -35,6 +39,7 @@ class AuroraReflectionData {
       periodEnd: DateTime.parse(json['period_end'] as String),
       modelTier: json['model_tier'] as String? ?? 'free',
       createdAt: DateTime.parse(json['created_at'] as String),
+      period: json['period'] == 'month' ? 'month' : 'week',
     );
   }
 }
@@ -75,9 +80,21 @@ class AuroraCreatedEntity {
       frequency: json['frequency'] as String?,
       priority: json['priority'] as String?,
       taskType: json['task_type'] as String?,
-      difficulty: json['difficulty'] as int?,
+      difficulty: (json['difficulty'] as num?)?.toInt(),
     );
   }
+
+  /// The same snake_case shape [fromJson] reads (used to persist chat turns).
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'title': title,
+        'description': ?description,
+        'category': ?category,
+        'frequency': ?frequency,
+        'priority': ?priority,
+        'task_type': ?taskType,
+        'difficulty': ?difficulty,
+      };
 }
 
 /// A next step Aurora proposes in chat, shown as a card with one-tap Add
@@ -113,6 +130,16 @@ class AuroraSuggestion {
         xp: xp,
         recommended: recommended ?? this.recommended,
       );
+
+  /// The same shape [fromJson] reads (used to persist chat turns).
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'kind': kind,
+        'category': ?category,
+        'time': ?time,
+        'xp': ?xp,
+        'recommended': recommended,
+      };
 
   static AuroraSuggestion? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -203,6 +230,7 @@ class AuroraChatResult {
     required this.isPremium,
     this.suggestions = const [],
     this.followUps = const [],
+    this.memoriesProposed = const [],
   });
 
   final String reply;
@@ -210,6 +238,10 @@ class AuroraChatResult {
   final bool isPremium;
   final List<AuroraSuggestion> suggestions;
   final List<String> followUps;
+
+  /// Up to 2 short facts Aurora offers to remember (premium chat). Nothing is
+  /// saved until the user taps Save.
+  final List<String> memoriesProposed;
 
   factory AuroraChatResult.fromJson(Map<String, dynamic> json) {
     final created = (json['created'] as List<dynamic>? ?? [])
@@ -236,7 +268,24 @@ class AuroraChatResult {
       isPremium: json['is_premium'] == true,
       suggestions: ParsedSuggestions.normalise(suggestions),
       followUps: followUps.take(2).toList(),
+      memoriesProposed: parseMemoriesProposed(json['memories_proposed']),
     );
+  }
+
+  /// Cleans `memories_proposed`: strings only, trimmed, no dashes, at most
+  /// 200 chars each, de-duplicated, at most 2.
+  static List<String> parseMemoriesProposed(Object? raw) {
+    if (raw is! List) return const [];
+    final out = <String>[];
+    for (final m in raw) {
+      if (m is! String) continue;
+      final v = stripLongDashes(m.trim());
+      if (v.isEmpty || v.length > 200) continue;
+      if (out.any((o) => o.toLowerCase() == v.toLowerCase())) continue;
+      out.add(v);
+      if (out.length == 2) break;
+    }
+    return out;
   }
 }
 
@@ -256,4 +305,206 @@ class AuroraQuickAddResult {
       created: created,
     );
   }
+}
+
+// ─── Companion endpoints ────────────────────────────────────────────
+
+/// `POST /aurora/check-in` response.
+class AuroraCheckInReply {
+  const AuroraCheckInReply({
+    required this.reply,
+    required this.isPremium,
+    this.freeRepliesLeft,
+  });
+
+  final String reply;
+  final bool isPremium;
+
+  /// Replies left this week for a free user (null when unlimited or absent).
+  final int? freeRepliesLeft;
+
+  factory AuroraCheckInReply.fromJson(Map<String, dynamic> json) =>
+      AuroraCheckInReply(
+        reply: stripLongDashes((json['reply'] as String? ?? '').trim()),
+        isPremium: json['is_premium'] == true,
+        freeRepliesLeft: (json['free_replies_left'] as num?)?.toInt(),
+      );
+}
+
+/// How the user feels about the day ahead, for "Plan my day".
+enum AuroraEnergy {
+  low,
+  steady,
+  high;
+
+  String get wire => name;
+}
+
+/// One item Aurora picked for today. [kind] is `habit` | `task` and [id] is
+/// always an id that was in the request context (the client re-checks).
+class AuroraPlanPick {
+  const AuroraPlanPick({required this.kind, required this.id, this.reason});
+
+  final String kind;
+  final String id;
+  final String? reason;
+
+  static AuroraPlanPick? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final kind = raw['kind']?.toString().toLowerCase();
+    final id = raw['id']?.toString();
+    if (id == null || id.isEmpty) return null;
+    if (kind != 'habit' && kind != 'task') return null;
+    final reason = raw['reason']?.toString().trim();
+    return AuroraPlanPick(
+      kind: kind!,
+      id: id,
+      reason: reason == null || reason.isEmpty ? null : stripLongDashes(reason),
+    );
+  }
+}
+
+/// `POST /aurora/plan-day` response.
+class AuroraDayPlan {
+  const AuroraDayPlan({
+    required this.message,
+    required this.picks,
+    required this.later,
+  });
+
+  final String message;
+  final List<AuroraPlanPick> picks;
+
+  /// Ids of open items Aurora suggests setting aside today.
+  final List<String> later;
+
+  factory AuroraDayPlan.fromJson(Map<String, dynamic> json) => AuroraDayPlan(
+        message: stripLongDashes((json['message'] as String? ?? '').trim()),
+        picks: [
+          for (final p in (json['picks'] as List? ?? const []))
+            ?AuroraPlanPick.fromJson(p),
+        ],
+        later: [
+          for (final l in (json['later'] as List? ?? const []))
+            if (l != null && l.toString().isNotEmpty) l.toString(),
+        ],
+      );
+
+  /// Keeps only picks and set-aside ids for items that exist locally (the
+  /// model can't invent items), drops duplicates and caps picks at 4.
+  AuroraDayPlan onlyKnown({
+    required Set<String> habitIds,
+    required Set<String> taskIds,
+  }) {
+    final seen = <String>{};
+    final kept = <AuroraPlanPick>[];
+    for (final p in picks) {
+      final known =
+          p.kind == 'habit' ? habitIds.contains(p.id) : taskIds.contains(p.id);
+      if (!known || !seen.add(p.id)) continue;
+      kept.add(p);
+      if (kept.length == 4) break;
+    }
+    return AuroraDayPlan(
+      message: message,
+      picks: kept,
+      later: [
+        for (final id in later.toSet())
+          if ((habitIds.contains(id) || taskIds.contains(id)) &&
+              !seen.contains(id))
+            id,
+      ],
+    );
+  }
+}
+
+/// The goal sent to `POST /aurora/goal-steps`.
+class AuroraGoalInput {
+  const AuroraGoalInput({
+    required this.title,
+    this.description,
+    this.category,
+    this.targetDate,
+    this.progress = 0,
+  });
+
+  final String title;
+  final String? description;
+  final String? category;
+  final DateTime? targetDate;
+
+  /// 0 to 1.
+  final double progress;
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'description': ?description,
+        'category': ?category,
+        if (targetDate != null) 'target_date': _ymd(targetDate!),
+        'progress': progress,
+      };
+}
+
+String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+/// One proposed step for a goal. [type] is `daily` | `weekly` | `longTerm`.
+class AuroraGoalStep {
+  const AuroraGoalStep({
+    required this.title,
+    required this.type,
+    required this.category,
+  });
+
+  final String title;
+  final String type;
+  final String category;
+
+  static AuroraGoalStep? fromJson(Object? raw,
+      {String fallbackCategory = 'personal'}) {
+    if (raw is! Map) return null;
+    final title = raw['title']?.toString().trim() ?? '';
+    if (title.isEmpty || title.length > 80) return null;
+    final type = switch (raw['type']?.toString().toLowerCase()) {
+      'weekly' => 'weekly',
+      'longterm' || 'long_term' => 'longTerm',
+      _ => 'daily',
+    };
+    final category = raw['category']?.toString().trim().toLowerCase();
+    return AuroraGoalStep(
+      title: stripLongDashes(title),
+      type: type,
+      category:
+          category == null || category.isEmpty ? fallbackCategory : category,
+    );
+  }
+
+  /// As a spec `applyAuroraCreations` understands (a task).
+  AuroraCreatedEntity toCreation() => AuroraCreatedEntity(
+        type: 'task',
+        title: title,
+        category: category,
+        taskType: type,
+      );
+}
+
+/// `POST /aurora/goal-steps` response.
+class AuroraGoalSteps {
+  const AuroraGoalSteps({required this.message, required this.steps});
+
+  final String message;
+
+  /// 3 to 5 steps (the client caps at 5).
+  final List<AuroraGoalStep> steps;
+
+  factory AuroraGoalSteps.fromJson(Map<String, dynamic> json,
+          {String fallbackCategory = 'personal'}) =>
+      AuroraGoalSteps(
+        message: stripLongDashes((json['message'] as String? ?? '').trim()),
+        steps: [
+          for (final s in (json['steps'] as List? ?? const []))
+            ?AuroraGoalStep.fromJson(s, fallbackCategory: fallbackCategory),
+        ].take(5).toList(),
+      );
 }

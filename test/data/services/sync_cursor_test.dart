@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/database/daos/achievement_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/avatar_dao.dart';
+import 'package:atlas_flutter_app/data/database/daos/check_in_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/goal_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/habit_dao.dart';
 import 'package:atlas_flutter_app/data/database/daos/progress_dao.dart';
@@ -43,6 +44,7 @@ void main() {
         worldDao: WorldDao(db),
         achievementDao: AchievementDao(db),
         progressDao: ProgressDao(db),
+        checkInDao: CheckInDao(db),
         syncRepository: _UnusedSyncRepository(),
         conflictResolution: ConflictResolutionService(),
       );

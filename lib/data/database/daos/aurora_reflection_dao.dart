@@ -10,10 +10,12 @@ class AuroraReflectionDao extends DatabaseAccessor<AtlasDatabase>
     with _$AuroraReflectionDaoMixin {
   AuroraReflectionDao(super.db);
 
-  /// Reactive stream of the user's most recent reflection (or null).
-  Stream<AuroraReflection?> watchLatest(String userId) {
+  /// Reactive stream of the user's most recent reflection for [period]
+  /// (`week` | `month`), or null.
+  Stream<AuroraReflection?> watchLatest(String userId,
+      {String period = 'week'}) {
     return (select(auroraReflections)
-          ..where((r) => r.userId.equals(userId))
+          ..where((r) => r.userId.equals(userId) & r.period.equals(period))
           ..orderBy([(r) => OrderingTerm.desc(r.createdAt)])
           ..limit(1))
         .watchSingleOrNull();

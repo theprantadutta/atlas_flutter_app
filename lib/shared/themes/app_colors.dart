@@ -83,6 +83,20 @@ class AppColors {
   static const error = coral;
   static const info = sky;
 
+  // ─── Moods (check-ins) ───
+  // Calm, ungraded colours for the five check-in moods: dusk to daylight,
+  // never red, never a "failure" colour.
+  static const moodHeavy = Color(0xFF8C8FC2);
+  static const moodLow = Color(0xFF8DB6DC);
+  static const moodOkay = Color(0xFFCDBE9E);
+  static const moodGood = Color(0xFF8ECDA6);
+  static const moodBright = Color(0xFFFFC27A);
+  static const moodHeavyDark = Color(0xFF9EA2D6);
+  static const moodLowDark = Color(0xFF8FB8DE);
+  static const moodOkayDark = Color(0xFFBFB18F);
+  static const moodGoodDark = Color(0xFF7FC498);
+  static const moodBrightDark = Color(0xFFF5B56A);
+
   // ─── Dark theme ("after dark"); see DARK_THEME.md ───
   static const canvasDark = Color(0xFF0F0E0B);
   static const paperDark = Color(0xFF1C1A16);

@@ -9,6 +9,9 @@ class AuroraReflections extends Table {
   DateTimeColumn get periodStart => dateTime()();
   DateTimeColumn get periodEnd => dateTime()();
   TextColumn get modelTier => text().withDefault(const Constant('free'))();
+
+  /// `week` | `month` (schema 12). Month letters are premium.
+  TextColumn get period => text().withDefault(const Constant('week'))();
   DateTimeColumn get createdAt => dateTime()();
 
   @override

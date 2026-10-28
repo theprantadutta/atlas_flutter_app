@@ -140,6 +140,19 @@ class _AuroraSettingsScreenState extends ConsumerState<AuroraSettingsScreen> {
         ),
         settingsGap,
         RowGroup(
+          title: 'Memory',
+          children: [
+            GroupRow(
+              icon: Symbols.bookmark_rounded,
+              iconColor: AppColors.violet,
+              title: 'What Aurora remembers',
+              subtitle: 'The things she keeps in mind',
+              onTap: () => context.push('/aurora-memories'),
+            ),
+          ],
+        ),
+        settingsGap,
+        RowGroup(
           title: 'Nudges',
           children: [
             SwitchRow(

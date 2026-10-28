@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dar
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/check_in/providers/check_in_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/grow/screens/grow_screen.dart';
 import 'package:atlas_flutter_app/features/home/screens/home_screen.dart';
@@ -36,7 +37,7 @@ void main() {
     'world': (const WorldScreen(), [worldViewProvider.overrideWithValue(world.sampleWorld())]),
     'insights': (
       const AnalyticsScreen(),
-      [...grow.growOverrides().where((o) => !identical((o as dynamic).origin, ledgerDaysProvider)), ledgerDaysProvider.overrideWithValue(sampleLedgerWeek()), canDeepInsightsProvider.overrideWithValue(true)]
+      [...grow.growOverrides().where((o) => !identical((o as dynamic).origin, ledgerDaysProvider)), ledgerDaysProvider.overrideWithValue(sampleLedgerWeek()), canDeepInsightsProvider.overrideWithValue(true), weekMoodsProvider.overrideWithValue(const [4, null, 3, 5, 2, 4, 5])]
     ),
   };
 

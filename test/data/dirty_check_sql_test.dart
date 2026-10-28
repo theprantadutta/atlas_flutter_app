@@ -13,6 +13,7 @@ void main() {
     const tables = [
       'tasks', 'habits', 'goals', 'avatars', 'world_tiles',
       'achievements', 'progress_entries', 'notifications',
+      'check_ins',
     ];
     for (final t in tables) {
       await db.customSelect('SELECT 1 FROM $t WHERE is_dirty = 1 AND updated_at >= ? LIMIT 1',

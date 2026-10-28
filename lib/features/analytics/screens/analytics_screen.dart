@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/features/analytics/providers/analytics_view_provider.dart';
+import 'package:atlas_flutter_app/features/aurora/data/year_in_review.dart';
+import 'package:atlas_flutter_app/features/check_in/providers/check_in_providers.dart';
+import 'package:atlas_flutter_app/features/check_in/widgets/check_in_sheet.dart';
+import 'package:atlas_flutter_app/features/check_in/widgets/mood_strip.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
@@ -102,6 +106,10 @@ class AnalyticsScreen extends ConsumerWidget {
     final data = ref.watch(weekInsightsProvider(week));
     final deep = ref.watch(canDeepInsightsProvider);
     final best = data.bestIndex;
+    final today = ref.watch(todayProvider);
+    // The mood strip is the last 7 days, so it belongs with this week only.
+    final thisWeek = isSameDay(week, startOfWeek(today));
+    final moods = thisWeek ? ref.watch(weekMoodsProvider) : null;
 
     return Scaffold(
       body: SafeArea(
@@ -116,6 +124,10 @@ class AnalyticsScreen extends ConsumerWidget {
                 onTap: () => _pickWeek(context, ref),
               ),
             ),
+            if (YearInReview.inSeason(today)) ...[
+              const SizedBox(height: 14),
+              _YearCard(year: today.year),
+            ],
             const SizedBox(height: 14),
             _HeroChart(data: data),
             const SizedBox(height: 14),
@@ -179,15 +191,38 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
             _Breakdown(data: data),
+            if (moods != null) ...[
+              const SizedBox(height: 14),
+              WeekMoodStrip(
+                moods: moods,
+                today: today,
+                onCheckIn: () => showCheckInSheet(context),
+              ),
+            ],
             const SizedBox(height: 14),
             AtlasTile(
               radius: AppSpacing.radiusLg,
               padding: EdgeInsets.zero,
-              child: GroupRow(
-                icon: Symbols.calendar_view_day_rounded,
-                title: 'Day by day',
-                subtitle: 'Every day, with what you tended',
-                onTap: () => context.push('/progress'),
+              child: Column(
+                children: [
+                  GroupRow(
+                    icon: Symbols.calendar_view_day_rounded,
+                    title: 'Day by day',
+                    subtitle: 'Every day, with what you tended',
+                    onTap: () => context.push('/progress'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 52),
+                    child: Divider(height: 1, color: p.hairline),
+                  ),
+                  GroupRow(
+                    key: const ValueKey('your-year-row'),
+                    icon: Symbols.auto_awesome_rounded,
+                    title: 'Your year',
+                    subtitle: 'Your ${today.year} in one card',
+                    onTap: () => context.push('/year-in-review'),
+                  ),
+                ],
               ),
             ),
             if (!deep) ...[
@@ -199,6 +234,50 @@ class AnalyticsScreen extends ConsumerWidget {
                 actionLabel: 'Upgrade',
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// December's invitation to "Your year": a compact ink card, shown from
+/// December 1st (the Your year row below is there all year).
+class _YearCard extends StatelessWidget {
+  const _YearCard({required this.year});
+  final int year;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Pressable(
+      key: const ValueKey('your-year-card'),
+      onTap: () => context.push('/year-in-review'),
+      haptic: PressHaptic.selection,
+      semanticLabel: 'Your $year, in one card',
+      child: InkHeroCard(
+        radius: AppSpacing.radiusTile,
+        glowLevel: .4,
+        padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GradientText('$year', style: AppTypography.cardNumber),
+                  const SizedBox(height: 6),
+                  Text('Your year, in one card',
+                      style: AppTypography.rowTitle.copyWith(color: p.onRaised)),
+                  const SizedBox(height: 2),
+                  Text('Days tended, places found, how it felt',
+                      style: AppTypography.meta
+                          .copyWith(color: p.onRaised.withValues(alpha: .62))),
+                ],
+              ),
+            ),
+            AtlasIcon(Symbols.chevron_right_rounded,
+                size: 22, color: p.onRaised.withValues(alpha: .62)),
           ],
         ),
       ),

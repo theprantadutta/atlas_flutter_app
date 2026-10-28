@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/features/analytics/screens/analytics_screen.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/features/check_in/providers/check_in_providers.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
@@ -30,6 +31,7 @@ void main() {
         habitsStreamProvider.overrideWith((ref) => Stream.value(sampleHabits)),
         tasksStreamProvider.overrideWith((ref) => Stream.value(sampleTasks)),
         canDeepInsightsProvider.overrideWithValue(true),
+        weekMoodsProvider.overrideWithValue(const [4, null, 3, 5, 2, 4, 5]),
       ]);
       await settle(tester);
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/insights_$mode.png'));
