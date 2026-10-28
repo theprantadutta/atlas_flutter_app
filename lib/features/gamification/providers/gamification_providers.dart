@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:atlas_flutter_app/core/constants/gamification_constants.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/core/gamification/ledger.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/data/repositories/repository_providers.dart';
 import 'package:atlas_flutter_app/data/services/xp_ledger_service.dart';
@@ -175,6 +176,11 @@ class TendController {
     return b > a ? b : null;
   }
 
+  void _reportLevelUp(int before, int xp) {
+    final level = _levelUp(before, before + xp);
+    if (level != null) Telemetry.levelUp(level);
+  }
+
   // ── Tasks ──
 
   Future<TendOutcome?> tendTask(Task task) async {
@@ -203,6 +209,8 @@ class TendController {
       type: _taskType(task.type),
       level: LevelInfo.of(before + xp).level,
     );
+    Telemetry.taskTended(type: _taskType(task.type), category: task.category);
+    _reportLevelUp(before, xp);
     return TendOutcome(
       xp: xp,
       itemKey: key,
@@ -284,6 +292,8 @@ class TendController {
       streakCount: streak,
       level: LevelInfo.of(before + xp).level,
     );
+    Telemetry.habitTended(frequency: habit.frequency, category: habit.category);
+    _reportLevelUp(before, xp);
     return TendOutcome(
       xp: xp,
       itemKey: key,
@@ -368,6 +378,8 @@ class TendController {
         type: 'goal',
         level: LevelInfo.of(before + xp).level,
       );
+      Telemetry.goalReached(category: goal.category);
+      _reportLevelUp(before, xp);
       return TendOutcome(
         xp: xp,
         itemKey: key,

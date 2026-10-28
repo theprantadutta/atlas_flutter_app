@@ -137,11 +137,21 @@ final Logger _root = Logger(
   level: _levelForBuild(),
 );
 
+/// Receives errors and fatals, whatever the log level. Set by the telemetry
+/// layer so this file stays free of Firebase.
+typedef LogErrorSink = void Function(String tag, String message, Object? error, StackTrace? stack);
+
+/// Receives warnings, as breadcrumbs for the next error report.
+typedef LogWarningSink = void Function(String tag, String message);
+
 /// A logger scoped to one subsystem — `AppLog('Auth')`, `AppLog('Sync')`.
 class AppLog {
   const AppLog(this.tag);
 
   final String tag;
+
+  static LogErrorSink? errorSink;
+  static LogWarningSink? warningSink;
 
   void t(String message, {Object? error, StackTrace? stackTrace}) =>
       _root.t(_Scoped(tag, message), error: error, stackTrace: stackTrace);
@@ -152,14 +162,20 @@ class AppLog {
   void i(String message, {Object? error, StackTrace? stackTrace}) =>
       _root.i(_Scoped(tag, message), error: error, stackTrace: stackTrace);
 
-  void w(String message, {Object? error, StackTrace? stackTrace}) =>
-      _root.w(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+  void w(String message, {Object? error, StackTrace? stackTrace}) {
+    _root.w(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+    warningSink?.call(tag, message);
+  }
 
-  void e(String message, {Object? error, StackTrace? stackTrace}) =>
-      _root.e(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+  void e(String message, {Object? error, StackTrace? stackTrace}) {
+    _root.e(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+    errorSink?.call(tag, message, error, stackTrace);
+  }
 
-  void f(String message, {Object? error, StackTrace? stackTrace}) =>
-      _root.f(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+  void f(String message, {Object? error, StackTrace? stackTrace}) {
+    _root.f(_Scoped(tag, message), error: error, stackTrace: stackTrace);
+    errorSink?.call(tag, message, error, stackTrace);
+  }
 }
 
 /// Mask an email for logging — `someone@example.com` becomes `s••••@example.com`.

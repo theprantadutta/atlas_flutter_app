@@ -12,6 +12,7 @@ import 'package:atlas_flutter_app/data/services/auth_service.dart';
 import 'package:atlas_flutter_app/data/services/token_service.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_preferences_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 final _log = AppLog('Auth');
 
@@ -61,6 +62,12 @@ class AuthNotifier extends Notifier<AuthState> {
   AuthState build() {
     _authService = ref.read(authServiceProvider);
     _tokenService = ref.read(tokenServiceProvider);
+    // Crash reports and analytics follow whoever is signed in, by opaque id.
+    listenSelf((prev, next) {
+      final id = next.isAuthenticated ? next.user?.id : null;
+      final was = (prev?.isAuthenticated ?? false) ? prev?.user?.id : null;
+      if (id != was) Telemetry.setUser(id);
+    });
     // Kick off initial auth check asynchronously
     Future.microtask(() => checkAuthStatus());
     return const AuthState();
@@ -165,6 +172,7 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+      Telemetry.signedIn('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
@@ -193,6 +201,7 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+      Telemetry.signedUp('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
@@ -213,6 +222,7 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+      Telemetry.signedIn('google');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(
@@ -233,6 +243,7 @@ class AuthNotifier extends Notifier<AuthState> {
         isAuthenticated: true,
         user: user,
       );
+      Telemetry.signedIn('apple');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
       state = state.copyWith(

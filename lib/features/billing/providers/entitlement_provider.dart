@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/features/billing/data/purchase_mapping.dart';
 import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
 import 'package:atlas_flutter_app/features/billing/services/entitlement_service.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 // ─── Services ───────────────────────────────────────────────────────
 
@@ -261,6 +262,7 @@ class EntitlementController {
     SubscriptionReplacementModeAndroid? replacementMode,
   }) async {
     final service = _ref.read(entitlementServiceProvider);
+    Telemetry.purchaseStarted(productId);
 
     final EntitlementResult result;
     if (offer != null) {
@@ -274,6 +276,10 @@ class EntitlementController {
       result = await service.purchaseDevFallback(productId);
     } else {
       throw const StoreException('That plan isn’t available right now.');
+    }
+    if (result.isPremium) {
+      Telemetry.purchaseCompleted(productId,
+          trial: result.isTrial, lifetime: result.isLifetime);
     }
 
     await _ref.read(authProvider.notifier).refreshUser();

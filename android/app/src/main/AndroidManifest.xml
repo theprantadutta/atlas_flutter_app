@@ -74,6 +74,11 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="atlas_account" />
+        <!-- Screens are reported by route from the app; the automatic
+             activity-based report would only ever say "MainActivity". -->
+        <meta-data
+            android:name="google_analytics_automatic_screen_reporting_enabled"
+            android:value="false" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
