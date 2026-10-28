@@ -9,34 +9,49 @@ import 'package:atlas_flutter_app/data/services/api_service.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
 
 /// Talks to the Aurora backend endpoints. Reflections are cached in Drift so the
-/// latest one is readable offline (server-generated, pull-only — no sync
-/// metadata). Chat is online-only and not persisted locally.
+/// latest one is readable offline (server-generated, pull-only, no sync
+/// metadata). Chat history is persisted by `AuroraConversationRepository`.
+///
+/// Every request that can use it carries a `context` (see `AuroraContext`):
+/// the server usually has none of the user's habits, tasks or goals because
+/// sync is premium and off for most users.
 class AuroraRepository {
   AuroraRepository(this._api, this._dao);
 
   final ApiService _api;
   final AuroraReflectionDao _dao;
 
-  /// Reactive stream of the user's most recent cached reflection (or null).
-  Stream<AuroraReflection?> watchLatestReflection(String userId) =>
-      _dao.watchLatest(userId);
+  /// Reactive stream of the user's most recent cached reflection for
+  /// [period] (`week` | `month`), or null.
+  Stream<AuroraReflection?> watchLatestReflection(String userId,
+          {String period = 'week'}) =>
+      _dao.watchLatest(userId, period: period);
 
-  /// Generate a fresh weekly reflection on the backend and cache it locally.
-  /// Throws [AppException] with `statusCode == 402` when the free weekly limit
-  /// is hit (paywall).
+  /// Generate a fresh reflection on the backend and cache it locally.
+  /// [period] is `week` (default) or `month` (premium). Throws [AppException]
+  /// with `statusCode == 402` when the free weekly limit is hit or a free user
+  /// asks for a month letter (paywall).
   ///
   /// [preferences] is the user's Aurora voice settings, which live on the
   /// device and travel with the request rather than being stored server-side.
   Future<AuroraReflectionData> generateReflection(
     String userId, {
     Map<String, dynamic>? preferences,
+    Map<String, dynamic>? context,
+    String period = 'week',
   }) async {
     final res = await _api.post(
       '/aurora/reflect',
-      data: {'preferences': ?preferences},
+      data: {
+        'period': period,
+        'context': ?context,
+        'preferences': ?preferences,
+      },
     );
-    final data =
-        AuroraReflectionData.fromJson(res.data as Map<String, dynamic>);
+    final json = res.data as Map<String, dynamic>;
+    // Older servers don't echo the period; trust what was asked for.
+    final data = AuroraReflectionData.fromJson(
+        {...json, 'period': json['period'] ?? period});
 
     await _dao.upsert(
       AuroraReflectionsCompanion(
@@ -46,6 +61,7 @@ class AuroraRepository {
         periodStart: Value(data.periodStart),
         periodEnd: Value(data.periodEnd),
         modelTier: Value(data.modelTier),
+        period: Value(data.period),
         createdAt: Value(data.createdAt),
       ),
     );
@@ -58,12 +74,14 @@ class AuroraRepository {
     String message,
     List<Map<String, String>> history, {
     Map<String, dynamic>? preferences,
+    Map<String, dynamic>? context,
   }) async {
     final res = await _api.post(
       '/aurora/chat',
       data: {
         'message': message,
         'history': history,
+        'context': ?context,
         'preferences': ?preferences,
       },
     );
@@ -78,12 +96,14 @@ class AuroraRepository {
     String message,
     List<Map<String, String>> history, {
     Map<String, dynamic>? preferences,
+    Map<String, dynamic>? context,
   }) async* {
     final res = await _api.postStream(
       '/aurora/chat/stream',
       data: {
         'message': message,
         'history': history,
+        'context': ?context,
         'preferences': ?preferences,
       },
     );
@@ -133,6 +153,66 @@ class AuroraRepository {
   Future<AuroraQuickAddResult> quickAdd(String text) async {
     final res = await _api.post('/aurora/quick-add', data: {'text': text});
     return AuroraQuickAddResult.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Ask Aurora for a short reply to a check-in that is ALREADY saved
+  /// locally. Free users get 3 replies a week, then 402.
+  Future<AuroraCheckInReply> checkInReply({
+    required int mood,
+    required String moment,
+    String? note,
+    Map<String, dynamic>? context,
+    Map<String, dynamic>? preferences,
+  }) async {
+    final res = await _api.post(
+      '/aurora/check-in',
+      data: {
+        'mood': mood,
+        'note': ?note,
+        'moment': moment,
+        'context': ?context,
+        'preferences': ?preferences,
+      },
+    );
+    return AuroraCheckInReply.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// "Plan my day" (premium, 402 for free). [energy] is `low` | `steady` |
+  /// `high`.
+  Future<AuroraDayPlan> planDay({
+    required String energy,
+    String? note,
+    Map<String, dynamic>? context,
+    Map<String, dynamic>? preferences,
+  }) async {
+    final res = await _api.post(
+      '/aurora/plan-day',
+      data: {
+        'energy': energy,
+        'note': ?note,
+        'context': ?context,
+        'preferences': ?preferences,
+      },
+    );
+    return AuroraDayPlan.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// "Break it down with Aurora" (premium, 402 for free).
+  Future<AuroraGoalSteps> goalSteps({
+    required AuroraGoalInput goal,
+    Map<String, dynamic>? context,
+    Map<String, dynamic>? preferences,
+  }) async {
+    final res = await _api.post(
+      '/aurora/goal-steps',
+      data: {
+        'goal': goal.toJson(),
+        'context': ?context,
+        'preferences': ?preferences,
+      },
+    );
+    return AuroraGoalSteps.fromJson(res.data as Map<String, dynamic>,
+        fallbackCategory: goal.category ?? 'personal');
   }
 }
 
