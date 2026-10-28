@@ -29,6 +29,15 @@ void main() {
     expect(short.title, 'Plan tomorrow');
   });
 
+  test('a long title ends on a whole word with an ellipsis', () {
+    final title = AuroraConversationRepository.titleFrom(
+        'I just started a new job as a nurse on night shifts, and I prefer short practical answers.');
+    expect(title, 'I just started a new job as a nurse on night shifts, and I…');
+    expect(title.length, lessThanOrEqualTo(61));
+    // One unbroken word longer than the limit still gets cut, not dropped.
+    expect(AuroraConversationRepository.titleFrom('x' * 80), '${'x' * 60}…');
+  });
+
   test('append keeps order and the cards, and bumps updatedAt', () async {
     final c = await repo.create('u1', firstMessage: 'Hi');
     await repo.append(c.id, role: 'user', content: 'Hi');

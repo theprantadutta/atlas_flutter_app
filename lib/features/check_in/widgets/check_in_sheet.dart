@@ -33,7 +33,7 @@ CheckInMoment checkInMomentFor(DateTime now, {Set<CheckInMoment> done = const {}
 }
 
 /// The quiet line shown when a reply isn't available (402 or offline).
-const checkInPremiumLine = "Aurora's replies are part of Atlas Aurora";
+const checkInPremiumLine = 'Aurora’s replies are part of Atlas Aurora';
 
 class CheckInSheet extends ConsumerStatefulWidget {
   const CheckInSheet({super.key, this.moment, this.clock});

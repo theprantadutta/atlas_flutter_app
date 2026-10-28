@@ -123,7 +123,12 @@ class AuroraConversationRepository {
   static String titleFrom(String message) {
     final t = message.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (t.isEmpty) return 'New conversation';
-    return t.length <= maxTitle ? t : t.substring(0, maxTitle).trimRight();
+    if (t.length <= maxTitle) return t;
+    // End on a whole word, with an ellipsis, rather than mid-word.
+    final cut = t.substring(0, maxTitle);
+    final space = cut.lastIndexOf(' ');
+    final words = space > maxTitle ~/ 2 ? cut.substring(0, space) : cut;
+    return '${words.replaceAll(RegExp(r'[\s,.;:!?]+$'), '')}…';
   }
 
   // ─── Decoding persisted turns ──────────────────────────────────────

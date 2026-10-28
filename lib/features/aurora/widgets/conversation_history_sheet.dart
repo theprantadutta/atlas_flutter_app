@@ -11,6 +11,9 @@ import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
 /// left or long press to delete it (with Undo). Everything here lives on the
 /// device only.
 Future<void> showConversationHistorySheet(BuildContext context) {
+  // Drop the composer's focus first: a closing sheet hands focus back, and
+  // the keyboard would cover the conversation that was just opened.
+  FocusManager.instance.primaryFocus?.unfocus();
   return showAtlasSheet<void>(context, builder: (_) => const ConversationHistorySheet());
 }
 

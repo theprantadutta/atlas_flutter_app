@@ -144,7 +144,7 @@ class PlanDayController extends Notifier<PlanDayState> {
       final context = await buildAuroraContext(ref);
       if (context == null) {
         throw const AppException(
-            "Aurora couldn't read your day just now. Please try again.");
+            'Aurora couldn’t read your day just now. Please try again.');
       }
       final plan = await ref.read(auroraRepositoryProvider).planDay(
             energy: energy.wire,

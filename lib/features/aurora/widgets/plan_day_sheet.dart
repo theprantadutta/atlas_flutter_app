@@ -32,7 +32,7 @@ extension on AuroraEnergy {
   String get blurb => switch (this) {
         AuroraEnergy.low => 'Go easy',
         AuroraEnergy.steady => 'A normal day',
-        AuroraEnergy.high => 'Ready for more',
+        AuroraEnergy.high => 'Bring it on',
       };
 
   IconData get icon => switch (this) {
@@ -426,7 +426,16 @@ class _PickRowState extends ConsumerState<_PickRow> {
     return AtlasRow(
       leading: IconTile(style: style),
       title: title,
+      // Aurora's reason is the point of a pick, so it wraps instead of being
+      // cut to one line like an ordinary row's meta. `meta` still carries it
+      // for the row's spoken label.
       meta: widget.reason ?? (h != null ? 'Habit' : 'Task'),
+      metaWidget: Text(
+        widget.reason ?? (h != null ? 'Habit' : 'Task'),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.meta.copyWith(color: context.palette.textMuted),
+      ),
       titleMaxLines: 2,
       semanticsValue: done ? 'done' : 'not done',
       trailing: KeyedSubtree(

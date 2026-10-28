@@ -56,7 +56,7 @@ class _YearInReviewScreenState extends ConsumerState<YearInReviewScreen> {
         sharePositionOrigin: origin,
       ));
     } catch (_) {
-      if (mounted) AtlasToast.info(context, "Couldn't share right now");
+      if (mounted) AtlasToast.info(context, 'Couldn’t share right now');
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
@@ -86,7 +86,7 @@ class _YearInReviewScreenState extends ConsumerState<YearInReviewScreen> {
               const Skeleton(height: 520, radius: AppSpacing.radiusXl)
             else if (data == null)
               EmptyState(
-                title: "Your year couldn't load.",
+                title: 'Your year couldn’t load.',
                 body: 'Pull it up again in a moment.',
                 actionLabel: 'Try again',
                 onAction: () => ref.invalidate(yearInReviewProvider(year)),

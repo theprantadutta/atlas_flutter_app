@@ -76,16 +76,40 @@ const _benefits = <(IconData, Color, String, String)>[
     'Chat as much as you like, any day of the week.',
   ),
   (
+    Symbols.wb_sunny_rounded,
+    AppColors.amber,
+    'Plan my day',
+    'Aurora picks the few things that fit your energy.',
+  ),
+  (
+    Symbols.bookmark_rounded,
+    AppColors.violet,
+    'She remembers what matters',
+    'The facts you choose to keep, kept on your device.',
+  ),
+  (
     Symbols.bolt_rounded,
     AppColors.amber,
     'Natural-language quick-add',
     'Turn a sentence into habits, tasks and goals.',
   ),
   (
+    Symbols.flag_rounded,
+    AppColors.leaf,
+    'Break a goal down',
+    'Turn a big goal into a few steps you can tend.',
+  ),
+  (
     Symbols.edit_note_rounded,
     AppColors.coral,
-    'Deeper weekly reflections',
-    'Richer insight from a more capable model.',
+    'Weekly and monthly letters',
+    'Deeper reflections, and a longer letter for each month.',
+  ),
+  (
+    Symbols.wb_twilight_rounded,
+    AppColors.sky,
+    'Every check-in, answered',
+    'Aurora replies to each morning and evening check-in.',
   ),
   (
     Symbols.cloud_done_rounded,

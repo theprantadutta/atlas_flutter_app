@@ -77,7 +77,7 @@ String plainText(String markdown) {
 /// like "e.g." and decimals stay intact because a split needs a following
 /// space and capital (or quote).
 List<String> sentences(String text) {
-  final t = plainText(text);
+  final t = plainText(_withoutSalutation(text));
   if (t.isEmpty) return const [];
   final out = <String>[];
   final re = RegExp(r'''(?<=[.!?…])["'”’)]?\s+(?=["'“‘(]?[A-Z0-9])''');
@@ -101,6 +101,14 @@ List<String> sentences(String text) {
   }
   return merged;
 }
+
+/// A letter's opening line on its own ("Dear you,", "Hi Sam,") is an
+/// address, not a thought: left in, it runs into the first sentence and the
+/// headline reads "Dear you, Before anything else...". The body still shows it.
+final _salutation =
+    RegExp(r'^\s*(?:dear|hi|hello|hey)\b[^\n.!?]{0,40},[ \t]*\n', caseSensitive: false);
+
+String _withoutSalutation(String text) => text.replaceFirst(_salutation, '');
 
 /// The first sentence (a letter's headline).
 String firstSentence(String text) {

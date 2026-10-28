@@ -15,6 +15,15 @@ void main() {
         'Six seven eight nine ten. Eleven twelve thirteen fourteen fifteen.');
   });
 
+  test('a salutation line is not part of the headline', () {
+    const opening = 'Dear you,\n\nBefore anything else, please know this: you did beautifully this month. '
+        'October brought something big.';
+    expect(firstSentence(opening), 'Before anything else, please know this: you did beautifully this month.');
+    expect(firstSentence('Hi Sam,\nYou showed up four days running.'), 'You showed up four days running.');
+    // "Dear" inside a sentence is just a word.
+    expect(firstSentence('Dear me, what a week it has been for you.'), 'Dear me, what a week it has been for you.');
+  });
+
   test('keeps abbreviations and decimals inside a sentence', () {
     expect(sentences('Try e.g. a short walk today. It was 2.5 km long yesterday.'),
         ['Try e.g. a short walk today.', 'It was 2.5 km long yesterday.']);
