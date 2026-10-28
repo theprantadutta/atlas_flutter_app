@@ -22,9 +22,11 @@ Atlas is a personal self-care companion, developed and operated by Pranta Dutta 
 
 **Account information.** When you create an account we store your email address and the display name you choose. If you sign in with a third-party identity provider, we receive your email address, display name and a unique identifier from that provider. We never receive your password.
 
-**Content you create.** Habits, tasks, goals, notes, progress entries and similar content. This is written to your device first. It is transmitted to our servers only when cloud sync is enabled.
+**Content you create.** Habits, tasks, goals, notes, progress entries, daily check-ins (the mood you choose and any note you add) and similar content. This is written to your device first. It is transmitted to our servers only when cloud sync is enabled.
 
-**Companion (AI) interactions.** When you use Aurora, the in-app companion, the message you send, along with a short summary of your recent activity (for example your current streak, level and number of active habits), is sent to our servers and on to an AI processing provider so a reply can be generated.
+**Companion (AI) interactions.** When you use Aurora, the in-app companion, what you ask her (a message, a check-in, a request to plan your day, write a letter or break down a goal) is sent to our servers and on to an AI processing provider so a reply can be generated. So that her reply fits your actual day, it is sent together with a summary of your recent activity built on your device: the names and progress of your habits, tasks and goals, your XP and streaks, and the moods and notes from your recent check-ins. If you subscribe to Atlas Aurora, the short facts you have chosen to let Aurora remember are included too.
+
+**Conversations and memories.** Your conversations with Aurora, and the facts you have asked her to remember, are stored only on your device. Aurora may suggest something worth remembering, but nothing is saved unless you tap Save, and you can review and delete what she remembers at any time in Aurora's settings. We do not keep a copy of your conversations on our servers. Weekly and monthly letters are stored with your account so they can be shown again.
 
 **Technical information.** When your device contacts our servers, standard request logs are recorded so we can keep the service running and investigate faults.
 
@@ -83,7 +85,7 @@ Content you create is kept until you delete it, or until you delete your account
 
 - **Access and export**: request a copy of your content
 - **Correction**: edit your content in the app at any time
-- **Deletion**: delete individual items, remove example content, or delete your entire account
+- **Deletion**: delete individual items, conversations, check-ins or things Aurora remembers, remove example content, or delete your entire account
 - **Withdraw consent**: turn off notifications or cloud sync at any time
 - **Diagnostics and statistics**: ask us to delete the crash reports and usage statistics linked to your account
 - **Object or restrict**: ask us to limit certain processing
