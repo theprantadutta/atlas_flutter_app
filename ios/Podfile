@@ -1,3 +1,30 @@
+# This project builds with CocoaPods, NOT Swift Package Manager.
+#
+# Under SPM the dependency graph has no solution: firebase_messaging wants
+# firebase-ios-sdk 13.x, which needs gtm-session-fetcher 4.x, while
+# google_sign_in_ios wants googlesignin-ios 9.x, and every 9.x release needs
+# gtm-session-fetcher 3.x. No published google_sign_in avoids it, and the
+# Firebase plugins are already at their latest, so there is no version pair
+# that resolves. Until google_sign_in_ios supports gtm-session-fetcher 4.x,
+# iOS has to go through CocoaPods:
+#
+#   flutter config --no-enable-swift-package-manager
+#
+# That flag is global to the Flutter install rather than per project, so a
+# fresh machine (where SPM is on by default) will fail at pod resolution until
+# it is set.
+#
+# CocoaPods then needs its own fix: firebase_core asks for Firebase iOS SDK
+# 12.19.3, a patch that was never published to the CocoaPods trunk, which
+# stops at 12.19.0. CocoaPods reports that as "specs repository is too
+# out-of-date", which is misleading; pod repo update cannot help because the
+# version does not exist there. firebase_core reads this override, so pin the
+# newest version that is actually published as a pod.
+#
+# Note Firebase is deprecating CocoaPods: no new versions after October 2026.
+# This arrangement has a shelf life.
+$FirebaseSDKVersion = '12.19.0'
+
 # Uncomment this line to define a global platform for your project
 # platform :ios, '15.0'
 
