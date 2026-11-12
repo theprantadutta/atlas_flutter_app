@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -223,10 +223,22 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
       themeAnimationDuration: AppMotion.medium,
       themeAnimationCurve: AppMotion.standard,
       routerConfig: router,
+      // material_ui's own localizations, which cover Flutter, Material and
+      // Cupertino strings. Without them, a widget from a package already on
+      // material_ui (go_router, shimmer) can throw "No MaterialLocalizations
+      // found", e.g. on a text selection menu.
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // Status and navigation bars follow the palette (light icons in dark).
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: AppTheme.overlayFor(context.palette),
-        child: child ?? const SizedBox.shrink(),
+      // The bridge lets widgets from packages still on the framework's
+      // Material (fl_chart for Insights, octo_image under cached images, and
+      // others) resolve this theme and these localizations too. It is a temporary
+      // migration aid: drop it once those packages move to material_ui.
+      // ignore: deprecated_member_use
+      builder: (context, child) => MaterialUiCompatibilityBridge(
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppTheme.overlayFor(context.palette),
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }

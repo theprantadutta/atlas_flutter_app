@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart' show AppleLogoPainter;
 
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';

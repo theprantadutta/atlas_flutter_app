@@ -1,7 +1,9 @@
 package com.example.atlas_flutter_app
 
+import android.content.res.Resources
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterActivity
 
@@ -10,7 +12,14 @@ class MainActivity : FlutterActivity() {
         // Draw behind the system bars on every version, the way Android 15+
         // already insists on. The app pads for the insets itself and never
         // colours the bars, which keeps it off the deprecated bar-colour APIs.
-        WindowCompat.enableEdgeToEdge(window)
+        // enableEdgeToEdge reloads the window background, which fails on an
+        // install missing its density split (a sideloaded base APK). Losing
+        // edge-to-edge there beats crashing before Flutter starts.
+        try {
+            WindowCompat.enableEdgeToEdge(window)
+        } catch (e: Resources.NotFoundException) {
+            Log.w("Atlas", "Edge-to-edge skipped: ${e.message}")
+        }
         super.onCreate(savedInstanceState)
         // Flutter's splash draws the same spark in the same spot, so drop the
         // system splash at once instead of letting the OEM exit animation slide

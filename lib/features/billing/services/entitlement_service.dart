@@ -366,7 +366,13 @@ class EntitlementService {
   Future<void> reconcileStoreState() async {
     if (_starting == null) return;
     if (!_connected) return;
-    await _reconcile(announceEmpty: false);
+    // Best effort, in the background: an unreachable store is retried on the
+    // next resume, and must not escape as an uncaught error.
+    try {
+      await _reconcile(announceEmpty: false);
+    } on StoreException catch (e) {
+      _log.w('Reconcile skipped: ${e.message}');
+    }
   }
 
   Future<bool> _reconcile({required bool announceEmpty}) async {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:atlas_flutter_app/features/check_in/data/check_in_repository.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';

@@ -108,7 +108,15 @@ class FcmService {
   }
 
   Future<void> _fetchToken() async {
-    _currentToken = await FirebaseMessaging.instance.getToken();
+    try {
+      _currentToken = await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      // Registration fails on devices without Play services or a reachable
+      // FCM; reminders still work locally, so this is a warning, not a crash.
+      _log.w('[FCM] Token unavailable: $e');
+      _currentToken = null;
+      return;
+    }
     final preview = _currentToken == null
         ? 'none'
         : '${_currentToken!.substring(0, 20)}...';
