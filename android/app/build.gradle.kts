@@ -105,9 +105,9 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // WindowCompat.enableEdgeToEdge, for the same edge-to-edge window on every
-    // Android version (15 and later enforce it anyway).
-    implementation("androidx.core:core-ktx:1.18.0")
+    // ComponentActivity.enableEdgeToEdge, for the same edge-to-edge window on
+    // every Android version (15 and later enforce it anyway).
+    implementation("androidx.activity:activity-ktx:1.13.0")
 }
 
 flutter {
