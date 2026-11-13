@@ -138,6 +138,7 @@ PurchaseAndroid androidPurchase({
       purchaseToken: token,
       quantity: 1,
       store: IapStore.Google,
+      storeId: 'google',
       transactionDate: 0,
     );
 
@@ -156,6 +157,7 @@ PurchaseIOS iosPurchase({
       purchaseToken: token,
       quantity: 1,
       store: IapStore.Apple,
+      storeId: 'apple',
       transactionDate: 0,
       transactionId: transactionId,
     );

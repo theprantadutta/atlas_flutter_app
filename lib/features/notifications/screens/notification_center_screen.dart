@@ -1,5 +1,5 @@
 // Hide Flutter's Notification widget: we use the Drift Notification row here.
-import 'package:flutter/material.dart' hide Notification;
+import 'package:material_ui/material_ui.dart' hide Notification;
 import 'package:clock/clock.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

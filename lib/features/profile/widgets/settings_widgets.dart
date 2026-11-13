@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';

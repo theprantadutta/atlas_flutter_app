@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -337,7 +337,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   // (`/grow/habit/:id`), so no ids reach Analytics.
   void reportScreen() {
     final path = router.routerDelegate.currentConfiguration.fullPath;
-    if (path.isNotEmpty) Telemetry.screen(path);
+    // Home's route is "/", which reads as nothing on a dashboard.
+    if (path.isNotEmpty) Telemetry.screen(path == '/' ? '/home' : path);
   }
 
   router.routerDelegate.addListener(reportScreen);

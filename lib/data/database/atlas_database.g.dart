@@ -12246,7 +12246,16 @@ class $$UsersTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$UsersTable, User>(table),
+                  BaseReferences<_$AtlasDatabase, $UsersTable, User>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -12699,7 +12708,16 @@ class $$TasksTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$TasksTable, Task>(table),
+                  BaseReferences<_$AtlasDatabase, $TasksTable, Task>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -13198,7 +13216,16 @@ class $$HabitsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$HabitsTable, Habit>(table),
+                  BaseReferences<_$AtlasDatabase, $HabitsTable, Habit>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -13647,7 +13674,16 @@ class $$GoalsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$GoalsTable, Goal>(table),
+                  BaseReferences<_$AtlasDatabase, $GoalsTable, Goal>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -14058,7 +14094,16 @@ class $$AvatarsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$AvatarsTable, Avatar>(table),
+                  BaseReferences<_$AtlasDatabase, $AvatarsTable, Avatar>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -14474,7 +14519,16 @@ class $$AchievementsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$AchievementsTable, Achievement>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $AchievementsTable,
+                    Achievement
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -14954,7 +15008,16 @@ class $$WorldTilesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$WorldTilesTable, WorldTile>(table),
+                  BaseReferences<_$AtlasDatabase, $WorldTilesTable, WorldTile>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -15399,7 +15462,16 @@ class $$ProgressEntriesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$ProgressEntriesTable, ProgressEntry>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $ProgressEntriesTable,
+                    ProgressEntry
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -15670,7 +15742,16 @@ class $$SyncOperationsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$SyncOperationsTable, SyncOperation>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $SyncOperationsTable,
+                    SyncOperation
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -16085,7 +16166,16 @@ class $$NotificationsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$NotificationsTable, Notification>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $NotificationsTable,
+                    Notification
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -16353,7 +16443,16 @@ class $$AuroraReflectionsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$AuroraReflectionsTable, AuroraReflection>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $AuroraReflectionsTable,
+                    AuroraReflection
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -16710,7 +16809,16 @@ class $$CheckInsTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$CheckInsTable, CheckIn>(table),
+                  BaseReferences<_$AtlasDatabase, $CheckInsTable, CheckIn>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),
@@ -16996,7 +17104,9 @@ class $$AuroraConversationsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$AuroraConversationsTable, AuroraConversation>(
+                    table,
+                  ),
                   $$AuroraConversationsTableReferences(db, table, e),
                 ),
               )
@@ -17011,10 +17121,11 @@ class $$AuroraConversationsTableTableManager
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (auroraMessagesRefs)
-                    await $_getPrefetchedData<
+                    await $_getPrefetchedDataByColumns<
                       AuroraConversation,
                       $AuroraConversationsTable,
-                      AuroraMessage
+                      AuroraMessage,
+                      $AuroraMessagesTable
                     >(
                       currentTable: table,
                       referencedTable: $$AuroraConversationsTableReferences
@@ -17025,10 +17136,8 @@ class $$AuroraConversationsTableTableManager
                             table,
                             p0,
                           ).auroraMessagesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.conversationId == item.id,
-                          ),
+                      currentColumn: 'id',
+                      referencedColumn: 'conversation_id',
                       typedResults: items,
                     ),
                 ];
@@ -17380,7 +17489,7 @@ class $$AuroraMessagesTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$AuroraMessagesTable, AuroraMessage>(table),
                   $$AuroraMessagesTableReferences(db, table, e),
                 ),
               )
@@ -17642,7 +17751,16 @@ class $$AuroraMemoriesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable<$AuroraMemoriesTable, AuroraMemory>(table),
+                  BaseReferences<
+                    _$AtlasDatabase,
+                    $AuroraMemoriesTable,
+                    AuroraMemory
+                  >(db, table, e),
+                ),
+              )
               .toList(),
           prefetchHooksCallback: null,
         ),

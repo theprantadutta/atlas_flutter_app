@@ -1,6 +1,6 @@
 import 'package:clock/clock.dart';
 // Hide Flutter's Notification: these tests use the Drift row.
-import 'package:flutter/material.dart' hide Notification;
+import 'package:material_ui/material_ui.dart' hide Notification;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -119,7 +119,6 @@ class _AuroraLetterScreenState extends ConsumerState<AuroraLetterScreen> {
                     child: GptMarkdown(
                       reflection.content,
                       style: AppTypography.sans(size: 16, height: 1.65, color: p.textBody),
-                      linkBuilder: null,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xl),

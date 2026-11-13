@@ -57,6 +57,14 @@ android {
         missingDimensionStrategy("platform", "play")
     }
 
+    androidResources {
+        // Android's default asset ignore list includes ".*", which drops every
+        // dot-file. Flutter 3.50 builds stopped overriding it, so .env (loaded
+        // by flutter_dotenv before runApp) went missing and the app hung on the
+        // launch screen. This is the default list without that one entry.
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
+
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
@@ -97,9 +105,9 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // WindowCompat.enableEdgeToEdge, for the same edge-to-edge window on every
-    // Android version (15 and later enforce it anyway).
-    implementation("androidx.core:core-ktx:1.18.0")
+    // ComponentActivity.enableEdgeToEdge, for the same edge-to-edge window on
+    // every Android version (15 and later enforce it anyway).
+    implementation("androidx.activity:activity-ktx:1.13.0")
 }
 
 flutter {
