@@ -1,29 +1,13 @@
-# This project builds with CocoaPods, NOT Swift Package Manager.
+# CocoaPods is here for one plugin only: flutter_tts, which reads the weekly
+# letter aloud and has no Swift Package Manager support. Everything else,
+# Firebase and Google Sign-In included, resolves through SPM.
 #
-# Under SPM the dependency graph has no solution: firebase_messaging wants
-# firebase-ios-sdk 13.x, which needs gtm-session-fetcher 4.x, while
-# google_sign_in_ios wants googlesignin-ios 9.x, and every 9.x release needs
-# gtm-session-fetcher 3.x. No published google_sign_in avoids it, and the
-# Firebase plugins are already at their latest, so there is no version pair
-# that resolves. Until google_sign_in_ios supports gtm-session-fetcher 4.x,
-# iOS has to go through CocoaPods:
-#
-#   flutter config --no-enable-swift-package-manager
-#
-# That flag is global to the Flutter install rather than per project, so a
-# fresh machine (where SPM is on by default) will fail at pod resolution until
-# it is set.
-#
-# CocoaPods then needs its own fix: firebase_core asks for Firebase iOS SDK
-# 12.19.3, a patch that was never published to the CocoaPods trunk, which
-# stops at 12.19.0. CocoaPods reports that as "specs repository is too
-# out-of-date", which is misleading; pod repo update cannot help because the
-# version does not exist there. firebase_core reads this override, so pin the
-# newest version that is actually published as a pod.
-#
-# Note Firebase is deprecating CocoaPods: no new versions after October 2026.
-# This arrangement has a shelf life.
-$FirebaseSDKVersion = '12.19.0'
+# This used to carry a $FirebaseSDKVersion pin and a note that SPM could not be
+# used at all. That was true when firebase-ios-sdk wanted gtm-session-fetcher
+# 4.x while googlesignin-ios 9.x was stuck on 3.x, with no pair of published
+# versions in between. googlesignin-ios 10.1.0 moved to gtm-session-fetcher
+# 5.3.1, which firebase-ios-sdk 13.1.1 accepts, so the clash is gone and the
+# pin, which only ever applied to Firebase as a pod, no longer does anything.
 
 # Uncomment this line to define a global platform for your project
 # platform :ios, '15.0'
