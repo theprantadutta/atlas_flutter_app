@@ -1,0 +1,15 @@
+{"segments": [
+  {"src": "rec1.mp4", "a": 1.0,   "b": 6.5,   "chip": "Today",       "title": "Every day is a small sunrise", "sub": "See how today is going at a glance, in a calm, warm home."},
+  {"src": "rec1.mp4", "a": 16.5,  "b": 22.5,  "chip": "Tend",        "title": "Tend what matters", "sub": "One tap and your day fills with light. No streak shaming."},
+  {"src": "rec1.mp4", "a": 98.0,  "b": 104.0, "chip": "Grow",        "title": "Habits, tasks and goals", "sub": "Daily rituals, one-off tasks and the bigger horizons."},
+  {"src": "rec1.mp4", "a": 112.0, "b": 117.0, "chip": "Goals",       "title": "Progress you can see", "sub": "Every goal shows how far you have come."},
+  {"src": "rec1.mp4", "a": 143.5, "b": 150.0, "chip": "Aurora",      "title": "Break a goal into steps", "sub": "Aurora suggests a few gentle steps. Add them with one tap."},
+  {"src": "rec2.mp4", "a": 8.0,   "b": 15.5,  "chip": "Check in",    "title": "How did today feel?", "sub": "A twenty second check-in, morning or evening."},
+  {"src": "rec2.mp4", "a": 36.0,  "b": 43.5,  "chip": "Aurora",      "title": "A kind word back", "sub": "Aurora answers your check-in with a few warm lines."},
+  {"src": "rec2.mp4", "a": 69.0,  "b": 76.5,  "chip": "Plan my day", "title": "Low energy? Plan gently", "sub": "Aurora picks the few things that fit, and sets the rest aside."},
+  {"src": "rec2.mp4", "a": 81.0,  "b": 88.0,  "chip": "Letters",     "title": "Your month, in a letter", "sub": "Weekly and monthly letters about how it really went."},
+  {"src": "rec3.mp4", "a": 24.0,  "b": 31.0,  "chip": "Companion",   "title": "She knows your day", "sub": "Talk it through. Aurora remembers what you ask her to."},
+  {"src": "rec3.mp4", "a": 54.0,  "b": 62.0,  "chip": "Your Atlas",  "title": "A world that grows", "sub": "Every bit of care discovers a new place on your globe."},
+  {"src": "rec3.mp4", "a": 84.0,  "b": 90.0,  "chip": "Insights",    "title": "See how the week felt", "sub": "XP, completion and moods, never graded."},
+  {"src": "rec3.mp4", "a": 100.0, "b": 106.0, "chip": "Your year",   "title": "Your year, in one card", "sub": "Days tended, places found, your best month. Share it if you like."}
+]}
