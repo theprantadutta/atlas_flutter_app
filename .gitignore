@@ -67,4 +67,5 @@ lib/generated/
 
 nul
 .claude/
-test/goldens/failures/
+# Golden-test failure artifacts, written wherever the failing test lives.
+**/failures/

@@ -1,3 +1,14 @@
+# CocoaPods is here for one plugin only: flutter_tts, which reads the weekly
+# letter aloud and has no Swift Package Manager support. Everything else,
+# Firebase and Google Sign-In included, resolves through SPM.
+#
+# This used to carry a $FirebaseSDKVersion pin and a note that SPM could not be
+# used at all. That was true when firebase-ios-sdk wanted gtm-session-fetcher
+# 4.x while googlesignin-ios 9.x was stuck on 3.x, with no pair of published
+# versions in between. googlesignin-ios 10.1.0 moved to gtm-session-fetcher
+# 5.3.1, which firebase-ios-sdk 13.1.1 accepts, so the clash is gone and the
+# pin, which only ever applied to Firebase as a pod, no longer does anything.
+
 # Uncomment this line to define a global platform for your project
 # platform :ios, '15.0'
 
