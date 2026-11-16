@@ -10,6 +10,7 @@ import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 import 'package:atlas_flutter_app/features/billing/data/billing_repository.dart';
 import 'package:atlas_flutter_app/features/billing/data/purchase_mapping.dart';
 import 'package:atlas_flutter_app/features/billing/data/store_offer.dart';
+import 'package:atlas_flutter_app/features/billing/services/payment_issue_messages.dart';
 
 final _log = AppLog('Billing');
 
@@ -151,6 +152,9 @@ class EntitlementService {
       _log.i(_connected
           ? 'Store connected.'
           : 'Store unavailable; billing is disabled.');
+      // A renewal that failed while the app was closed gets its "fix your
+      // payment" prompt at launch, not only on the next resume.
+      if (_connected) unawaited(showPaymentIssueMessages());
     } catch (e) {
       // A device with no Play Services, or a simulator with no store account.
       // Not fatal: the app runs, premium simply cannot be bought here.
@@ -372,6 +376,29 @@ class EntitlementService {
       await _reconcile(announceEmpty: false);
     } on StoreException catch (e) {
       _log.w('Reconcile skipped: ${e.message}');
+    }
+  }
+
+  final _paymentIssueThrottle = PaymentIssueMessageThrottle();
+
+  /// Ask Google Play to show its "fix your payment" message, if this Play
+  /// account has a subscription in grace period or on account hold.
+  ///
+  /// Play draws the message itself and shows nothing when there is no issue.
+  /// When the user fixes their payment from it, the subscription renews and
+  /// the token comes back, so it is verified at once rather than waiting for
+  /// the server's real-time notification. Never throws: it runs on resume.
+  Future<void> showPaymentIssueMessages() async {
+    if (!Platform.isAndroid || !_connected) return;
+    if (!_paymentIssueThrottle.shouldShow(DateTime.now())) return;
+    try {
+      final result = await _iap.showInAppMessagesAndroid(const InAppMessageParamsAndroid());
+      if (result.responseCode == InAppMessageResponseCodeAndroid.SubscriptionStatusUpdated) {
+        _log.i('Payment fixed from the Play message; re-checking the subscription');
+        await _reconcile(announceEmpty: false);
+      }
+    } catch (e) {
+      _log.w('Play payment message unavailable: $e');
     }
   }
 
@@ -621,6 +648,7 @@ class EntitlementService {
     // Closing the billing sheet is itself a resume, so this is also how a
     // purchase that produced no listener event still gets delivered.
     unawaited(reconcileStoreState());
+    unawaited(showPaymentIssueMessages());
 
     if (_inFlight.isEmpty) return;
     _cancelWatchdog?.cancel();
