@@ -18,6 +18,7 @@ import 'package:atlas_flutter_app/features/aurora/widgets/quick_add_sheet.dart' 
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Talking with Aurora. Your messages are ink, hers are paper; her
 /// suggestions arrive as cards you can add with one tap.
@@ -120,7 +121,7 @@ class _AuroraChatScreenState extends ConsumerState<AuroraChatScreen> {
     ref.listen(auroraChatProvider.select((s) => s.needsPaywall), (_, hit) {
       if (hit == true) {
         ref.read(auroraChatProvider.notifier).clearPaywall();
-        context.push('/paywall');
+        context.push(PaywallSource.route(PaywallSource.auroraChatLimit));
       }
     });
     ref.listen(auroraChatProvider.select((s) => s.error), (_, err) {

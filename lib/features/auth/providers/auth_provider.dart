@@ -175,10 +175,8 @@ class AuthNotifier extends Notifier<AuthState> {
       Telemetry.signedIn('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
-      state = state.copyWith(
-        isLoading: false,
-        error: AppErrors.message(e),
-      );
+      Telemetry.authFailed('email', AppErrors.authFailureKind(e));
+      state = state.copyWith(isLoading: false, error: AppErrors.message(e));
     }
   }
 
@@ -204,10 +202,8 @@ class AuthNotifier extends Notifier<AuthState> {
       Telemetry.signedUp('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
-      state = state.copyWith(
-        isLoading: false,
-        error: AppErrors.message(e),
-      );
+      Telemetry.authFailed('email', AppErrors.authFailureKind(e));
+      state = state.copyWith(isLoading: false, error: AppErrors.message(e));
     }
   }
 
@@ -225,10 +221,8 @@ class AuthNotifier extends Notifier<AuthState> {
       Telemetry.signedIn('google');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
-      state = state.copyWith(
-        isLoading: false,
-        error: AppErrors.message(e),
-      );
+      Telemetry.authFailed('google', AppErrors.authFailureKind(e));
+      state = state.copyWith(isLoading: false, error: AppErrors.message(e));
     }
   }
 
@@ -246,10 +240,8 @@ class AuthNotifier extends Notifier<AuthState> {
       Telemetry.signedIn('apple');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
-      state = state.copyWith(
-        isLoading: false,
-        error: AppErrors.message(e),
-      );
+      Telemetry.authFailed('apple', AppErrors.authFailureKind(e));
+      state = state.copyWith(isLoading: false, error: AppErrors.message(e));
     }
   }
 

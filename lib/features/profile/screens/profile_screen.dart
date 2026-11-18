@@ -13,6 +13,7 @@ import 'package:atlas_flutter_app/features/gamification/providers/gamification_p
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/features/profile/widgets/settings_widgets.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// You: the person behind the world. A big avatar, one ink card with level,
 /// total XP and streaks (from the local ledger, not the server copy), then
@@ -341,7 +342,7 @@ class _PremiumTile extends ConsumerWidget {
 
     return AtlasTile(
       gradient: p.letter,
-      onTap: () => context.push('/paywall'),
+      onTap: () => context.push(PaywallSource.route(PaywallSource.profile)),
       semanticLabel: '${isPremium ? 'Atlas Aurora' : 'Go Premium'}, $subtitle',
       child: Row(
         children: [

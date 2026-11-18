@@ -14,6 +14,7 @@ import 'package:atlas_flutter_app/features/billing/providers/entitlement_provide
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/features/gamification/providers/gamification_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Insights · Your week: one big number, ink bars with the best day in the
 /// sunrise, then completion and where the XP came from.
@@ -79,7 +80,7 @@ class AnalyticsScreen extends ConsumerWidget {
                         onTap: () {
                           if (locked) {
                             Navigator.of(context).pop();
-                            context.push('/paywall');
+                            context.push(PaywallSource.route(PaywallSource.insights));
                           } else {
                             Navigator.of(context).pop(monday);
                           }
@@ -230,6 +231,7 @@ class AnalyticsScreen extends ConsumerWidget {
               const UpgradeCtaCard(
                 icon: Symbols.insights_rounded,
                 title: 'See every week',
+                source: PaywallSource.insights,
                 subtitle: 'Full history, long-term trends and export.',
                 actionLabel: 'Upgrade',
               ),

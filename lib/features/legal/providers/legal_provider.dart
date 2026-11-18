@@ -3,6 +3,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
+
 /// The version of the legal document set. **Bump this whenever any of the
 /// documents in `assets/legal/` changes materially** — every user is then asked
 /// to review and accept again before they can continue using the app. Keep the
@@ -91,8 +93,12 @@ class LegalController extends Notifier<LegalState> {
     );
   }
 
-  /// Record acceptance of the current document set.
-  Future<void> accept() async {
+  /// Record acceptance of the current document set. [where] is `gate` (the
+  /// full documents screen) or `auth` (agreeing by continuing on the sign-in
+  /// screens).
+  Future<void> accept({String where = 'gate'}) async {
+    if (state.isAccepted) return;
+    Telemetry.legalAccepted(where);
     state = state.copyWith(loaded: true, acceptedVersion: kLegalVersion);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kAcceptedVersion, kLegalVersion);

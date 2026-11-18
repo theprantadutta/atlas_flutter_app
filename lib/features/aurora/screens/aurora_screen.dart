@@ -15,6 +15,7 @@ import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart'
 import 'package:atlas_flutter_app/features/check_in/widgets/check_in_sheet.dart';
 import 'package:atlas_flutter_app/shared/widgets/aurora_nav_bar.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// A way into a conversation: tapping sends the label as the first message.
 class _Starter {
@@ -41,7 +42,7 @@ class AuroraScreen extends ConsumerWidget {
     ref.listen(reflectionGenProvider.select((s) => s.needsPaywall), (_, hit) {
       if (hit == true) {
         ref.read(reflectionGenProvider.notifier).clearPaywall();
-        context.push('/paywall');
+        context.push(PaywallSource.route(PaywallSource.auroraReflectionLimit));
       }
     });
     ref.listen(reflectionGenProvider.select((s) => s.error), (_, err) {
@@ -317,7 +318,7 @@ class _MonthRow extends ConsumerWidget {
         label: 'Your month',
         detail: 'Atlas Aurora',
         trailing: AtlasIcon(Symbols.lock_rounded, size: 18, color: p.textMuted),
-        onTap: () => context.push('/paywall'),
+        onTap: () => context.push(PaywallSource.route(PaywallSource.auroraTab)),
       );
     }
 

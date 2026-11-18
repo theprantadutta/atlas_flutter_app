@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
+import 'package:atlas_flutter_app/features/legal/providers/legal_provider.dart';
 import 'package:atlas_flutter_app/features/auth/widgets/forgot_password_sheet.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
@@ -29,17 +31,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _onLogin() {
-    if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+  /// Continuing with any sign-in option agrees to the documents (see
+  /// [AuthLegalNote]); recorded before the account call so it is in place
+  /// the moment the router lets them in.
+  void _continueWith(String method) {
+    Telemetry.authAttempt(method, screen: 'login');
+    ref.read(legalProvider.notifier).accept(where: 'auth');
   }
 
-  void _onGoogleSignIn() => ref.read(authProvider.notifier).signInWithGoogle();
+  void _onLogin() {
+    if (!_formKey.currentState!.validate()) return;
+    _continueWith('email');
+    ref
+        .read(authProvider.notifier)
+        .login(_emailController.text.trim(), _passwordController.text);
+  }
 
-  void _onAppleSignIn() => ref.read(authProvider.notifier).signInWithApple();
+  void _onGoogleSignIn() {
+    _continueWith('google');
+    ref.read(authProvider.notifier).signInWithGoogle();
+  }
+
+  void _onAppleSignIn() {
+    _continueWith('apple');
+    ref.read(authProvider.notifier).signInWithApple();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,8 +135,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           AppleSignInButton(onPressed: authState.isLoading ? null : _onAppleSignIn),
           const SizedBox(height: AppSpacing.xs),
         ],
-        GoogleSignInButton(onPressed: authState.isLoading ? null : _onGoogleSignIn),
-        const SizedBox(height: AppSpacing.lg),
+        GoogleSignInButton(
+          onPressed: authState.isLoading ? null : _onGoogleSignIn,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AuthLegalNote(onOpen: () => context.push('/legal-docs')),
+        const SizedBox(height: AppSpacing.sm),
         AuthFooterLink(
           leading: 'New here? ',
           action: 'Create an account',

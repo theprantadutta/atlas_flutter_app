@@ -9,6 +9,7 @@ import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provi
 import 'package:atlas_flutter_app/features/onboarding/providers/starter_data_provider.dart';
 import 'package:atlas_flutter_app/features/profile/widgets/settings_widgets.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Sync and data: an honest, calm status page. Everything lives on this
 /// device; cloud backup arrives with premium. Also where example data can be
@@ -162,6 +163,7 @@ class _CloudBackup extends ConsumerWidget {
       return const UpgradeCtaCard(
         icon: Symbols.cloud_done_rounded,
         title: 'Back up with cloud sync',
+        source: PaywallSource.sync,
         subtitle: 'Keep your world safe and in step across every device.',
         actionLabel: 'Upgrade',
       );

@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// The post-sign-in personalisation step. Picking a few focus areas seeds real
 /// habits into the local database, so the very first Home screen has something
@@ -25,7 +26,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   Future<void> _finish() async {
     if (_finishing) return;
     setState(() => _finishing = true);
-    await ref.read(onboardingProvider.notifier).completeSetup(focusIds: _selected);
+    Telemetry.setupCompleted(focusCount: _selected.length);
+    await ref
+        .read(onboardingProvider.notifier)
+        .completeSetup(focusIds: _selected);
     if (!mounted) return;
     context.go('/');
   }

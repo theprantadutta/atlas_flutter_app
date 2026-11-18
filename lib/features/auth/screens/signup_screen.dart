@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/core/utils/validators.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
+import 'package:atlas_flutter_app/features/legal/providers/legal_provider.dart';
 import 'package:atlas_flutter_app/router/route_names.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/apple_sign_in_button.dart';
 import 'package:atlas_flutter_app/shared/widgets/auth/auth_scaffold.dart';
@@ -52,18 +54,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _passwordStrength = strength);
   }
 
+  /// Continuing with any sign-up option agrees to the documents (see
+  /// [AuthLegalNote]); recorded before the account call so it is in place
+  /// the moment the router lets them in.
+  void _continueWith(String method) {
+    Telemetry.authAttempt(method, screen: 'signup');
+    ref.read(legalProvider.notifier).accept(where: 'auth');
+  }
+
   void _onCreateAccount() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authProvider.notifier).register(
+    _continueWith('email');
+    ref
+        .read(authProvider.notifier)
+        .register(
           _emailController.text.trim(),
           _passwordController.text,
           _fullNameController.text.trim(),
         );
   }
 
-  void _onGoogleSignUp() => ref.read(authProvider.notifier).signInWithGoogle();
+  void _onGoogleSignUp() {
+    _continueWith('google');
+    ref.read(authProvider.notifier).signInWithGoogle();
+  }
 
-  void _onAppleSignUp() => ref.read(authProvider.notifier).signInWithApple();
+  void _onAppleSignUp() {
+    _continueWith('apple');
+    ref.read(authProvider.notifier).signInWithApple();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,8 +188,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           AppleSignInButton(onPressed: authState.isLoading ? null : _onAppleSignUp),
           const SizedBox(height: AppSpacing.xs),
         ],
-        GoogleSignInButton(onPressed: authState.isLoading ? null : _onGoogleSignUp),
-        const SizedBox(height: AppSpacing.lg),
+        GoogleSignInButton(
+          onPressed: authState.isLoading ? null : _onGoogleSignUp,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AuthLegalNote(onOpen: () => context.push('/legal-docs')),
+        const SizedBox(height: AppSpacing.sm),
         AuthFooterLink(
           leading: 'Already have an account? ',
           action: 'Log in',

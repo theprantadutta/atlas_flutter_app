@@ -7,6 +7,7 @@ import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/aurora/data/aurora_models.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_companion_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// "Break it down with Aurora" (premium): three to five small steps for a
 /// goal, all ticked by default. "Add selected" creates them as tasks in
@@ -52,7 +53,7 @@ class _GoalStepsSheetState extends ConsumerState<GoalStepsSheet> {
     final router = GoRouter.maybeOf(context);
     ref.read(goalStepsProvider.notifier).reset();
     Navigator.of(context).pop();
-    router?.push('/paywall');
+    router?.push(PaywallSource.route(PaywallSource.goalSteps));
   }
 
   void _close() {

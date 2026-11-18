@@ -6,6 +6,7 @@ import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dar
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/features/grow/widgets/item_editor_sheet.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Opens the quick-add sheet: describe it to Aurora (premium), or add a
 /// task, habit or goal by hand. Everything is created in local Drift.
@@ -38,7 +39,7 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     final state = ref.read(quickAddProvider);
     if (state.needsPaywall) {
       Navigator.of(context).pop();
-      context.push('/paywall');
+      context.push(PaywallSource.route(PaywallSource.quickAdd));
       ref.read(quickAddProvider.notifier).reset();
       return;
     }
@@ -86,7 +87,7 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
           else
             _AuroraTeaser(onTap: () {
               Navigator.of(context).pop();
-              context.push('/paywall');
+              context.push(PaywallSource.route(PaywallSource.quickAdd));
             }),
           if (qa.error != null) ...[
             const SizedBox(height: AppSpacing.xs),

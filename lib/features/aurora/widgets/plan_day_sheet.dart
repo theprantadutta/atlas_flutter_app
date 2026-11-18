@@ -12,6 +12,7 @@ import 'package:atlas_flutter_app/features/gamification/providers/gamification_p
 import 'package:atlas_flutter_app/features/habits/providers/habit_providers.dart';
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// "Plan my day" (premium): say how much energy you have, and Aurora picks
 /// two to four things for today from your own habits and tasks. Picks can be
@@ -68,7 +69,7 @@ class _PlanDaySheetState extends ConsumerState<PlanDaySheet> {
     final router = GoRouter.maybeOf(context);
     ref.read(planDayProvider.notifier).clearPaywall();
     Navigator.of(context).pop();
-    router?.push('/paywall');
+    router?.push(PaywallSource.route(PaywallSource.planDay));
   }
 
   @override

@@ -48,6 +48,33 @@ class AppErrors {
     return text.contains('cancel') || text.contains('aborted');
   }
 
+  /// A coarse, message-free category for a failed sign-in, for analytics:
+  /// `cancelled`, `network`, `rejected` (wrong password, taken email, the
+  /// provider said no), `server` or `other`.
+  static String authFailureKind(Object? error) {
+    if (isCancellation(error)) return 'cancelled';
+    if (error is SocketException ||
+        error is TimeoutException ||
+        error is HttpException ||
+        error is NetworkException) {
+      return 'network';
+    }
+    if (error is AuthException || error is FirebaseAuthException) {
+      return 'rejected';
+    }
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      if (status == null) return 'network';
+      return status >= 500 ? 'server' : 'rejected';
+    }
+    if (error is AppException) {
+      final status = error.statusCode;
+      if (status == null) return 'other';
+      return status >= 500 ? 'server' : 'rejected';
+    }
+    return 'other';
+  }
+
   /// True for failures that are part of normal life rather than bugs: no
   /// network, a slow or unreachable server, a cancelled sign-in, a wrong
   /// password. Atlas runs offline by design, so these happen constantly and

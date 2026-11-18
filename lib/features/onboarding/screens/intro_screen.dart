@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
@@ -45,13 +46,21 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Telemetry.introPage(1);
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
   /// Leaving the intro always records it, so it never interrupts again.
-  Future<void> _leave(String destination) async {
+  /// [action] says how (`skip`, `create_account`, `have_account`).
+  Future<void> _leave(String destination, String action) async {
+    Telemetry.introLeft(action, page: _page + 1);
     await ref.read(onboardingProvider.notifier).markIntroSeen();
     if (!mounted) return;
     // A signed-in replay just falls through to the rest of the first run.
@@ -63,7 +72,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
     if (_page < _pages.length - 1) {
       _controller.nextPage(duration: AppMotion.medium, curve: AppMotion.standard);
     } else {
-      _leave('/signup');
+      _leave('/signup', 'create_account');
     }
   }
 
@@ -90,7 +99,9 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                     child: IgnorePointer(
                       ignoring: isLast,
                       child: Pressable(
-                        onTap: () => _leave('/login'),
+                        // Most people skipping the pitch are new, so they
+                        // go to sign-up, which links to log in.
+                        onTap: () => _leave('/signup', 'skip'),
                         haptic: PressHaptic.selection,
                         semanticLabel: 'Skip',
                         child: Padding(
@@ -108,7 +119,10 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
             Expanded(
               child: PageView(
                 controller: _controller,
-                onPageChanged: (i) => setState(() => _page = i),
+                onPageChanged: (i) {
+                  setState(() => _page = i);
+                  Telemetry.introPage(i + 1);
+                },
                 children: [
                   for (var i = 0; i < _pages.length; i++)
                     _IntroPage(
@@ -143,7 +157,7 @@ class _IntroScreenState extends ConsumerState<IntroScreen> {
                         ignoring: !isLast || signedIn,
                         child: Center(
                           child: Pressable(
-                            onTap: () => _leave('/login'),
+                            onTap: () => _leave('/login', 'have_account'),
                             haptic: PressHaptic.selection,
                             semanticLabel: 'I already have an account',
                             child: Padding(

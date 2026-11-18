@@ -11,6 +11,7 @@ import 'package:atlas_flutter_app/features/billing/providers/entitlement_provide
 import 'package:atlas_flutter_app/features/billing/widgets/premium_widgets.dart';
 import 'package:atlas_flutter_app/features/profile/widgets/settings_widgets.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// "What Aurora remembers": the small, lasting facts Aurora keeps in mind
 /// (premium). They are saved from chat with a tap, or typed here, and stay
@@ -90,6 +91,7 @@ class _Locked extends StatelessWidget {
           UpgradeCtaCard(
             icon: Symbols.bookmark_rounded,
             title: 'Memory is part of Atlas Aurora',
+            source: PaywallSource.auroraMemories,
             subtitle: 'Let Aurora keep what matters in mind.',
             actionLabel: 'Upgrade',
           ),

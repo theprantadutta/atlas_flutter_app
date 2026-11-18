@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/features/billing/data/entitlements.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// A calm invitation to upgrade: a soft letter-tinted tile with the spark
 /// and one ink pill. The whole tile taps through to the paywall.
@@ -14,6 +15,7 @@ class UpgradeCtaCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.source,
     this.actionLabel = 'Go Premium',
     this.onTap,
   });
@@ -24,10 +26,13 @@ class UpgradeCtaCard extends StatelessWidget {
   final String actionLabel;
   final VoidCallback? onTap;
 
+  /// Which screen this invitation sits on (a [PaywallSource] value).
+  final String source;
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final open = onTap ?? () => context.push('/paywall');
+    final open = onTap ?? () => context.push(PaywallSource.route(source));
     return AtlasTile(
       gradient: p.letter,
       onTap: open,
@@ -85,6 +90,7 @@ class AuroraUsageMeter extends ConsumerWidget {
         child: UpgradeCtaCard(
           icon: Symbols.auto_awesome_rounded,
           title: 'You’ve used this week’s chats',
+          source: PaywallSource.auroraChatLimit,
           subtitle: trialDays > 0
               ? 'Try $trialDays days free for unlimited Aurora.$resets'
               : 'Unlimited Aurora with Premium.$resets',

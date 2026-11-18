@@ -242,6 +242,53 @@ class AuthFooterLink extends StatelessWidget {
   }
 }
 
+/// The agreement line under the sign-in options. Continuing with any of them
+/// counts as accepting the documents, so a new person isn't stopped by a
+/// separate screen before they can even make an account. The whole line opens
+/// the documents to read.
+class AuthLegalNote extends StatelessWidget {
+  const AuthLegalNote({super.key, required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final muted = AppTypography.meta.copyWith(color: p.textMuted, height: 1.45);
+    final link = muted.copyWith(
+      color: p.textPrimary,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: p.textMuted,
+    );
+    return Pressable(
+      onTap: onOpen,
+      haptic: PressHaptic.selection,
+      semanticLabel:
+          'By continuing you agree to the Privacy Policy, Terms of Service and '
+          'Refund Policy. Double tap to read them.',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Text.rich(
+          TextSpan(
+            style: muted,
+            children: [
+              const TextSpan(text: 'By continuing you agree to the '),
+              TextSpan(text: 'Privacy Policy', style: link),
+              const TextSpan(text: ', '),
+              TextSpan(text: 'Terms of Service', style: link),
+              const TextSpan(text: ' and '),
+              TextSpan(text: 'Refund Policy', style: link),
+              const TextSpan(text: '.'),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
 /// "Continue with Google": a 56 track pill, the same family as Apple's.
 class GoogleSignInButton extends StatelessWidget {
   const GoogleSignInButton({super.key, required this.onPressed});

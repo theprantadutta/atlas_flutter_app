@@ -26,6 +26,25 @@ import 'package:atlas_flutter_app/core/logging/app_logger.dart';
 ///
 /// Everything is a no-op until [init] has run against an initialised
 /// Firebase app, so widget and unit tests need no setup.
+/// Where the paywall was opened from (the `source` on paywall events).
+abstract final class PaywallSource {
+  static const auroraTab = 'aurora_tab';
+  static const auroraChatLimit = 'aurora_chat_limit';
+  static const auroraReflectionLimit = 'aurora_reflection_limit';
+  static const auroraMemories = 'aurora_memories';
+  static const quickAdd = 'quick_add';
+  static const goalSteps = 'goal_steps';
+  static const planDay = 'plan_day';
+  static const checkIn = 'check_in';
+  static const insights = 'insights';
+  static const sync = 'sync';
+  static const profile = 'profile';
+  static const unknown = 'unknown';
+
+  /// The paywall route for [source].
+  static String route(String source) => '/paywall?from=$source';
+}
+
 class Telemetry {
   Telemetry._();
 
@@ -161,16 +180,66 @@ class Telemetry {
 
   static void letterWritten() => _event('aurora_letter');
 
-  static void paywallViewed() => _event('paywall_view');
+  // ─── Paywall ───────────────────────────────────────────────────────
 
-  static void purchaseStarted(String productId) => _event('purchase_start', {'product_id': productId});
+  /// Where the open paywall was reached from, so purchases can be credited
+  /// to the screen that led to them.
+  static String _paywallSource = 'unknown';
 
-  static void purchaseCompleted(String productId, {required bool trial, required bool lifetime}) =>
-      _event('purchase_complete', {
-        'product_id': productId,
-        'trial': trial ? 1 : 0,
-        'lifetime': lifetime ? 1 : 0,
-      });
+  /// [source] is one of the [PaywallSource] values.
+  static void paywallViewed(String source) {
+    _paywallSource = _key(source);
+    _event('paywall_view', {'source': _paywallSource});
+  }
+
+  /// Left the paywall without buying anything.
+  static void paywallDismissed() =>
+      _event('paywall_dismiss', {'source': _paywallSource});
+
+  static void purchaseStarted(String productId) => _event('purchase_start', {
+    'product_id': productId,
+    'source': _paywallSource,
+  });
+
+  static void purchaseCompleted(
+    String productId, {
+    required bool trial,
+    required bool lifetime,
+  }) => _event('purchase_complete', {
+    'product_id': productId,
+    'trial': trial ? 1 : 0,
+    'lifetime': lifetime ? 1 : 0,
+    'source': _paywallSource,
+  });
+
+  // ─── First run ─────────────────────────────────────────────────────
+  //
+  // Together with the screen views these make the first-run funnel:
+  // intro page 1 → 2 → 3 → how the intro was left → sign-in attempted →
+  // signed in (or why not) → setup finished.
+
+  /// [page] counts from 1.
+  static void introPage(int page) => _event('intro_page', {'page': page});
+
+  /// [action] is `skip`, `create_account` or `have_account`.
+  static void introLeft(String action, {required int page}) =>
+      _event('intro_exit', {'action': _key(action), 'page': page});
+
+  /// [where] is `auth` (agreed by continuing on the sign-in screens) or
+  /// `gate` (the full documents screen, shown when they change).
+  static void legalAccepted(String where) =>
+      _event('legal_accept', {'where': _key(where)});
+
+  /// [method] is `email`, `google` or `apple`; [screen] `login` or `signup`.
+  static void authAttempt(String method, {required String screen}) =>
+      _event('auth_attempt', {'method': _key(method), 'screen': _key(screen)});
+
+  /// [kind] is a coarse category from [authFailureKind], never a message.
+  static void authFailed(String method, String kind) =>
+      _event('auth_fail', {'method': _key(method), 'kind': _key(kind)});
+
+  static void setupCompleted({required int focusCount}) =>
+      _event('setup_complete', {'focus_count': focusCount});
 
   static void signedIn(String method) {
     if (!_ready) return;

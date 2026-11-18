@@ -8,6 +8,7 @@ import 'package:atlas_flutter_app/features/check_in/data/check_in_repository.dar
 import 'package:atlas_flutter_app/features/check_in/providers/check_in_providers.dart';
 import 'package:atlas_flutter_app/features/check_in/widgets/mood_orb.dart';
 import 'package:atlas_flutter_app/shared/widgets/daylight/daylight.dart';
+import 'package:atlas_flutter_app/core/telemetry/telemetry.dart';
 
 /// Opens the daily check-in sheet for [moment] (by default the one that fits
 /// the time of day). Saving again for a moment that's already done edits it.
@@ -83,7 +84,7 @@ class _CheckInSheetState extends ConsumerState<CheckInSheet> {
   void _openPaywall() {
     final router = GoRouter.maybeOf(context);
     Navigator.of(context).pop();
-    router?.push('/paywall');
+    router?.push(PaywallSource.route(PaywallSource.checkIn));
   }
 
   @override

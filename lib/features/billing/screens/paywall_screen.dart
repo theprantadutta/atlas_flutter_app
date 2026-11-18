@@ -19,7 +19,10 @@ final _log = AppLog('Billing');
 
 /// Atlas premium paywall: "Aurora & cloud sync". Calm, warm, honest.
 class PaywallScreen extends ConsumerStatefulWidget {
-  const PaywallScreen({super.key});
+  const PaywallScreen({super.key, this.source = PaywallSource.unknown});
+
+  /// Which screen opened the paywall (a [PaywallSource] value), for analytics.
+  final String source;
 
   @override
   ConsumerState<PaywallScreen> createState() => _PaywallScreenState();
@@ -133,7 +136,17 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
   @override
   void initState() {
     super.initState();
-    Telemetry.paywallViewed();
+    Telemetry.paywallViewed(widget.source);
+  }
+
+  /// Set once a purchase or restore succeeds, so leaving isn't counted as a
+  /// dismissal.
+  bool _converted = false;
+
+  @override
+  void dispose() {
+    if (!_converted) Telemetry.paywallDismissed();
+    super.dispose();
   }
 
   /// Store offers keyed by product id. Empty until the store answers (and in
@@ -185,6 +198,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         );
         // The plan changed, so the cached purchase is stale.
         ref.invalidate(currentSubscriptionProvider);
+        _converted = true;
         context.pop();
       } else {
         AtlasToast.warning(
@@ -202,6 +216,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         'Your purchase is awaiting approval. Premium unlocks as soon as it '
         'clears. No need to keep the app open.',
       );
+      _converted = true;
       context.pop();
     } on PurchaseNotYetVerifiedException {
       // The money moved; we just couldn't confirm it. Never call this a failure.
@@ -211,6 +226,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         'Payment received. We’ll unlock premium as soon as we can reach the '
         'server. It happens automatically.',
       );
+      _converted = true;
       context.pop();
     } on StoreException catch (e) {
       if (!mounted) return;
@@ -232,6 +248,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
 
       if (ref.read(isPremiumProvider)) {
         AtlasToast.success(context, 'Premium restored');
+        _converted = true;
         context.pop();
       } else if (restored) {
         // The store DID return a purchase — it's just no longer active (an

@@ -57,6 +57,68 @@ class _AuthRefreshNotifier extends ChangeNotifier {
   }
 }
 
+/// Where the router should send someone, or null to let them stay. Pure, so
+/// the first-run flow can be tested without a widget tree.
+@visibleForTesting
+String? firstRunRedirect({
+  required String location,
+  required AuthState auth,
+  required OnboardingState onboarding,
+  required LegalState legal,
+  bool skipFirstRun = false,
+}) {
+  final isOnSplash = location == '/splash';
+  final isOnAuthPage = location == '/login' || location == '/signup';
+  final isOnIntro = location == '/intro';
+  final isOnLegal = location == '/legal';
+  final isOnLegalDocs = location == '/legal-docs';
+  final isOnSetup = location == '/setup';
+
+  if (auth.isInitializing) {
+    return isOnSplash ? null : '/splash';
+  }
+
+  // Hold on the splash until the stored first-run flags are read, so we
+  // never flash a screen the user is about to be moved away from.
+  if (!onboarding.loaded || !legal.loaded) {
+    return isOnSplash ? null : '/splash';
+  }
+
+  // The documents can always be read, including from the sign-in screens
+  // before there is an account.
+  if (isOnLegalDocs) return null;
+
+  // The pitch comes before we ask for an account.
+  if (!skipFirstRun && !onboarding.introSeen) return isOnIntro ? null : '/intro';
+
+  // Nobody uses Atlas without accepting the current documents. A new
+  // person agrees on the sign-in screens ("By continuing you agree..."),
+  // which records acceptance before any account is made. The full
+  // documents screen is for everyone else: people who accepted an older
+  // version, and anyone signed in who somehow never accepted.
+  if (!skipFirstRun &&
+      !legal.isAccepted &&
+      (legal.needsReacceptance || auth.isAuthenticated)) {
+    return isOnLegal ? null : '/legal';
+  }
+
+  if (!auth.isAuthenticated) {
+    if (isOnAuthPage) return null;
+    // Someone who finished setup on this device has an account; everyone
+    // else is most likely new and should land on sign-up, not
+    // "Welcome back".
+    return onboarding.setupComplete ? '/login' : '/signup';
+  }
+
+  // Signed in — personalise once before Home.
+  if (!skipFirstRun && !onboarding.setupComplete) return isOnSetup ? null : '/setup';
+
+  if (isOnSetup || isOnIntro || isOnLegal || isOnSplash || isOnAuthPage) {
+    return '/';
+  }
+  return null;
+}
+
 // ─── Router Provider ──────────────────────────────────────────────
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -66,51 +128,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     debugLogDiagnostics: false,
     refreshListenable: authRefresh,
-    redirect: (context, state) {
-      final authState = ref.read(authProvider);
-      final onboarding = ref.read(onboardingProvider);
-      final legal = ref.read(legalProvider);
-      final location = state.matchedLocation;
-      final isOnSplash = location == '/splash';
-      final isOnAuthPage = location == '/login' || location == '/signup';
-      final isOnIntro = location == '/intro';
-      final isOnLegal = location == '/legal';
-      final isOnSetup = location == '/setup';
-
-      if (authState.isInitializing) {
-        return isOnSplash ? null : '/splash';
-      }
-
-      // Hold on the splash until the stored first-run flags are read, so we
-      // never flash a screen the user is about to be moved away from.
-      if (!onboarding.loaded || !legal.loaded) {
-        return isOnSplash ? null : '/splash';
-      }
-
-      // Unattended demo runs go straight to Home — the intro, legal gate and
+    redirect: (context, state) => firstRunRedirect(
+      location: state.matchedLocation,
+      auth: ref.read(authProvider),
+      onboarding: ref.read(onboardingProvider),
+      legal: ref.read(legalProvider),
+      // Unattended demo runs go straight to Home: the intro, legal gate and
       // personalisation are all first-run flows we don't want to re-drive on
       // every rebuild. Compiled out unless ATLAS_DEMO is defined.
-      final skipFirstRun = DemoConfig.enabled && DemoConfig.skipOnboarding;
-
-      // The pitch comes before we ask for an account.
-      if (!skipFirstRun && !onboarding.introSeen) return isOnIntro ? null : '/intro';
-
-      // Nobody uses Atlas — or creates an account — without accepting the
-      // current documents. A version bump re-gates everyone, signed in or not.
-      if (!skipFirstRun && !legal.isAccepted) return isOnLegal ? null : '/legal';
-
-      if (!authState.isAuthenticated) {
-        return isOnAuthPage ? null : '/login';
-      }
-
-      // Signed in — personalise once before Home.
-      if (!skipFirstRun && !onboarding.setupComplete) return isOnSetup ? null : '/setup';
-
-      if (isOnSetup || isOnIntro || isOnLegal || isOnSplash || isOnAuthPage) {
-        return '/';
-      }
-      return null;
-    },
+      skipFirstRun: DemoConfig.enabled && DemoConfig.skipOnboarding,
+    ),
     routes: [
       GoRoute(
         path: '/splash',
@@ -325,10 +352,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/aurora-memories',
         builder: (context, state) => const AuroraMemoriesScreen(),
       ),
+      // The documents, read-only, reachable before signing in.
+      GoRoute(
+        path: '/legal-docs',
+        builder: (context, state) => const LegalScreen(readOnly: true),
+      ),
       GoRoute(
         path: '/paywall',
         name: RouteNames.paywall,
-        builder: (context, state) => const PaywallScreen(),
+        builder: (context, state) => PaywallScreen(
+          source: state.uri.queryParameters['from'] ?? PaywallSource.unknown,
+        ),
       ),
     ],
   );
