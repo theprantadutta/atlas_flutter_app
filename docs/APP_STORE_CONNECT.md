@@ -31,11 +31,15 @@ it is full, not empty.
 
 ### 1. Ship the next iOS build (needs a Mac)
 
-master now holds, beyond 2.1.2:
+master holds **2.1.3 (19)**, sent to Play review on 2026-11-24:
+- Guest mode: "Try it without an account" on sign-up (Apple's Guideline
+  5.1.1 favours not forcing an account, so mention it in the review notes).
+  Test on a device: start as a guest, tend something, then make an account
+  and confirm the data is still there (that upgrade was not tested on a
+  device from Windows, only by unit test).
 - `795911d`: a cancelled purchase is no longer reported to Crashlytics as a
   fatal crash.
-- Activation measurement (`first_tend`, `day0_three_tends`), see
-  `docs/ANALYTICS.md`.
+- Activation and guest analytics, see `docs/ANALYTICS.md`.
 
 Steps: wait for 2.1.2 to finish review (release it if approved), pull
 master, confirm `pubspec.yaml` version (bump to the next patch and build
@@ -43,8 +47,15 @@ number if the Android release hasn't already), `flutter build ipa
 --release`, upload with Xcode Organizer or Transporter, attach the build to a
 new version, and submit. What's New (no em or en dashes, house style):
 
-> Small fixes under the hood: a cancelled purchase no longer counts as a
-> problem, and a few things are steadier on first run.
+> You can now try Atlas without an account. Tap "Try it without an account"
+> and start right away: habits, tasks, goals, your world and reminders all
+> work on your device. Make a free account whenever you like to meet Aurora,
+> and everything you've tended comes with you.
+>
+> Also: cancelling a purchase no longer counts as an error, plus a few small
+> fixes.
+
+(Same text as the Play 2.1.3 release notes.)
 
 The review notes and demo account are already on the version page; carry
 them over, don't paste them anywhere else.
