@@ -52,6 +52,11 @@ product, the copy must not imply it is, and ranking there invites the wrong revi
 
 ## 2. Google Play
 
+> **Live on Play** (sent for review 2026-11-24): name `Atlas: Habit Tracker & Planner` [30],
+> short description `Gentle habit tracker & daily planner, with a world that grows as you do.` [72].
+> Why: 64% of Play search visitors typed just "atlas" and were looking for other apps; the old
+> name was only `Atlas`. Judge it with the search-term mix 28 days after approval (docs/ANALYTICS.md).
+
 ### App name (30 char limit) [28]
 
 ```

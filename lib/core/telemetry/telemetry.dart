@@ -4,9 +4,11 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
+import 'package:atlas_flutter_app/core/telemetry/activation.dart';
 
 /// Firebase Analytics and Crashlytics, in one place.
 ///
@@ -159,11 +161,28 @@ class Telemetry {
   static String _key(String value) =>
       RegExp(r'^[A-Za-z_]{1,40}$').hasMatch(value) ? value : 'other';
 
-  static void taskTended({required String type, required String category}) =>
-      _event('tend_task', {'task_type': _key(type), 'category': _key(category)});
+  static void taskTended({required String type, required String category}) {
+    _event('tend_task', {'task_type': _key(type), 'category': _key(category)});
+    _activation((a) => a.tended());
+  }
 
-  static void habitTended({required String frequency, required String category}) =>
-      _event('tend_habit', {'frequency': _key(frequency), 'category': _key(category)});
+  static void habitTended({required String frequency, required String category}) {
+    _event('tend_habit', {'frequency': _key(frequency), 'category': _key(category)});
+    _activation((a) => a.tended());
+  }
+
+  /// Runs a step of [Activation] and logs whatever it reports.
+  static void _activation(
+    Future<(String, Map<String, Object>)?> Function(Activation) step,
+  ) {
+    if (!_ready) return;
+    unawaited(() async {
+      try {
+        final event = await step(Activation(await SharedPreferences.getInstance()));
+        if (event != null) _event(event.$1, event.$2);
+      } catch (_) {/* measurement must never get in the way */}
+    }());
+  }
 
   static void goalReached({required String category}) =>
       _event('goal_reached', {'category': _key(category)});
@@ -238,8 +257,13 @@ class Telemetry {
   static void authFailed(String method, String kind) =>
       _event('auth_fail', {'method': _key(method), 'kind': _key(kind)});
 
-  static void setupCompleted({required int focusCount}) =>
-      _event('setup_complete', {'focus_count': focusCount});
+  static void setupCompleted({required int focusCount}) {
+    _event('setup_complete', {'focus_count': focusCount});
+    _activation((a) async {
+      await a.setupFinished();
+      return null;
+    });
+  }
 
   static void signedIn(String method) {
     if (!_ready) return;
