@@ -21,7 +21,8 @@ final _log = AppLog('Aurora');
 
 /// HTTP 402: premium only, or the free limit is reached.
 bool isAuroraPaywall(Object error) =>
-    error is AppException && error.statusCode == 402;
+    error is AccountRequiredException ||
+    (error is AppException && error.statusCode == 402);
 
 String auroraFriendlyError(Object error) {
   if (error is AppException) return error.message;

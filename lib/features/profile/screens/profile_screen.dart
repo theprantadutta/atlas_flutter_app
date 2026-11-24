@@ -139,6 +139,33 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             settingsGap,
+            if (user.isGuest)
+              RowGroup(
+                title: 'Account',
+                children: [
+                  GroupRow(
+                    icon: Symbols.person_add_rounded,
+                    iconColor: AppColors.violet,
+                    title: 'Make a free account',
+                    subtitle: 'Meet Aurora, and keep your world safe',
+                    onTap: () => context.push('/signup'),
+                  ),
+                  GroupRow(
+                    icon: Symbols.login_rounded,
+                    title: 'I already have an account',
+                    subtitle: 'Sign in, and bring this world with you',
+                    onTap: () => context.push('/login'),
+                  ),
+                  GroupRow(
+                    icon: Symbols.delete_rounded,
+                    title: 'Erase this world',
+                    subtitle: 'Remove everything from this device',
+                    destructive: true,
+                    onTap: () => _eraseGuest(context, ref),
+                  ),
+                ],
+              )
+            else
             RowGroup(
               title: 'Account',
               children: [
@@ -175,6 +202,20 @@ class ProfileScreen extends ConsumerWidget {
     await ref.read(onboardingProvider.notifier).replayCoachMarks();
     if (!context.mounted) return;
     context.go('/');
+  }
+
+  Future<void> _eraseGuest(BuildContext context, WidgetRef ref) async {
+    await confirmSheet(
+      context,
+      title: 'Erase this world?',
+      body: 'Without an account, your world lives only on this device. '
+          'Erasing it removes every habit, task, goal and day you’ve tended, '
+          'and it can’t be undone.',
+      confirmLabel: 'Erase',
+      destructive: true,
+      cancelLabel: 'Keep it',
+      onConfirm: () => ref.read(authProvider.notifier).eraseGuest(),
+    );
   }
 
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
@@ -217,7 +258,7 @@ class _Identity extends StatelessWidget {
               style: AppTypography.subScreenTitle.copyWith(color: p.textPrimary)),
         ),
         const SizedBox(height: 4),
-        Text(user.email,
+        Text(user.isGuest ? 'Using Atlas without an account' : user.email,
             textAlign: TextAlign.center,
             style: AppTypography.dateLine.copyWith(color: p.textMuted)),
       ],

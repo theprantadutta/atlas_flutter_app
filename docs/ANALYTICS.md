@@ -22,8 +22,9 @@ First run, in order:
 
 1. `first_open` (automatic)
 2. `intro_page` {page} for each intro page seen, then `intro_exit` {action: skip | create_account | have_account, page}
-3. `auth_attempt` {method: email | google | apple, screen: login | signup}
-4. `legal_accept` {where: auth | gate}
+3. `auth_attempt` {method: email | google | apple, screen: login | signup},
+   **or** `guest_start` (tapped "Try it without an account")
+4. `legal_accept` {where: auth | gate | guest}
 5. `login` / `sign_up` {method}, or `auth_fail` {method, kind: cancelled | network | rejected | server | other}
 6. `setup_complete` {focus_count} **(key event)**
 7. `first_tend` {minutes}: first habit or task done within 24 h of setup, minutes after setup
@@ -33,6 +34,17 @@ First run, in order:
 later (the clock starts in setup, which existing users never revisit).
 Logic and tests: `lib/core/telemetry/activation.dart`,
 `test/core/telemetry/activation_test.dart`.
+
+Guests (no account, local only, since 2.1.3):
+- `guest_start` when they begin, `guest_upgrade` {method} when they make an
+  account or sign in (their rows move to the account,
+  `AtlasDatabase.reassignUser`).
+- User property **`account_type`** = `guest` | `account`, registered in GA
+  as the user-scoped dimension "Account type". Use it as a breakdown or
+  comparison on any report: retention, funnel, paywall.
+- Guests can't reach Aurora, purchases or sync; those routes send them to
+  sign-up (`firstRunRedirect`), and `ApiService.guest` blocks every
+  non-`/auth/` request before it leaves the device.
 
 Using the app: `tend_habit`, `tend_task`, `goal_reached`, `day_complete`,
 `level_up`, `aurora_message`, `aurora_letter`.
@@ -51,6 +63,10 @@ can't star an event that hasn't fired yet.
 
 ## The questions to ask, and how
 
+0. **Saved report:** GA > Explore > **"First-run funnel"**: first open, saw
+   the intro, chose a way in (`auth_attempt` or `guest_start`), finished
+   setup, first habit or task, three done on day 0. Switch the breakdown
+   to "Account type" once guests exist.
 1. **Is the listing bringing the right people?** Play search terms: share of
    visitors whose term is just "atlas" (people looking for other apps), and
    listing conversion (install clicks / visitors). Compare 28-day windows.
@@ -94,4 +110,4 @@ login 11, signup 2, setup 7. That is ~70% lost between the intro and setup.
 | 2026-11-21 | 2.1.2 on Play: "Create your account" opens sign-up, documents accepted inline | First-run funnel, `intro_exit` actions |
 | 2026-11-24 | Play title "Atlas" to "Atlas: Habit Tracker & Planner", short description now says "habit tracker & daily planner" (sent for review) | Search-term mix and listing conversion, 28 days after approval |
 | 2026-11-24 | iOS App Store Server Notifications URL set | Backend logs for `apple/notifications`; iOS renewals/cancels reflected in `purchases` |
-| next release | `first_tend` / `day0_three_tends`; cancelled purchases no longer fatal | Crashlytics crash-free users, activation metrics |
+| 2.1.3 | Guest mode ("Try it without an account"); `first_tend` / `day0_three_tends`; cancelled purchases no longer fatal | First-run funnel step 3 to 4 (was ~30% before 2.1.2), `guest_start` vs `auth_attempt`, `guest_upgrade` rate, D1/D7 split by Account type, Crashlytics crash-free users |

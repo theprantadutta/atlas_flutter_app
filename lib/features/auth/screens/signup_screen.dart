@@ -84,6 +84,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     ref.read(authProvider.notifier).signInWithApple();
   }
 
+  /// No account: everything works on this device, and making one later
+  /// brings it all along. Continuing agrees to the documents, as above.
+  Future<void> _onTryWithoutAccount() async {
+    ref.read(legalProvider.notifier).accept(where: 'guest');
+    await ref.read(authProvider.notifier).continueAsGuest();
+    // A guest may stay on the sign-in screens (to make an account later), so
+    // the router won't move them on by itself.
+    if (mounted) context.go('/');
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -94,9 +104,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
     });
 
+    // A guest is here to keep what they've built.
+    final upgrading = authState.isGuest;
     return AuthScaffold(
-      title: 'Make your Atlas',
-      subtitle: 'A kinder way to grow, one small day at a time.',
+      title: upgrading ? 'Keep your world' : 'Make your Atlas',
+      subtitle: upgrading
+          ? 'Make a free account to meet Aurora and keep what you’ve built. '
+              'Everything you’ve tended comes with you.'
+          : 'A kinder way to grow, one small day at a time.',
       isBusy: authState.isLoading,
       busyLabel: 'Creating your account…',
       children: [
@@ -191,6 +206,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         GoogleSignInButton(
           onPressed: authState.isLoading ? null : _onGoogleSignUp,
         ),
+        if (!upgrading) ...[
+          const SizedBox(height: AppSpacing.xs),
+          AuthGuestButton(onPressed: authState.isLoading ? null : _onTryWithoutAccount),
+        ],
         const SizedBox(height: AppSpacing.md),
         AuthLegalNote(onOpen: () => context.push('/legal-docs')),
         const SizedBox(height: AppSpacing.sm),

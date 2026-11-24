@@ -265,6 +265,23 @@ class Telemetry {
     });
   }
 
+  /// The `account_type` user property: `guest` or `account` while someone is
+  /// in the app, so every report can be split by it.
+  static String? _accountType;
+  static void accountType(String? type) {
+    if (!_ready || type == _accountType) return;
+    _accountType = type;
+    unawaited(_analytics!.setUserProperty(name: 'account_type', value: type));
+  }
+
+  /// Chose to use Atlas without an account.
+  static void guestStarted() => _event('guest_start');
+
+  /// A guest made an account or signed in ([method]: email, google, apple);
+  /// their world moved with them.
+  static void guestUpgraded(String method) =>
+      _event('guest_upgrade', {'method': _key(method)});
+
   static void signedIn(String method) {
     if (!_ready) return;
     unawaited(_analytics!.logLogin(loginMethod: method));

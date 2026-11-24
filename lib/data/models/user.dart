@@ -42,6 +42,23 @@ class User {
     this.ownedCosmetics = const [],
   });
 
+  /// Ids of people using Atlas without an account start with this. A guest
+  /// lives only on this device: no tokens, no server, nothing synced.
+  static const guestIdPrefix = 'guest-';
+
+  /// A new guest with the local id [id] (which must start with
+  /// [guestIdPrefix]).
+  factory User.guest(String id, {DateTime? createdAt}) => User(
+        id: id,
+        email: '',
+        fullName: '',
+        authProvider: 'guest',
+        createdAt: createdAt ?? DateTime.now(),
+      );
+
+  /// True for someone using Atlas without an account.
+  bool get isGuest => id.startsWith(guestIdPrefix);
+
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
 
   Map<String, dynamic> toJson() => _$UserToJson(this);

@@ -8,6 +8,8 @@ import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dar
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_chat_screen.dart';
 import 'package:atlas_flutter_app/features/aurora/screens/aurora_screen.dart';
 import 'package:atlas_flutter_app/features/billing/providers/entitlement_provider.dart';
+import 'package:atlas_flutter_app/data/models/user.dart' as model;
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/shared/providers/core_providers.dart';
 
 import '../helpers/golden.dart';
@@ -49,7 +51,18 @@ class SampleChat extends AuroraChatNotifier {
       ]);
 }
 
+/// Signed in to a real account (a guest sees a different Aurora tab).
+class SignedIn extends AuthNotifier {
+  @override
+  AuthState build() => AuthState(
+        isInitializing: false,
+        isAuthenticated: true,
+        user: model.User(id: 'u', email: 'k@example.com', fullName: 'KDS', createdAt: DateTime(2025)),
+      );
+}
+
 List common() => [
+      authProvider.overrideWith(SignedIn.new),
       auroraUsageProvider.overrideWithValue(null),
       isPremiumProvider.overrideWithValue(false),
       latestMonthlyReflectionProvider.overrideWith((ref) => Stream.value(null)),

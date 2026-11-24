@@ -195,6 +195,38 @@ class AtlasDatabase extends _$AtlasDatabase {
       }
     });
   }
+
+  /// Moves everything owned by [fromUserId] to [toUserId]: how a guest's
+  /// world comes with them when they make an account or sign in.
+  ///
+  /// Iterates [allTables] (like [wipeAllLocalData]) so a new table can't be
+  /// left behind. Rows that sync are marked dirty with a fresh `updated_at`,
+  /// so if the account has cloud sync they upload on the next push.
+  Future<int> reassignUser(String fromUserId, String toUserId) async {
+    if (fromUserId == toUserId) return 0;
+    var moved = 0;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await transaction(() async {
+      for (final table in allTables) {
+        final columns = {for (final c in table.$columns) c.$name};
+        if (!columns.contains('user_id')) continue;
+        final sets = <String>['user_id = ?'];
+        final args = <Variable<Object>>[Variable.withString(toUserId)];
+        if (columns.contains('is_dirty')) sets.add('is_dirty = 1');
+        if (columns.contains('updated_at')) {
+          sets.add('updated_at = ?');
+          args.add(Variable.withInt(now));
+        }
+        args.add(Variable.withString(fromUserId));
+        moved += await customUpdate(
+          'UPDATE ${table.actualTableName} SET ${sets.join(', ')} WHERE user_id = ?',
+          variables: args,
+          updates: {table},
+        );
+      }
+    });
+    return moved;
+  }
 }
 
 LazyDatabase _openConnection() {

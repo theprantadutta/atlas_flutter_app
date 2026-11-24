@@ -73,7 +73,9 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
     // Listen to auth state changes and update OfflineManager accordingly.
     ref.listenManual<AuthState>(authProvider, (prev, next) {
       offlineManager.setAuthenticated(next.isAuthenticated, userId: next.user?.id);
-      if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
+      // Live updates, push and account messages need an account; a guest
+      // is purely local.
+      if (next.hasAccount && !(prev?.hasAccount ?? false)) {
         _connectSignalR();
         _initializeFcm();
         _refreshAccountMessages();
@@ -182,6 +184,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   }
 
   void _refreshAccountMessages() {
+    if (!ref.read(authProvider).hasAccount) return;
     final userId = ref.read(authProvider).user?.id;
     if (userId == null) return;
     refreshAccountMessages(ref.read(apiServiceProvider), ref.read(inboxProvider), userId);
@@ -190,7 +193,7 @@ class _AtlasAppState extends ConsumerState<AtlasApp>
   void _connectSignalR() {
     final signalR = ref.read(signalRServiceProvider);
     final authState = ref.read(authProvider);
-    if (!authState.isAuthenticated) return;
+    if (!authState.hasAccount) return;
 
     signalR.connect();
 

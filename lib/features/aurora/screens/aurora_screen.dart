@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:atlas_flutter_app/shared/widgets/layout/adaptive_layout.dart';
 import 'package:atlas_flutter_app/core/gamification/days.dart';
 import 'package:atlas_flutter_app/core/utils/prose.dart';
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/data/database/atlas_database.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/aurora_providers.dart';
 import 'package:atlas_flutter_app/features/aurora/providers/letter_tts_provider.dart';
@@ -38,6 +39,10 @@ class AuroraScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Aurora thinks on the server, so she needs an account.
+    if (ref.watch(authProvider.select((s) => s.isGuest))) {
+      return const _GuestAurora();
+    }
     // Route reflection over-limit to the paywall.
     ref.listen(reflectionGenProvider.select((s) => s.needsPaywall), (_, hit) {
       if (hit == true) {
@@ -118,6 +123,57 @@ class AuroraScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             const AuroraUsageMeter(padding: EdgeInsets.symmetric(horizontal: 4)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Aurora for someone using Atlas without an account: who she is, and the
+/// one step that brings her in. Their world comes with them.
+class _GuestAurora extends ConsumerWidget {
+  const _GuestAurora();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.palette;
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          controller: ref.watch(tabScrollControllersProvider).of(2),
+          padding: readableInsets(context, top: AppSpacing.sm, bottom: navScrollPadding(context)),
+          children: [
+            const ScreenHeader(
+              title: 'Aurora',
+              leading: AtlasSpark(size: 40, animated: true),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('MEET AURORA', style: AppTypography.kicker.copyWith(color: p.textPrimary)),
+            const SizedBox(height: AppSpacing.md),
+            Text('Someone to look back with, and plan ahead with.',
+                style: AppTypography.letterHeadline.copyWith(color: p.textPrimary)),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Aurora reads your real days and writes you a letter each week. She '
+              'plans your day with you, breaks big goals into small steps, and '
+              'is there when you just want to talk.',
+              style: AppTypography.body.copyWith(color: p.textBody),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'She needs a free account. Everything you’ve tended so far comes with you.',
+              style: AppTypography.body.copyWith(color: p.textMuted),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            PillButton(
+              label: 'Make a free account',
+              icon: Symbols.person_add_rounded,
+              height: 52,
+              expand: true,
+              onTap: () => context.push('/signup'),
+            ),
           ],
         ),
       ),

@@ -31,6 +31,16 @@ class ApiService {
   /// (e.g., refresh token expired). The app can use this to force logout.
   VoidCallback? onUnauthorized;
 
+  /// Set while a guest (no account) is using the app. Nothing but the
+  /// sign-in endpoints may reach the server then: a guest has no tokens, and
+  /// the 401 that would come back must never be mistaken for an expired
+  /// session.
+  bool guest = false;
+
+  void _requireAccount(String path) {
+    if (guest && !path.startsWith('/auth/')) throw const AccountRequiredException();
+  }
+
   /// [dio] and [refreshDio] are injectable for tests (e.g. with a fake
   /// `HttpClientAdapter`); production code uses the defaults.
   ApiService(this._tokenService, {Dio? dio, Dio? refreshDio}) {
@@ -166,6 +176,7 @@ class ApiService {
     String path, {
     Map<String, dynamic>? queryParameters,
   }) async {
+    _requireAccount(path);
     try {
       return await _dio.get(path, queryParameters: queryParameters);
     } on DioException catch (e) {
@@ -177,6 +188,7 @@ class ApiService {
     String path, {
     dynamic data,
   }) async {
+    _requireAccount(path);
     try {
       return await _dio.post(path, data: data);
     } on DioException catch (e) {
@@ -191,6 +203,7 @@ class ApiService {
     dynamic data,
     CancelToken? cancelToken,
   }) async {
+    _requireAccount(path);
     try {
       return await _dio.post<ResponseBody>(
         path,
@@ -212,6 +225,7 @@ class ApiService {
     String path, {
     dynamic data,
   }) async {
+    _requireAccount(path);
     try {
       return await _dio.put(path, data: data);
     } on DioException catch (e) {
@@ -223,6 +237,7 @@ class ApiService {
     String path, {
     dynamic data,
   }) async {
+    _requireAccount(path);
     try {
       return await _dio.delete(path, data: data);
     } on DioException catch (e) {

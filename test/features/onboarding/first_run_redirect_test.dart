@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:atlas_flutter_app/data/models/user.dart';
 import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart';
 import 'package:atlas_flutter_app/features/legal/providers/legal_provider.dart';
 import 'package:atlas_flutter_app/features/onboarding/providers/onboarding_provider.dart';
@@ -69,6 +70,37 @@ void main() {
     test('lets an accepted, set-up person through to Home', () {
       expect(_go('/legal', auth: _signedIn, onboarding: _setUp, legal: _accepted), '/');
       expect(_go('/grow', auth: _signedIn, onboarding: _setUp, legal: _accepted), isNull);
+    });
+  });
+
+  group('a guest (no account)', () {
+    final guest = AuthState(
+      isInitializing: false,
+      isAuthenticated: true,
+      user: User.guest('${User.guestIdPrefix}1', createdAt: DateTime(2026, 11, 24)),
+    );
+
+    test('goes through setup like anyone new', () {
+      expect(_go('/signup', auth: guest, legal: _accepted), isNull,
+          reason: 'may stay on sign-up to make an account');
+      expect(_go('/', auth: guest, legal: _accepted), '/setup');
+    });
+
+    test('uses everything local once set up', () {
+      expect(_go('/', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
+      expect(_go('/grow', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
+      expect(_go('/year-in-review', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
+    });
+
+    test('is asked to make an account for what needs one', () {
+      for (final route in ['/paywall', '/aurora-chat', '/aurora-memories', '/aurora/letter', '/profile/sync']) {
+        expect(_go(route, auth: guest, onboarding: _setUp, legal: _accepted), '/signup', reason: route);
+      }
+    });
+
+    test('can open log in and sign up to bring their world to an account', () {
+      expect(_go('/login', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
+      expect(_go('/signup', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
     });
   });
 

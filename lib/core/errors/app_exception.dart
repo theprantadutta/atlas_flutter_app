@@ -22,6 +22,18 @@ class AuthException extends AppException {
   String toString() => 'AuthException: $message (statusCode: $statusCode)';
 }
 
+/// The person is using Atlas without an account, and this needs one (Aurora,
+/// purchases, sync). Raised before any request is sent. It travels the same
+/// road as the premium gate, so whatever opened the paywall for a free user
+/// now opens it for a guest, and the router turns that into sign-up.
+class AccountRequiredException extends AppException {
+  const AccountRequiredException()
+      : super('Create a free account to use this.', statusCode: 401);
+
+  @override
+  String toString() => 'AccountRequiredException';
+}
+
 class ServerException extends AppException {
   const ServerException(super.message, {super.statusCode});
 

@@ -110,6 +110,14 @@ String? firstRunRedirect({
     return onboarding.setupComplete ? '/login' : '/signup';
   }
 
+  // A guest can open the sign-in screens to make an account (their world
+  // comes with them), but not what needs one: Aurora's conversations and
+  // letters, purchases and sync. Those all ask them to sign up instead.
+  if (auth.isGuest) {
+    if (isOnAuthPage) return null;
+    if (_needsAccount(location)) return '/signup';
+  }
+
   // Signed in — personalise once before Home.
   if (!skipFirstRun && !onboarding.setupComplete) return isOnSetup ? null : '/setup';
 
@@ -118,6 +126,16 @@ String? firstRunRedirect({
   }
   return null;
 }
+
+/// Routes that only work with an account (they talk to the server).
+bool _needsAccount(String location) =>
+    location == '/paywall' ||
+    location.startsWith('/aurora-chat') ||
+    location.startsWith('/aurora-memories') ||
+    location.startsWith('/aurora/') ||
+    location == '/profile/sync' ||
+    location == '/profile/aurora' ||
+    location == '/profile/delete-account';
 
 // ─── Router Provider ──────────────────────────────────────────────
 

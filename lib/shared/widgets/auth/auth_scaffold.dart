@@ -289,6 +289,38 @@ class AuthLegalNote extends StatelessWidget {
   }
 }
 
+/// "Try it without an account": the quiet way in for someone not ready to
+/// make one. Same 56 pill as the sign-in buttons, outlined rather than
+/// filled, so it reads as the second choice.
+class AuthGuestButton extends StatelessWidget {
+  const AuthGuestButton({super.key, required this.onPressed});
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Pressable(
+      onTap: onPressed,
+      haptic: PressHaptic.light,
+      semanticLabel: 'Try Atlas without an account',
+      child: AnimatedOpacity(
+        duration: AppMotion.instant,
+        opacity: onPressed == null ? .5 : 1,
+        child: Container(
+          height: 56,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            border: Border.all(color: p.hairline),
+          ),
+          child: Text('Try it without an account',
+              style: AppTypography.sans(size: 15, weight: FontWeight.w700, color: p.textPrimary)),
+        ),
+      ),
+    );
+  }
+}
+
 /// "Continue with Google": a 56 track pill, the same family as Apple's.
 class GoogleSignInButton extends StatelessWidget {
   const GoogleSignInButton({super.key, required this.onPressed});

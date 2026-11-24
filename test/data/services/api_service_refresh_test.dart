@@ -165,4 +165,25 @@ void main() {
     expect(refreshCalls, 1);
     expect(hits['/a'], 2);
   });
+  group('a guest (no account)', () {
+    test('never reaches the server, except to sign in', () async {
+      final seen = <String>[];
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = _FakeAdapter((o) async {
+          seen.add(o.path);
+          return _json(200, {'ok': true});
+        });
+      var loggedOut = false;
+      final api = ApiService(_FakeTokenService(), dio: dio, refreshDio: Dio())
+        ..guest = true
+        ..onUnauthorized = () => loggedOut = true;
+
+      await expectLater(api.post('/aurora/chat'), throwsA(isA<AccountRequiredException>()));
+      await expectLater(api.get('/entitlements'), throwsA(isA<AccountRequiredException>()));
+      await api.post('/auth/login', data: {});
+
+      expect(seen, ['/auth/login']);
+      expect(loggedOut, isFalse);
+    });
+  });
 }

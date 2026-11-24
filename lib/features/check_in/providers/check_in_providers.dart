@@ -12,6 +12,8 @@ import 'package:atlas_flutter_app/features/gamification/providers/gamification_p
     show todayProvider;
 import 'package:atlas_flutter_app/features/tasks/providers/task_providers.dart'
     show currentUserIdProvider;
+import 'package:atlas_flutter_app/features/auth/providers/auth_provider.dart'
+    show authProvider;
 
 final checkInRepositoryProvider = Provider<CheckInRepository>((ref) {
   return CheckInRepository(ref.read(checkInDaoProvider));
@@ -207,6 +209,11 @@ class CheckInController extends Notifier<CheckInState> {
 
     final row = await repo.save(
         userId: userId, moment: moment, mood: mood, note: note);
+    // Aurora's reply needs an account; a guest's check-in is simply kept.
+    if (ref.read(authProvider).isGuest) {
+      state = CheckInState(checkIn: row);
+      return row;
+    }
     state = CheckInState(checkIn: row, awaitingReply: true);
 
     try {

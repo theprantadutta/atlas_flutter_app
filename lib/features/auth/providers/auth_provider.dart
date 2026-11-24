@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:atlas_flutter_app/core/errors/error_messages.dart';
 import 'package:atlas_flutter_app/core/logging/app_logger.dart';
@@ -24,6 +25,13 @@ class AuthState {
   final bool isAuthenticated;
   final User? user;
   final String? error;
+
+  /// Using Atlas without an account: everything local works, and anything
+  /// that needs the server asks them to make one.
+  bool get isGuest => isAuthenticated && (user?.isGuest ?? false);
+
+  /// Signed in to a real account (not a guest), so the server can be used.
+  bool get hasAccount => isAuthenticated && !isGuest;
 
   const AuthState({
     this.isInitializing = true,
@@ -64,9 +72,14 @@ class AuthNotifier extends Notifier<AuthState> {
     _tokenService = ref.read(tokenServiceProvider);
     // Crash reports and analytics follow whoever is signed in, by opaque id.
     listenSelf((prev, next) {
-      final id = next.isAuthenticated ? next.user?.id : null;
-      final was = (prev?.isAuthenticated ?? false) ? prev?.user?.id : null;
+      final id = next.hasAccount ? next.user?.id : null;
+      final was = (prev?.hasAccount ?? false) ? prev?.user?.id : null;
       if (id != was) Telemetry.setUser(id);
+      if (next.isAuthenticated) {
+        Telemetry.accountType(next.isGuest ? 'guest' : 'account');
+      }
+      // A guest has no tokens; keep every request but sign-in off the wire.
+      ref.read(apiServiceProvider).guest = next.isGuest;
     });
     // Kick off initial auth check asynchronously
     Future.microtask(() => checkAuthStatus());
@@ -120,6 +133,12 @@ class AuthNotifier extends Notifier<AuthState> {
         // rather than waiting for someone to type into a simulator. Compiled
         // out unless ATLAS_DEMO is defined.
         if (DemoConfig.isUsable && await _tryDemoSignIn()) return;
+        // No tokens: a guest carries on as a guest.
+        final cached = await _loadCachedUser();
+        if (cached != null && cached.isGuest) {
+          state = AuthState(isInitializing: false, isAuthenticated: true, user: cached);
+          return;
+        }
         state = const AuthState(isInitializing: false);
         return;
       }
@@ -148,7 +167,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// without touching [AuthState.isInitializing] (so the router doesn't bounce
   /// to the splash). Used after a purchase to pick up new premium entitlement.
   Future<void> refreshUser() async {
-    if (!state.isAuthenticated) return;
+    if (!state.hasAccount) return;
     try {
       final user = await _authService.getCurrentUser();
       await _cacheUser(user);
@@ -166,12 +185,7 @@ class AuthNotifier extends Notifier<AuthState> {
         email: email,
         password: password,
       );
-      await _cacheUser(user);
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: true,
-        user: user,
-      );
+      await _signedIn(user, 'email');
       Telemetry.signedIn('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
@@ -193,12 +207,7 @@ class AuthNotifier extends Notifier<AuthState> {
         password: password,
         fullName: fullName,
       );
-      await _cacheUser(user);
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: true,
-        user: user,
-      );
+      await _signedIn(user, 'email');
       Telemetry.signedUp('email');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
@@ -212,12 +221,7 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.signInWithGoogle();
-      await _cacheUser(user);
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: true,
-        user: user,
-      );
+      await _signedIn(user, 'google');
       Telemetry.signedIn('google');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
@@ -231,18 +235,53 @@ class AuthNotifier extends Notifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final user = await _authService.signInWithApple();
-      await _cacheUser(user);
-      state = AuthState(
-        isInitializing: false,
-        isAuthenticated: true,
-        user: user,
-      );
+      await _signedIn(user, 'apple');
       Telemetry.signedIn('apple');
     } catch (e, s) {
       _log.e('Sign-in failed', error: e, stackTrace: s);
       Telemetry.authFailed('apple', AppErrors.authFailureKind(e));
       state = state.copyWith(isLoading: false, error: AppErrors.message(e));
     }
+  }
+
+  // ─── Guests ───
+
+  /// Start using Atlas without an account. Everything stays on this device;
+  /// making an account later brings it all along (see [_signedIn]).
+  Future<void> continueAsGuest() async {
+    if (state.isAuthenticated) return;
+    final guest = User.guest('${User.guestIdPrefix}${const Uuid().v4()}');
+    await _cacheUser(guest);
+    state = AuthState(isInitializing: false, isAuthenticated: true, user: guest);
+    Telemetry.guestStarted();
+  }
+
+  /// Signed in as [user]. A guest's world moves to the account first, so
+  /// nothing they built is lost, and nothing is shown under the wrong id.
+  Future<void> _signedIn(User user, String method) async {
+    final guest = state.isGuest ? state.user : null;
+    if (guest != null) {
+      try {
+        final moved = await ref.read(databaseProvider).reassignUser(guest.id, user.id);
+        _log.i('Moved $moved rows from the guest to the new account');
+      } catch (e, s) {
+        // Their rows stay under the guest id, untouched; better than a
+        // half-signed-in state. Reported so it can be fixed.
+        _log.e('Moving guest data failed', error: e, stackTrace: s);
+      }
+      Telemetry.guestUpgraded(method);
+    }
+    await _cacheUser(user);
+    state = AuthState(isInitializing: false, isAuthenticated: true, user: user);
+  }
+
+  /// Erase a guest's world from this device and start again from the
+  /// beginning. A guest has no account, so this is the whole of "delete".
+  Future<void> eraseGuest() async {
+    if (!state.isGuest) return;
+    await _clearUserScopedState(wipeDatabase: true);
+    await _tokenService.clearUser();
+    state = const AuthState(isInitializing: false, isAuthenticated: false);
   }
 
   /// Permanently delete the account, then wipe every local trace of it.
@@ -288,6 +327,8 @@ class AuthNotifier extends Notifier<AuthState> {
   /// then sends the user to the login screen.
   void markLoggedOut() {
     if (!state.isAuthenticated && !state.isInitializing) return;
+    // A guest has no session to lose.
+    if (state.isGuest) return;
     _tokenService.clearUser();
     ref.read(signalRServiceProvider).disconnect();
     // The session ended involuntarily (expired refresh token), so local data

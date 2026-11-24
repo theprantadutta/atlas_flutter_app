@@ -72,7 +72,7 @@ class EntitlementNotifier extends Notifier<EntitlementState> {
   @override
   EntitlementState build() {
     // Refresh whenever the user signs in; clear on sign-out.
-    ref.listen(authProvider.select((s) => s.isAuthenticated), (prev, next) {
+    ref.listen(authProvider.select((s) => s.hasAccount), (prev, next) {
       if (next == true && prev != true) {
         refresh();
       } else if (next == false && prev == true) {
@@ -90,7 +90,7 @@ class EntitlementNotifier extends Notifier<EntitlementState> {
     if (cached != null && state.entitlements == null) {
       state = state.copyWith(entitlements: cached, loading: false);
     }
-    if (ref.read(authProvider).isAuthenticated) {
+    if (ref.read(authProvider).hasAccount) {
       await refresh();
     } else {
       state = state.copyWith(loading: false);
@@ -100,7 +100,7 @@ class EntitlementNotifier extends Notifier<EntitlementState> {
   /// Re-fetch the entitlement snapshot from the backend. Best-effort: on failure
   /// (offline) the existing cached snapshot is kept.
   Future<void> refresh() async {
-    if (!ref.read(authProvider).isAuthenticated) return;
+    if (!ref.read(authProvider).hasAccount) return;
     try {
       final ent = await ref.read(billingRepositoryProvider).fetchEntitlements();
       state = EntitlementState(entitlements: ent, loading: false);
