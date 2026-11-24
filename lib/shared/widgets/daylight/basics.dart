@@ -310,7 +310,7 @@ class AvatarRing extends StatelessWidget {
 
   String get _initial {
     final t = name.trim();
-    return t.isEmpty ? 'A' : t.characters.first.toUpperCase();
+    return t.isEmpty ? '' : t.characters.first.toUpperCase();
   }
 
   @override
@@ -331,15 +331,18 @@ class AvatarRing extends StatelessWidget {
           shape: BoxShape.circle,
           border: p.raisedBorderSide,
         ),
-        child: Text(
-          _initial,
-          style: AppTypography.sans(
-            size: size * .32,
-            weight: FontWeight.w800,
-            height: 1,
-            color: p.onRaised,
-          ),
-        ),
+        // No name yet (someone without an account): a person, not a letter.
+        child: _initial.isEmpty
+            ? AtlasIcon(Symbols.person_rounded, size: size * .44, color: p.onRaised)
+            : Text(
+                _initial,
+                style: AppTypography.sans(
+                  size: size * .32,
+                  weight: FontWeight.w800,
+                  height: 1,
+                  color: p.onRaised,
+                ),
+              ),
       ),
     );
     if (onTap == null) return avatar;

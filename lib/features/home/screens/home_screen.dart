@@ -303,7 +303,7 @@ class _Header extends ConsumerWidget {
                 Semantics(
                   header: true,
                   child: Text(
-                    'Hey $name',
+                    name.isEmpty ? 'Hey there' : 'Hey $name',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.greeting.copyWith(

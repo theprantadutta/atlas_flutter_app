@@ -187,7 +187,9 @@ final homeProvider = Provider.autoDispose<HomeView>((ref) {
   ];
 
   final name = user?.fullName.trim() ?? '';
-  final firstName = name.isEmpty ? 'there' : name.split(RegExp(r'\s+')).first;
+  // Empty when there is no name (a guest): the greeting says "there" and the
+  // avatar shows a person rather than a stray initial.
+  final firstName = name.isEmpty ? '' : name.split(RegExp(r'\s+')).first;
 
   final unread = reflection != null && lastRead != null && reflection.id != lastRead;
 

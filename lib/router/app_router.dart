@@ -127,13 +127,14 @@ String? firstRunRedirect({
   return null;
 }
 
-/// Routes that only work with an account (they talk to the server).
+/// Routes that only work with an account (they talk to the server). Sync and
+/// data stays open: it is where example content is removed, and its sync card
+/// already leads through the paywall, which a guest is turned from to sign-up.
 bool _needsAccount(String location) =>
     location == '/paywall' ||
     location.startsWith('/aurora-chat') ||
     location.startsWith('/aurora-memories') ||
     location.startsWith('/aurora/') ||
-    location == '/profile/sync' ||
     location == '/profile/aurora' ||
     location == '/profile/delete-account';
 

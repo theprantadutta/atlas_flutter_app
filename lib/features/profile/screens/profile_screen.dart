@@ -249,7 +249,7 @@ class _Identity extends StatelessWidget {
     final name = user.fullName.trim().isEmpty ? 'You' : user.fullName.trim();
     return Column(
       children: [
-        AvatarRing(name: name, size: 96, ring: 3),
+        AvatarRing(name: user.fullName.trim(), size: 96, ring: 3),
         const SizedBox(height: AppSpacing.md),
         Semantics(
           header: true,

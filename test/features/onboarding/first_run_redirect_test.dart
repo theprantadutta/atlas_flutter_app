@@ -90,10 +90,12 @@ void main() {
       expect(_go('/', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
       expect(_go('/grow', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
       expect(_go('/year-in-review', auth: guest, onboarding: _setUp, legal: _accepted), isNull);
+      expect(_go('/profile/sync', auth: guest, onboarding: _setUp, legal: _accepted), isNull,
+          reason: 'where example content is removed');
     });
 
     test('is asked to make an account for what needs one', () {
-      for (final route in ['/paywall', '/aurora-chat', '/aurora-memories', '/aurora/letter', '/profile/sync']) {
+      for (final route in ['/paywall', '/aurora-chat', '/aurora-memories', '/aurora/letter']) {
         expect(_go(route, auth: guest, onboarding: _setUp, legal: _accepted), '/signup', reason: route);
       }
     });
