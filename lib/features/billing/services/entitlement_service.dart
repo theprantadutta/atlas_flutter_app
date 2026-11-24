@@ -281,6 +281,11 @@ class EntitlementService {
 
     final productId = offer.productId;
     final completer = Completer<EntitlementResult>();
+    // The store can report a cancel before requestPurchase returns, which is
+    // before anything awaits this future. Without a listener that error is
+    // "uncaught" and lands in Crashlytics as a fatal crash. The await below
+    // still receives it.
+    completer.future.ignore();
     _pending[productId] = completer;
 
     try {
